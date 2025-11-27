@@ -6,7 +6,7 @@ online-banking protocol commonly supported by German banks.
 
 [Read our documentation for more info](https://python-fints.readthedocs.io)
 
-Maintenance Status 
+Maintenance Status
 ------------------
 
 This project is maintained, but with limited capacity. Working on this is takes a lot of time and testing since all banks do things differently and once you move a part here, you break an unexpected one over there. Therefore: Bugs will only be fixed by me if they occur with a bank where I have an account. New features will only be developed if I need them. PRs will be merged if they either have a very low risk of breaking things elsewhere (e.g. purely adding new commands) or if I can test them. In any case, things might take a little time until I have the bandwidth to focus on them. Sorry about that :(
@@ -22,6 +22,50 @@ Limitations
   * Fetching holdings
   * SEPA transfers and debits (only with required TAN and with specific TAN methods)
 * Supports Python 3.9+
+
+
+Testing
+-------
+
+The project includes both unit tests and integration tests:
+
+### Unit Tests
+
+Run the full unit test suite:
+
+```bash
+python -m pytest tests/unit
+```
+
+Unit tests mock FinTS responses and do not require live bank credentials.
+
+### Integration Tests
+
+Integration tests exercise the full end-to-end flow against a real bank backend. They require valid credentials in a `.env` file at the project root and you must be ready to approve TAN prompts in your banking app.
+
+Create a `.env` file with your credentials:
+
+```
+FINTS_BLZ=12345678
+FINTS_COUNTRY=DE
+FINTS_USER=your_username
+FINTS_PIN=your_pin
+FINTS_SERVER=https://your-bank.example/fints
+FINTS_PRODUCT_ID=YOUR_PRODUCT_ID
+FINTS_PRODUCT_VERSION=1.0.0
+# Optional
+FINTS_CUSTOMER_ID=your_customer_id
+FINTS_TAN_MEDIUM=YOUR_TAN_MEDIUM
+FINTS_TAN_METHOD=944
+```
+
+Run integration tests:
+
+```bash
+python -m pytest tests/integration --run-integration
+```
+
+**Note:** Integration tests may trigger TAN approval prompts in your banking app. Be prepared to confirm these requests during test execution.
 
 
 Security

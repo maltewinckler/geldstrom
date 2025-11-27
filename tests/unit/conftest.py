@@ -7,6 +7,7 @@ import base64
 import uuid
 import re
 import random
+from unittest import mock
 
 import fints.parser
 from fints.types import SegmentSequence
@@ -20,6 +21,21 @@ TEST_MESSAGES = {
 
 # We will turn off robust mode generally for tests
 fints.parser.robust_mode = False
+
+
+@pytest.fixture
+def mocker(request):
+    class _Mocker:
+        def patch(self, target, *args, **kwargs):
+            patcher = mock.patch(target, *args, **kwargs)
+            mocked = patcher.start()
+            request.addfinalizer(patcher.stop)
+            return mocked
+
+        def __getattr__(self, name):
+            return getattr(mock, name)
+
+    return _Mocker()
 
 
 @pytest.fixture(scope="session")
