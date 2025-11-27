@@ -1,0 +1,13 @@
+__pycache__/
+build/
+dist/
+*.egg-info
+env
+.idea/
+test*.py
+!tests/*
+tests/messages/private_*
+*.pyc
+
+.env
+.venv/
