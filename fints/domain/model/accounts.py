@@ -1,20 +1,19 @@
 """Domain representations for accounts and owners."""
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Mapping, Optional, Sequence
+from typing import Mapping, Sequence
+
+from pydantic import BaseModel
 
 from .bank import BankRoute
 
 
-@dataclass(frozen=True)
-class AccountOwner:
+class AccountOwner(BaseModel, frozen=True):
     name: str
-    address: Optional[str] = None
+    address: str | None = None
 
 
-@dataclass(frozen=True)
-class AccountCapabilities:
+class AccountCapabilities(BaseModel, frozen=True):
     can_fetch_balance: bool = False
     can_list_transactions: bool = False
     can_fetch_statements: bool = False
@@ -31,20 +30,19 @@ class AccountCapabilities:
         }
 
 
-@dataclass(frozen=True)
-class Account:
+class Account(BaseModel, frozen=True):
     """Canonical description of an account we can read from."""
 
     account_id: str
-    iban: Optional[str]
-    bic: Optional[str]
-    currency: Optional[str]
-    product_name: Optional[str]
-    owner: Optional[AccountOwner]
+    iban: str | None = None
+    bic: str | None = None
+    currency: str | None = None
+    product_name: str | None = None
+    owner: AccountOwner | None = None
     bank_route: BankRoute
-    capabilities: AccountCapabilities = field(default_factory=AccountCapabilities)
-    raw_labels: Sequence[str] = field(default_factory=tuple)
-    metadata: Mapping[str, str] = field(default_factory=dict)
+    capabilities: AccountCapabilities = AccountCapabilities()
+    raw_labels: Sequence[str] = ()
+    metadata: Mapping[str, str] = {}
 
     def supports_transactions(self) -> bool:
         return self.capabilities.can_list_transactions

@@ -1,11 +1,33 @@
 """Public domain exports for the read-only refactor."""
-from .accounts import Account, AccountCapabilities, AccountOwner
-from .balances import BalanceAmount, BalanceSnapshot
-from .bank import BankCapabilities, BankRoute
-from .operations import FinTSOperations
-from .responses import NeedRetryResponse, ResponseStatus, TransactionResponse
-from .session import SessionState
-from .transactions import TransactionEntry, TransactionFeed
+from .connection import (
+    BankCredentials,
+    Challenge,
+    ChallengeData,
+    ChallengeHandler,
+    ChallengeResult,
+    ChallengeType,
+    DecoupledPoller,
+    InteractiveChallengeHandler,
+    NeedRetryResponse,
+    ResponseStatus,
+    SessionHandle,
+    SessionToken,
+)
+from .model import (
+    Account,
+    AccountCapabilities,
+    AccountOwner,
+    BalanceAmount,
+    BalanceSnapshot,
+    BankCapabilities,
+    BankRoute,
+    PaymentConfirmation,
+    PaymentInstruction,
+    StatementDocument,
+    StatementReference,
+    TransactionEntry,
+    TransactionFeed,
+)
 
 __all__ = [
     "Account",
@@ -14,12 +36,23 @@ __all__ = [
     "BalanceAmount",
     "BalanceSnapshot",
     "BankCapabilities",
+    "BankCredentials",
     "BankRoute",
-    "FinTSOperations",
+    "Challenge",
+    "ChallengeData",
+    "ChallengeHandler",
+    "ChallengeResult",
+    "ChallengeType",
+    "DecoupledPoller",
+    "InteractiveChallengeHandler",
     "NeedRetryResponse",
+    "PaymentConfirmation",
+    "PaymentInstruction",
     "ResponseStatus",
-    "SessionState",
+    "SessionHandle",
+    "SessionToken",
+    "StatementDocument",
+    "StatementReference",
     "TransactionEntry",
     "TransactionFeed",
-    "TransactionResponse",
 ]

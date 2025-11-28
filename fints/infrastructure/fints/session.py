@@ -1,16 +1,23 @@
-"""Session persistence objects for safe storage."""
+"""FinTS-specific session state with protocol details."""
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, Mapping
 
-from .bank import BankRoute
+from fints.domain.model.bank import BankRoute
 
 
 @dataclass(frozen=True)
-class SessionState:
-    """Snapshot of everything required to resume a read-only FinTS session."""
+class FinTSSessionState:
+    """
+    Snapshot of everything required to resume a read-only FinTS session.
+
+    Implements the SessionToken protocol from the domain layer while
+    providing FinTS 3.0-specific session details like system_id and
+    bank parameter versions.
+    """
 
     route: BankRoute
     user_id: str
@@ -20,6 +27,24 @@ class SessionState:
     upd_version: int | None = None
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     version: str = "1"
+
+    # --- SessionToken protocol implementation ---
+
+    @property
+    def is_valid(self) -> bool:
+        """FinTS sessions remain valid until explicitly closed or system_id changes."""
+        return bool(self.system_id)
+
+    def serialize(self) -> bytes:
+        """Serialize session state to JSON bytes for storage/transfer."""
+        return json.dumps(self.to_dict()).encode("utf-8")
+
+    @classmethod
+    def deserialize(cls, data: bytes) -> "FinTSSessionState":
+        """Restore session state from serialized JSON bytes."""
+        return cls.from_dict(json.loads(data.decode("utf-8")))
+
+    # --- FinTS-specific methods ---
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -37,7 +62,7 @@ class SessionState:
         }
 
     @classmethod
-    def from_dict(cls, data: Mapping[str, Any]) -> "SessionState":
+    def from_dict(cls, data: Mapping[str, Any]) -> "FinTSSessionState":
         route = BankRoute(
             country_code=data["route"]["country_code"],
             bank_code=data["route"]["bank_code"],
@@ -63,6 +88,11 @@ class SessionState:
         )
 
     def mask(self) -> Dict[str, Any]:
+        """Return a representation safe for logging (client_blob redacted)."""
         masked = self.to_dict()
         masked["client_blob"] = f"<{len(self.client_blob)} bytes>"
         return masked
+
+
+# Backward compatibility alias
+SessionState = FinTSSessionState

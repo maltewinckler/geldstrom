@@ -4,8 +4,11 @@ from __future__ import annotations
 from contextlib import contextmanager
 from typing import TYPE_CHECKING
 
+from fints.constants import SYSTEM_ID_UNASSIGNED
 from fints.dialog import FinTSDialog
 from fints.exceptions import FinTSSCARequiredError
+from fints.formals import CUSTOMER_ID_ANONYMOUS, SynchronizationMode
+from fints.segments.dialog import HKSYN3, HISYN4
 
 if TYPE_CHECKING:  # pragma: no cover - import guard for typing only
     from fints.client import FinTS3Client
@@ -58,7 +61,7 @@ class DialogSessionManager:
         if self._standing_dialog:
             return self._standing_dialog
         if not lazy_init:
-            self._owner._ensure_system_id()
+            self.ensure_system_id()
         return self._owner._new_dialog(lazy_init=lazy_init)
 
     def pause(self):
@@ -66,6 +69,24 @@ class DialogSessionManager:
         if not self._standing_dialog:
             raise Exception("Cannot pause dialog, no standing dialog exists")
         return self._standing_dialog.pause()
+
+    def ensure_system_id(self):
+        owner = self._owner
+        if (
+            owner.system_id != SYSTEM_ID_UNASSIGNED
+            or owner.user_id == CUSTOMER_ID_ANONYMOUS
+        ):
+            return
+
+        with owner._new_dialog(lazy_init=True) as dialog:
+            response = dialog.init(
+                HKSYN3(SynchronizationMode.NEW_SYSTEM_ID),
+            )
+            owner.process_response_message(dialog, response, internal_send=True)
+            seg = response.find_segment_first(HISYN4)
+            if not seg:
+                raise ValueError('Could not find system_id')
+            owner.system_id = seg.system_id
 
     @contextmanager
     def resume(self, dialog_data):

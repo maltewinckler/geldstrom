@@ -1,25 +1,24 @@
-"""Domain objects describing FinTS retry and response metadata."""
+"""FinTS-specific response handling and serialization."""
 from __future__ import annotations
 
-from abc import ABCMeta, abstractmethod
 from enum import Enum
 
+from fints.domain.connection import NeedRetryResponse as _BaseNeedRetryResponse
 from fints.utils import SubclassesMixin, decompress_datablob
 
 DATA_BLOB_MAGIC_RETRY = b"python-fints_RETRY_DATABLOB"
 
 
-class NeedRetryResponse(SubclassesMixin, metaclass=ABCMeta):
-    """Base class for responses that require the caller to retry/continue later."""
+class NeedRetryResponse(SubclassesMixin, _BaseNeedRetryResponse):
+    """
+    FinTS-specific retry response with datablob serialization support.
 
-    @abstractmethod
-    def get_data(self) -> bytes:
-        """Return a compressed datablob representing this object."""
+    Subclasses (e.g., NeedTANResponse) implement `get_data` and `_from_data_v1`.
+    """
 
     @classmethod
     def from_data(cls, blob: bytes):
         """Restore a NeedRetryResponse subclass from a compressed datablob."""
-
         version, data = decompress_datablob(DATA_BLOB_MAGIC_RETRY, blob)
 
         if version == 1:

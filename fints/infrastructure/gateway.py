@@ -12,7 +12,6 @@ import time as time_module
 
 from fints.application.ports import BankGateway, GatewayCredentials
 from fints.client import FinTS3PinTanClient, NeedTANResponse
-from fints.domain import FinTSOperations
 from fints.exceptions import FinTSUnsupportedOperation
 from fints.domain import (
     Account,
@@ -22,10 +21,10 @@ from fints.domain import (
     BalanceSnapshot,
     BankCapabilities,
     BankRoute,
-    SessionState,
     TransactionEntry,
     TransactionFeed,
 )
+from fints.infrastructure.fints import FinTSOperations, SessionState
 from fints.models import SEPAAccount
 from fints.formals import BankIdentifier as FinTSBankIdentifier
 
@@ -176,7 +175,10 @@ class FinTSReadOnlyGateway(BankGateway):
             .get("supported_formats", {})
             .items()
         }
-        return BankCapabilities(frozenset(supported), formats)
+        return BankCapabilities(
+            supported_operations=frozenset(supported),
+            supported_formats=formats,
+        )
 
     def _accounts_from_info(
         self,
@@ -198,10 +200,18 @@ class FinTSReadOnlyGateway(BankGateway):
                 else default_route
             )
             owner_names = acc.get("owner_name", [])
-            owner = AccountOwner(owner_names[0]) if owner_names else None
+            owner = AccountOwner(name=owner_names[0]) if owner_names else None
             capabilities = self._account_capabilities(
                 acc.get("supported_operations", {})
             )
+            # Build metadata with string coercion for non-string values
+            acc_type = acc.get("type")
+            metadata_raw = {
+                "account_number": account_number,
+                "subaccount_number": sub_number,
+                "customer_id": acc.get("customer_id"),
+                "type": str(acc_type) if acc_type is not None else None,
+            }
             domain_accounts.append(
                 Account(
                     account_id=account_id,
@@ -213,12 +223,7 @@ class FinTSReadOnlyGateway(BankGateway):
                     bank_route=route,
                     capabilities=capabilities,
                     raw_labels=tuple(owner_names),
-                    metadata={
-                        "account_number": account_number,
-                        "subaccount_number": sub_number,
-                        "customer_id": acc.get("customer_id"),
-                        "type": acc.get("type"),
-                    },
+                    metadata={k: v for k, v in metadata_raw.items() if v is not None},
                 )
             )
         return tuple(domain_accounts)
@@ -612,4 +617,4 @@ class FinTSReadOnlyGateway(BankGateway):
             country_numeric,
             country_numeric,
         )
-        return BankRoute(country_code, identifier.bank_code)
+        return BankRoute(country_code=country_code, bank_code=identifier.bank_code)

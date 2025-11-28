@@ -1,4 +1,4 @@
-"""Minimal example demonstrating the new read-only FinTS client.
+"""Minimal example demonstrating the FinTS client.
 
 Usage:
     python examples/read_only_client_demo.py [--env-file path] [--reuse-session]
@@ -30,9 +30,15 @@ import os
 from pathlib import Path
 from typing import Mapping, Optional
 
+# New recommended imports from top-level fints package
+from fints import (
+    BankCredentials,
+    BankRoute,
+    ReadOnlyFinTSClient,
+    SessionToken,
+)
 from fints.application import GatewayCredentials
-from fints.domain import BankRoute, SessionState
-from fints.readonly import ReadOnlyFinTSClient
+from fints.infrastructure.fints import FinTSSessionState
 
 SESSION_FILE = Path(".session_state.json")
 
@@ -61,16 +67,20 @@ def build_credentials(env: Mapping[str, str]) -> GatewayCredentials:
     country = env.get("FINTS_COUNTRY", "DE")
     blz = env_required(env, "FINTS_BLZ")
 
-    return GatewayCredentials(
-        route=BankRoute(country, blz),
-        server_url=env_required(env, "FINTS_SERVER"),
+    bank_creds = BankCredentials(
         user_id=env_required(env, "FINTS_USER"),
-        pin=env_required(env, "FINTS_PIN"),
+        secret=env_required(env, "FINTS_PIN"),
+        customer_id=env.get("FINTS_CUSTOMER_ID"),
+        two_factor_device=env.get("FINTS_TAN_MEDIUM"),
+        two_factor_method=env.get("FINTS_TAN_METHOD"),
+    )
+
+    return GatewayCredentials(
+        route=BankRoute(country_code=country, bank_code=blz),
+        server_url=env_required(env, "FINTS_SERVER"),
+        credentials=bank_creds,
         product_id=env_required(env, "FINTS_PRODUCT_ID"),
         product_version=env_required(env, "FINTS_PRODUCT_VERSION"),
-        customer_id=env.get("FINTS_CUSTOMER_ID"),
-        tan_medium=env.get("FINTS_TAN_MEDIUM"),
-        tan_method=env.get("FINTS_TAN_METHOD"),
     )
 
 
@@ -111,15 +121,25 @@ def _strip_quotes(value: str) -> str:
     return value
 
 
-def load_session() -> Optional[SessionState]:
+def load_session() -> Optional[FinTSSessionState]:
+    """Load a previously saved FinTS session from disk."""
     if not SESSION_FILE.exists():
         return None
     data = json.loads(SESSION_FILE.read_text())
-    return SessionState.from_dict(data)
+    return FinTSSessionState.from_dict(data)
 
 
-def persist_session(state: SessionState) -> None:
-    SESSION_FILE.write_text(json.dumps(state.to_dict(), indent=2))
+def persist_session(state: SessionToken) -> None:
+    """Persist a session to disk for later reuse.
+
+    Note: This assumes the session is a FinTSSessionState which provides
+    the to_dict() method. For other session types, serialization would differ.
+    """
+    if isinstance(state, FinTSSessionState):
+        SESSION_FILE.write_text(json.dumps(state.to_dict(), indent=2))
+    else:
+        # For generic SessionToken, use serialize()
+        SESSION_FILE.write_bytes(state.serialize())
 
 
 def main() -> None:

@@ -26,10 +26,10 @@ class EncryptionMechanism:
 class AuthenticationMechanism:
     def sign_prepare(self, message: FinTSMessage):
         raise NotImplemented()
-    
+
     def sign_commit(self, message: FinTSMessage):
         raise NotImplemented()
-    
+
     def verify(self, message: FinTSMessage):
         raise NotImplemented()
 
@@ -180,6 +180,4 @@ class PinTanTwoStepAuthenticationMechanism(PinTanAuthenticationMechanism):
         self.security_function = security_function
 
     def _get_tan(self):
-        retval = self.client._pending_tan
-        self.client._pending_tan = None
-        return retval
+        return self.client._tan_helper().consume_pending_tan()

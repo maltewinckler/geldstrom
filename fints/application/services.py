@@ -8,7 +8,7 @@ from fints.domain import (
     Account,
     BalanceSnapshot,
     BankCapabilities,
-    SessionState,
+    SessionToken,
     TransactionFeed,
 )
 
@@ -22,8 +22,8 @@ class AccountDiscoveryService:
     def execute(
         self,
         credentials: GatewayCredentials,
-        session: SessionState | None = None,
-    ) -> tuple[SessionState, BankCapabilities, Sequence[Account]]:
+        session: SessionToken | None = None,
+    ) -> tuple[SessionToken, BankCapabilities, Sequence[Account]]:
         state = self._gateway.open_session(credentials, existing_state=session)
         capabilities = self._gateway.fetch_bank_capabilities(credentials, state)
         accounts = self._gateway.fetch_accounts(credentials, state)
@@ -37,7 +37,7 @@ class BalanceService:
     def fetch(
         self,
         credentials: GatewayCredentials,
-        session: SessionState,
+        session: SessionToken,
         account: Account,
     ) -> BalanceSnapshot:
         return self._gateway.fetch_balance(credentials, session, account)
@@ -50,7 +50,7 @@ class TransactionHistoryService:
     def fetch(
         self,
         credentials: GatewayCredentials,
-        session: SessionState,
+        session: SessionToken,
         account: Account,
         start_date: date | None = None,
         end_date: date | None = None,
