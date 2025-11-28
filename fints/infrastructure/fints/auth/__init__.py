@@ -16,6 +16,11 @@ from .mechanisms import (
     PinTanOneStepAuthenticationMechanism,
     PinTanTwoStepAuthenticationMechanism,
 )
+from .standalone_mechanisms import (
+    SecurityContext,
+    StandaloneAuthenticationMechanism,
+    StandaloneEncryptionMechanism,
+)
 from .tan_media import (
     TanMediaInfo,
     TanMediaDiscovery,
@@ -34,13 +39,17 @@ __all__ = [
     # Decoupled polling
     "DecoupledConfirmationPoller",
     "DecoupledPollingConfig",
-    # Security mechanisms
+    # Security mechanisms (legacy client-dependent)
     "AuthenticationMechanism",
     "EncryptionMechanism",
     "PinTanAuthenticationMechanism",
     "PinTanDummyEncryptionMechanism",
     "PinTanOneStepAuthenticationMechanism",
     "PinTanTwoStepAuthenticationMechanism",
+    # Security mechanisms (standalone)
+    "SecurityContext",
+    "StandaloneAuthenticationMechanism",
+    "StandaloneEncryptionMechanism",
     # TAN media
     "TanMediaDiscovery",
     "TanMediaInfo",

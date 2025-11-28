@@ -17,11 +17,18 @@ from fints.exceptions import FinTSUnsupportedOperation
 from fints.infrastructure.fints.auth import NeedTANResponse
 from fints.infrastructure.fints.session import FinTSSessionState
 
+from .connection import FinTSConnectionHelper
+
 if TYPE_CHECKING:
     from fints.client import FinTS3PinTanClient
     from fints.models import SEPAAccount
 
 logger = logging.getLogger(__name__)
+
+
+# Feature flag to enable new infrastructure
+# The new infrastructure uses dialog/operations modules directly
+USE_NEW_INFRASTRUCTURE = True
 
 
 class FinTSTransactionHistory(TransactionHistoryPort):
@@ -62,6 +69,65 @@ class FinTSTransactionHistory(TransactionHistoryPort):
         Returns:
             TransactionFeed with transaction entries
         """
+        if USE_NEW_INFRASTRUCTURE:
+            return self._fetch_history_new(
+                state, account_id, start_date, end_date, include_pending
+            )
+        return self._fetch_history_legacy(
+            state, account_id, start_date, end_date, include_pending
+        )
+
+    def _fetch_history_new(
+        self,
+        state: FinTSSessionState,
+        account_id: str,
+        start_date: date | None,
+        end_date: date | None,
+        include_pending: bool,
+    ) -> TransactionFeed:
+        """Fetch history using new infrastructure."""
+        from fints.infrastructure.fints.operations import (
+            AccountOperations,
+            TransactionOperations,
+        )
+
+        helper = FinTSConnectionHelper(self._credentials)
+
+        with helper.connect(state) as ctx:
+            account_ops = AccountOperations(ctx.dialog, ctx.parameters)
+            tx_ops = TransactionOperations(ctx.dialog, ctx.parameters)
+
+            # Find SEPA account
+            sepa_account = self._locate_sepa_account_new(account_ops, account_id)
+
+            try:
+                # Try MT940 format first
+                result = tx_ops.fetch_mt940(
+                    sepa_account,
+                    start_date,
+                    end_date,
+                    include_pending=include_pending,
+                )
+                return self._transactions_from_mt940(account_id, result.transactions)
+
+            except FinTSUnsupportedOperation:
+                # Fall back to CAMT format
+                result = tx_ops.fetch_camt(sepa_account, start_date, end_date)
+                return self._transactions_from_camt(
+                    account_id,
+                    result.booked_documents,
+                    result.pending_documents if include_pending else [],
+                )
+
+    def _fetch_history_legacy(
+        self,
+        state: FinTSSessionState,
+        account_id: str,
+        start_date: date | None,
+        end_date: date | None,
+        include_pending: bool,
+    ) -> TransactionFeed:
+        """Fetch history using legacy client."""
         client = self._build_client(state)
 
         with self._logged_in(client):
@@ -94,7 +160,16 @@ class FinTSTransactionHistory(TransactionHistoryPort):
                     pending_streams if include_pending else [],
                 )
 
-    # --- Internal helpers ---
+    # --- New infrastructure helpers ---
+
+    def _locate_sepa_account_new(self, account_ops, account_id: str) -> "SEPAAccount":
+        """Find SEPA account using operations."""
+        for sepa in account_ops.fetch_sepa_accounts():
+            if self._account_key(sepa) == account_id:
+                return sepa
+        raise ValueError(f"Account {account_id} not available from bank")
+
+    # --- Legacy helpers ---
 
     def _build_client(
         self,
@@ -554,4 +629,3 @@ class FinTSTransactionHistory(TransactionHistoryPort):
 
 
 __all__ = ["FinTSTransactionHistory"]
-

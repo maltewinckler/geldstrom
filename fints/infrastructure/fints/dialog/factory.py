@@ -4,18 +4,25 @@ from __future__ import annotations
 import logging
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Iterator, Sequence
+from typing import TYPE_CHECKING, Any, Iterator, Sequence
 
 from fints.constants import SYSTEM_ID_UNASSIGNED
 from fints.exceptions import FinTSDialogError, FinTSDialogInitError, FinTSDialogStateError
 from fints.formals import CUSTOMER_ID_ANONYMOUS, Language2, SystemIDStatus
-from fints.segments.auth import HKIDN2, HKVVB3
+from fints.segments.auth import HKIDN2, HKVVB3, HKTAN2, HKTAN6, HKTAN7
 from fints.segments.dialog import HKEND1
 from fints.segments.message import HNHBK3
 
 from .connection import ConnectionConfig, HTTPSDialogConnection
 from .responses import ProcessedResponse, ResponseProcessor
 from .transport import DIALOG_ID_UNASSIGNED
+
+# HKTAN version map
+HKTAN_VERSIONS = {2: HKTAN2, 6: HKTAN6, 7: HKTAN7}
+
+# Segments that should NOT have HKTAN added (dialog management and special segments)
+# HKSPA doesn't require HKTAN based on legacy client behavior
+DIALOG_SEGMENTS = {"HKIDN", "HKVVB", "HKEND", "HKSYN", "HKTAN", "HKSPA"}
 
 if TYPE_CHECKING:
     from fints.infrastructure.fints.protocol import ParameterStore
@@ -53,6 +60,9 @@ class Dialog:
 
     A dialog is a sequence of related message exchanges with the bank.
     It must be initialized before use and properly closed when done.
+
+    For two-step TAN authentication, the dialog automatically injects HKTAN
+    segments when sending business operations (like HKCAZ, HKSAL, etc.).
     """
 
     def __init__(
@@ -63,6 +73,7 @@ class Dialog:
         enc_mechanism: "EncryptionMechanism | None" = None,
         auth_mechanisms: "Sequence[AuthenticationMechanism] | None" = None,
         response_processor: ResponseProcessor | None = None,
+        security_function: str = "999",
     ) -> None:
         """
         Initialize dialog.
@@ -74,6 +85,7 @@ class Dialog:
             enc_mechanism: Optional encryption mechanism
             auth_mechanisms: Optional authentication mechanisms
             response_processor: Optional custom response processor
+            security_function: Security function code (999=one-step, else=two-step TAN)
         """
         self._connection = connection
         self._config = config
@@ -82,6 +94,12 @@ class Dialog:
         self._auth_mechanisms = list(auth_mechanisms or [])
         self._response_processor = response_processor or ResponseProcessor()
         self._state = DialogState()
+        self._security_function = security_function
+
+    @property
+    def is_two_step_tan(self) -> bool:
+        """Return True if dialog uses two-step TAN authentication."""
+        return self._security_function != "999"
 
     @property
     def dialog_id(self) -> str:
@@ -142,6 +160,9 @@ class Dialog:
         """
         Send segments to the bank within this dialog.
 
+        For two-step TAN dialogs, this automatically injects HKTAN segments
+        after business operations (segments that are not dialog management).
+
         Args:
             *segments: Segments to send
 
@@ -154,7 +175,87 @@ class Dialog:
         if not self._state.is_open:
             raise FinTSDialogStateError("Cannot send on dialog that is not open")
 
-        return self._send_segments(list(segments), internal=False)
+        # For two-step TAN, inject HKTAN after business segments
+        segment_list = list(segments)
+        if self.is_two_step_tan:
+            segment_list = self._inject_hktan_for_business_segments(segment_list)
+
+        return self._send_segments(segment_list, internal=False)
+
+    def _inject_hktan_for_business_segments(self, segments: list) -> list:
+        """
+        Inject HKTAN segments after business operations for two-step TAN.
+
+        The legacy FinTS client sends HKTAN with every business operation
+        (like HKCAZ, HKSAL) when using two-step TAN authentication.
+        The HKTAN segment's `segment_type` field must match the business segment type.
+
+        Args:
+            segments: Original segment list
+
+        Returns:
+            Segment list with HKTAN injected after business segments
+        """
+        result = []
+        for seg in segments:
+            result.append(seg)
+
+            # Check if this is a business segment that needs HKTAN
+            seg_type = getattr(seg.header, "type", None) if hasattr(seg, "header") else None
+            if seg_type and seg_type not in DIALOG_SEGMENTS:
+                hktan = self._build_hktan_for_segment(seg_type)
+                if hktan:
+                    logger.debug("Injecting HKTAN for %s operation", seg_type)
+                    result.append(hktan)
+
+        return result
+
+    def _build_hktan_for_segment(self, segment_type: str) -> Any | None:
+        """
+        Build HKTAN segment for a business operation.
+
+        Args:
+            segment_type: The business segment type (e.g., 'HKCAZ', 'HKSAL')
+
+        Returns:
+            HKTAN segment or None if not supported
+        """
+        # Find highest supported HKTAN version from BPD
+        hitans = None
+        for seg in self._parameters.bpd.segments.find_segments("HITANS"):
+            if hitans is None or seg.header.version > hitans.header.version:
+                hitans = seg
+
+        if not hitans:
+            logger.warning("No HITANS in BPD, cannot build HKTAN")
+            return None
+
+        # Get HKTAN class for this version
+        hktan_version = hitans.header.version
+        hktan_class = HKTAN_VERSIONS.get(hktan_version)
+
+        if not hktan_class:
+            # Try to find a supported lower version
+            for v in sorted(HKTAN_VERSIONS.keys(), reverse=True):
+                if v <= hktan_version:
+                    hktan_class = HKTAN_VERSIONS[v]
+                    hktan_version = v
+                    break
+
+        if not hktan_class:
+            logger.warning("No supported HKTAN version found")
+            return None
+
+        # Create HKTAN with tan_process='4' and segment_type matching business segment
+        hktan = hktan_class(tan_process="4")
+
+        # For HKTAN >= 6, set segment_type to the business segment type
+        if hktan_version >= 6 and hasattr(hktan, "segment_type"):
+            hktan.segment_type = segment_type
+
+        # IMPORTANT: Do NOT set tan_medium_name (legacy client sends it as None)
+
+        return hktan
 
     def end(self) -> None:
         """
@@ -287,9 +388,10 @@ class Dialog:
             def client(ctx_self):
                 return ctx_self
 
-        message = FinTSCustomerMessage.__new__(FinTSCustomerMessage)
-        message.dialog = MinimalContext()
-        message.segments = []
+        context = MinimalContext()
+
+        # Create message properly using __init__ to initialize next_segment_number
+        message = FinTSCustomerMessage(dialog=context)
 
         # Add header
         message += HNHBK3(

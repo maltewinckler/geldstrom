@@ -1,6 +1,7 @@
 """FinTS 3.0 implementation of SessionPort."""
 from __future__ import annotations
 
+import logging
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any
 
@@ -8,8 +9,17 @@ from fints.application.ports import GatewayCredentials
 from fints.domain.ports.session import SessionPort
 from fints.infrastructure.fints.session import FinTSSessionState
 
+from .connection import ConnectionContext, FinTSConnectionHelper
+
 if TYPE_CHECKING:
     from fints.client import FinTS3PinTanClient
+
+logger = logging.getLogger(__name__)
+
+
+# Feature flag to enable new infrastructure
+# The new infrastructure uses dialog/operations modules directly
+USE_NEW_INFRASTRUCTURE = True
 
 
 class FinTSSessionAdapter(SessionPort):
@@ -35,6 +45,33 @@ class FinTSSessionAdapter(SessionPort):
         Returns:
             New or refreshed FinTSSessionState
         """
+        if USE_NEW_INFRASTRUCTURE:
+            return self._open_session_new(credentials, state)
+        return self._open_session_legacy(credentials, state)
+
+    def _open_session_new(
+        self,
+        credentials: GatewayCredentials,
+        state: FinTSSessionState | None,
+    ) -> FinTSSessionState:
+        """Open session using new dialog infrastructure."""
+        helper = FinTSConnectionHelper(credentials)
+
+        with helper.connect(state) as ctx:
+            # Dialog is initialized, BPD/UPD should be populated
+            logger.info(
+                "Session opened: BPD v%d, UPD v%d",
+                ctx.parameters.bpd_version,
+                ctx.parameters.upd_version,
+            )
+            return helper.create_session_state(ctx)
+
+    def _open_session_legacy(
+        self,
+        credentials: GatewayCredentials,
+        state: FinTSSessionState | None,
+    ) -> FinTSSessionState:
+        """Open session using legacy client (original implementation)."""
         client = self._build_client(credentials, state)
         with self._logged_in(client):
             # Trigger dialog initialization and information fetch
@@ -66,7 +103,7 @@ class FinTSSessionAdapter(SessionPort):
         # FinTS sessions don't require explicit logout for read operations
         pass
 
-    # --- Internal helpers ---
+    # --- Legacy helpers (kept for backward compatibility) ---
 
     def _build_client(
         self,
@@ -122,4 +159,3 @@ class FinTSSessionAdapter(SessionPort):
 
 
 __all__ = ["FinTSSessionAdapter"]
-

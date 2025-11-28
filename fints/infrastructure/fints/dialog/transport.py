@@ -227,11 +227,8 @@ def _create_customer_message(
     # Create minimal dialog context
     context = _MinimalDialogContext(bank_identifier, user_id, system_id)
 
-    # FinTSCustomerMessage needs a dialog with certain attributes
-    # We'll patch the message after creation
-    message = FinTSCustomerMessage.__new__(FinTSCustomerMessage)
-    message.dialog = context
-    message.segments = []
+    # Create message properly using __init__ to initialize next_segment_number
+    message = FinTSCustomerMessage(dialog=context)
 
     # Add message header
     message += HNHBK3(0, 300, dialog_id, message_number)

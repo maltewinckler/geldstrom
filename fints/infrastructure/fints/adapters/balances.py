@@ -1,6 +1,7 @@
 """FinTS 3.0 implementation of BalancePort."""
 from __future__ import annotations
 
+import logging
 from contextlib import contextmanager
 from datetime import datetime, time
 from decimal import Decimal
@@ -11,9 +12,18 @@ from fints.domain import Account, BalanceAmount, BalanceSnapshot
 from fints.domain.ports.balances import BalancePort
 from fints.infrastructure.fints.session import FinTSSessionState
 
+from .connection import FinTSConnectionHelper
+
 if TYPE_CHECKING:
     from fints.client import FinTS3PinTanClient
     from fints.models import SEPAAccount
+
+logger = logging.getLogger(__name__)
+
+
+# Feature flag to enable new infrastructure
+# The new infrastructure uses dialog/operations modules directly
+USE_NEW_INFRASTRUCTURE = True
 
 
 class FinTSBalanceAdapter(BalancePort):
@@ -53,6 +63,56 @@ class FinTSBalanceAdapter(BalancePort):
         Returns:
             Sequence of BalanceSnapshot for each account
         """
+        if USE_NEW_INFRASTRUCTURE:
+            return self._fetch_balances_new(state, account_ids)
+        return self._fetch_balances_legacy(state, account_ids)
+
+    def _fetch_balances_new(
+        self,
+        state: FinTSSessionState,
+        account_ids: Sequence[str] | None,
+    ) -> Sequence[BalanceSnapshot]:
+        """Fetch balances using new infrastructure."""
+        from fints.infrastructure.fints.operations import (
+            AccountOperations,
+            BalanceOperations,
+        )
+
+        helper = FinTSConnectionHelper(self._credentials)
+        results: list[BalanceSnapshot] = []
+
+        with helper.connect(state) as ctx:
+            account_ops = AccountOperations(ctx.dialog, ctx.parameters)
+            balance_ops = BalanceOperations(ctx.dialog, ctx.parameters)
+
+            # Get SEPA accounts
+            sepa_accounts = account_ops.fetch_sepa_accounts()
+            sepa_lookup = {self._account_key(sepa): sepa for sepa in sepa_accounts}
+
+            # Determine which accounts to fetch
+            target_ids = account_ids or list(sepa_lookup.keys())
+
+            for account_id in target_ids:
+                sepa = sepa_lookup.get(account_id)
+                if not sepa:
+                    continue
+
+                try:
+                    result = balance_ops.fetch_balance(sepa)
+                    snapshot = self._balance_from_operations(account_id, result)
+                    results.append(snapshot)
+                except Exception as e:
+                    logger.warning("Failed to fetch balance for %s: %s", account_id, e)
+                    continue
+
+        return tuple(results)
+
+    def _fetch_balances_legacy(
+        self,
+        state: FinTSSessionState,
+        account_ids: Sequence[str] | None,
+    ) -> Sequence[BalanceSnapshot]:
+        """Fetch balances using legacy client."""
         client = self._build_client(state)
         results: list[BalanceSnapshot] = []
 
@@ -96,6 +156,37 @@ class FinTSBalanceAdapter(BalancePort):
         Raises:
             ValueError: If account not found
         """
+        if USE_NEW_INFRASTRUCTURE:
+            return self._fetch_balance_new(state, account)
+        return self._fetch_balance_legacy(state, account)
+
+    def _fetch_balance_new(
+        self,
+        state: FinTSSessionState,
+        account: Account,
+    ) -> BalanceSnapshot:
+        """Fetch single balance using new infrastructure."""
+        from fints.infrastructure.fints.operations import (
+            AccountOperations,
+            BalanceOperations,
+        )
+
+        helper = FinTSConnectionHelper(self._credentials)
+
+        with helper.connect(state) as ctx:
+            account_ops = AccountOperations(ctx.dialog, ctx.parameters)
+            balance_ops = BalanceOperations(ctx.dialog, ctx.parameters)
+
+            sepa_account = self._locate_sepa_account_new(account_ops, account)
+            result = balance_ops.fetch_balance(sepa_account)
+            return self._balance_from_operations(account.account_id, result)
+
+    def _fetch_balance_legacy(
+        self,
+        state: FinTSSessionState,
+        account: Account,
+    ) -> BalanceSnapshot:
+        """Fetch single balance using legacy client."""
         client = self._build_client(state)
 
         with self._logged_in(client):
@@ -104,7 +195,38 @@ class FinTSBalanceAdapter(BalancePort):
 
         return self._balance_from_mt940(account.account_id, booked)
 
-    # --- Internal helpers ---
+    # --- New infrastructure helpers ---
+
+    def _balance_from_operations(
+        self,
+        account_id: str,
+        result,
+    ) -> BalanceSnapshot:
+        """Convert operations BalanceResult to domain BalanceSnapshot."""
+        from fints.infrastructure.fints.operations import BalanceResult
+
+        if not isinstance(result, BalanceResult):
+            raise ValueError(f"Unexpected result type: {type(result)}")
+
+        booked = result.booked
+        amount = booked.amount if booked.is_credit else -booked.amount
+        booked_amount = BalanceAmount(amount=amount, currency=booked.currency)
+        as_of = datetime.combine(booked.date, time.min)
+
+        return BalanceSnapshot(
+            account_id=account_id,
+            as_of=as_of,
+            booked=booked_amount,
+        )
+
+    def _locate_sepa_account_new(self, account_ops, account: Account) -> "SEPAAccount":
+        """Find SEPA account using operations."""
+        for sepa in account_ops.fetch_sepa_accounts():
+            if self._account_key(sepa) == account.account_id:
+                return sepa
+        raise ValueError(f"Account {account.account_id} not available from bank")
+
+    # --- Legacy helpers ---
 
     def _build_client(
         self,
@@ -166,4 +288,3 @@ class FinTSBalanceAdapter(BalancePort):
 
 
 __all__ = ["FinTSBalanceAdapter"]
-

@@ -66,6 +66,7 @@ class ProcessedResponse:
     upd_segments: SegmentSequence | None = None
     bpa: object | None = None  # HIBPA segment
     upa: object | None = None  # HIUPA segment
+    raw_response: "FinTSInstituteMessage | None" = None  # Full response for segment access
 
     @property
     def has_errors(self) -> bool:
@@ -83,6 +84,20 @@ class ProcessedResponse:
             if resp.code == code:
                 return resp
         return None
+
+    def find_segment_first(self, segment_type) -> object | None:
+        """
+        Find the first segment of a given type in the raw response.
+
+        Args:
+            segment_type: Segment class to search for
+
+        Returns:
+            First matching segment or None
+        """
+        if self.raw_response is None:
+            return None
+        return self.raw_response.find_segment_first(segment_type)
 
 
 ResponseCallback = Callable[[DialogResponse, object | None], None]
@@ -155,6 +170,7 @@ class ResponseProcessor:
             upd_segments=upd_segments,
             bpa=bpa,
             upa=upa,
+            raw_response=response,
         )
 
     def _extract_global_responses(

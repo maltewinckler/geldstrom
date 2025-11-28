@@ -108,10 +108,24 @@ class BankParameters:
         Returns:
             Restored BankParameters instance
         """
-        segments = SegmentSequence(data)
+        # Handle empty/invalid segment data
+        # Empty SegmentSequence renders as b"'" which is not valid
+        segments = SegmentSequence()
+        if data and len(data) > 1:  # Need at least 2 bytes for valid segment
+            try:
+                segments = SegmentSequence(data)
+            except Exception:
+                logger.debug("Failed to parse BPD segments from %d bytes", len(data))
+
         bpa = None
-        if bpa_data:
-            bpa = SegmentSequence(bpa_data).segments[0] if bpa_data else None
+        if bpa_data and len(bpa_data) > 1:
+            try:
+                bpa_segments = SegmentSequence(bpa_data)
+                if bpa_segments.segments:
+                    bpa = bpa_segments.segments[0]
+            except Exception:
+                logger.debug("Failed to parse BPA segment")
+
         version = bpa.bpd_version if bpa else 0
         bank_name = bpa.bank_name if bpa and hasattr(bpa, "bank_name") else None
 
@@ -210,10 +224,24 @@ class UserParameters:
         Returns:
             Restored UserParameters instance
         """
-        segments = SegmentSequence(data)
+        # Handle empty/invalid segment data
+        # Empty SegmentSequence renders as b"'" which is not valid
+        segments = SegmentSequence()
+        if data and len(data) > 1:  # Need at least 2 bytes for valid segment
+            try:
+                segments = SegmentSequence(data)
+            except Exception:
+                logger.debug("Failed to parse UPD segments from %d bytes", len(data))
+
         upa = None
-        if upa_data:
-            upa = SegmentSequence(upa_data).segments[0] if upa_data else None
+        if upa_data and len(upa_data) > 1:
+            try:
+                upa_segments = SegmentSequence(upa_data)
+                if upa_segments.segments:
+                    upa = upa_segments.segments[0]
+            except Exception:
+                logger.debug("Failed to parse UPA segment")
+
         version = upa.upd_version if upa else 0
 
         return cls(version=version, segments=segments, upa=upa)
