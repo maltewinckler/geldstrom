@@ -159,22 +159,34 @@ class UserParameters:
         """
         accounts = []
         for upd in self.segments.find_segments("HIUPD"):
+            # account_information may be None for some banks (e.g., DKB)
+            acc_info = getattr(upd, "account_information", None)
             acc = {
-                "iban": upd.iban,
-                "account_number": upd.account_information.account_number,
-                "subaccount_number": upd.account_information.subaccount_number,
-                "bank_identifier": upd.account_information.bank_identifier,
-                "customer_id": upd.customer_id,
-                "type": upd.account_type,
-                "currency": upd.account_currency,
+                "iban": getattr(upd, "iban", None),
+                "account_number": (
+                    acc_info.account_number if acc_info else None
+                ),
+                "subaccount_number": (
+                    acc_info.subaccount_number if acc_info else None
+                ),
+                "bank_identifier": (
+                    acc_info.bank_identifier if acc_info else None
+                ),
+                "customer_id": getattr(upd, "customer_id", None),
+                "type": getattr(upd, "account_type", None),
+                "currency": getattr(upd, "account_currency", None),
                 "owner_name": [],
-                "product_name": upd.account_product_name,
-                "allowed_transactions": upd.allowed_transactions,
+                "product_name": getattr(upd, "account_product_name", None),
+                "allowed_transactions": getattr(
+                    upd, "allowed_transactions", []
+                ),
             }
-            if upd.name_account_owner_1:
-                acc["owner_name"].append(upd.name_account_owner_1)
-            if upd.name_account_owner_2:
-                acc["owner_name"].append(upd.name_account_owner_2)
+            owner_1 = getattr(upd, "name_account_owner_1", None)
+            owner_2 = getattr(upd, "name_account_owner_2", None)
+            if owner_1:
+                acc["owner_name"].append(owner_1)
+            if owner_2:
+                acc["owner_name"].append(owner_2)
             accounts.append(acc)
         return accounts
 

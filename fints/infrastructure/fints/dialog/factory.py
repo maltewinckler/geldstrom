@@ -20,9 +20,11 @@ from .transport import DIALOG_ID_UNASSIGNED
 # HKTAN version map
 HKTAN_VERSIONS = {2: HKTAN2, 6: HKTAN6, 7: HKTAN7}
 
-# Segments that should NOT have HKTAN added (dialog management and special segments)
-# HKSPA doesn't require HKTAN based on legacy client behavior
-DIALOG_SEGMENTS = {"HKIDN", "HKVVB", "HKEND", "HKSYN", "HKTAN", "HKSPA"}
+# Segments that should NOT have HKTAN added (dialog management segments only)
+# IMPORTANT: Business segments like HKSPA and HKSAL *may* require HKTAN
+# depending on the bank. DKB requires TAN for all operations, Triodos doesn't.
+# The safest approach is to always inject HKTAN for business segments.
+DIALOG_SEGMENTS = {"HKIDN", "HKVVB", "HKEND", "HKSYN", "HKTAN"}
 
 if TYPE_CHECKING:
     from fints.infrastructure.fints.protocol import ParameterStore
@@ -186,9 +188,9 @@ class Dialog:
         """
         Inject HKTAN segments after business operations for two-step TAN.
 
-        The legacy FinTS client sends HKTAN with every business operation
-        (like HKCAZ, HKSAL) when using two-step TAN authentication.
-        The HKTAN segment's `segment_type` field must match the business segment type.
+        Only injects HKTAN if the bank's HIPINS indicates TAN is required
+        for the specific operation. This prevents unnecessary 2FA requests
+        for banks that don't require TAN for certain operations.
 
         Args:
             segments: Original segment list
@@ -203,12 +205,49 @@ class Dialog:
             # Check if this is a business segment that needs HKTAN
             seg_type = getattr(seg.header, "type", None) if hasattr(seg, "header") else None
             if seg_type and seg_type not in DIALOG_SEGMENTS:
-                hktan = self._build_hktan_for_segment(seg_type)
-                if hktan:
-                    logger.debug("Injecting HKTAN for %s operation", seg_type)
-                    result.append(hktan)
+                # Check HIPINS to see if this operation actually requires TAN
+                if self._segment_requires_tan(seg_type):
+                    hktan = self._build_hktan_for_segment(seg_type)
+                    if hktan:
+                        logger.debug("Injecting HKTAN for %s operation", seg_type)
+                        result.append(hktan)
+                else:
+                    logger.debug(
+                        "Skipping HKTAN for %s - not required per HIPINS", seg_type
+                    )
 
         return result
+
+    def _segment_requires_tan(self, segment_type: str) -> bool:
+        """
+        Check if a segment type requires TAN based on HIPINS in BPD.
+
+        Args:
+            segment_type: The segment type to check (e.g., 'HKSPA', 'HKSAL')
+
+        Returns:
+            True if TAN is required, False otherwise
+        """
+        from fints.segments.auth import HIPINS1
+
+        hipins = self._parameters.bpd.segments.find_segment_first(HIPINS1)
+        if not hipins:
+            # No HIPINS found - assume TAN required for safety
+            logger.debug("No HIPINS in BPD, assuming TAN required for %s", segment_type)
+            return True
+
+        # Check if this transaction requires TAN
+        if hasattr(hipins, "parameter") and hasattr(hipins.parameter, "transaction_tans_required"):
+            for req in hipins.parameter.transaction_tans_required:
+                if req.transaction == segment_type:
+                    return req.tan_required
+
+        # Transaction not in list - assume TAN required for safety
+        logger.debug(
+            "Segment %s not in HIPINS transaction list, assuming TAN required",
+            segment_type,
+        )
+        return True
 
     def _build_hktan_for_segment(self, segment_type: str) -> Any | None:
         """

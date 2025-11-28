@@ -75,6 +75,9 @@ class AccountOperations:
         Sends HKSPA and parses HISPA response to get SEPA-enabled
         accounts with IBAN, BIC, and other details.
 
+        Falls back to UPD if HISPA returns no accounts (some banks
+        like DKB only provide account info in UPD).
+
         Returns:
             List of SEPAAccount objects
         """
@@ -94,6 +97,23 @@ class AccountOperations:
                         sepa = acc.as_sepa_account()
                         if sepa:
                             accounts.append(sepa)
+
+        # Fallback to UPD if HISPA returned no accounts
+        if not accounts:
+            logger.info("HISPA returned no accounts, checking UPD")
+            upd_accounts = self._parameters.upd.get_accounts()
+            for acc in upd_accounts:
+                iban = acc.get("iban")
+                if iban:
+                    accounts.append(
+                        SEPAAccount(
+                            iban=iban,
+                            bic=None,  # BIC not available in UPD
+                            accountnumber=acc.get("account_number") or "",
+                            subaccount=acc.get("subaccount_number"),
+                            blz=None,  # Will be extracted from bank_identifier
+                        )
+                    )
 
         logger.info("Found %d SEPA accounts", len(accounts))
         return accounts

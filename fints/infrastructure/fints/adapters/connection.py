@@ -8,10 +8,12 @@ Key features:
 - Two-step TAN support with HKTAN segments
 - System ID synchronization
 - BPD/UPD parameter management
+- Decoupled TAN handling (app-based approval)
 """
 from __future__ import annotations
 
 import logging
+import time
 from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Iterator, Mapping
@@ -153,7 +155,12 @@ class FinTSConnectionHelper:
 
         try:
             # Initialize dialog - with HKTAN if using two-step auth
-            dialog.initialize(extra_segments=extra_init_segments)
+            init_response = dialog.initialize(extra_segments=extra_init_segments)
+
+            # Handle decoupled TAN if required (code 3955 = app approval needed)
+            if init_response.get_response_by_code("3955"):
+                logger.info("Decoupled TAN required - waiting for app approval...")
+                self._handle_decoupled_tan(dialog, init_response, parameters)
 
             yield ConnectionContext(
                 dialog=dialog,
@@ -170,6 +177,125 @@ class FinTSConnectionHelper:
                 except Exception:
                     logger.exception("Error closing dialog")
             connection.close()
+
+    def _handle_decoupled_tan(
+        self,
+        dialog: Dialog,
+        init_response,
+        parameters: ParameterStore,
+        timeout: float = 120.0,
+        poll_interval: float = 2.0,
+    ) -> None:
+        """
+        Handle decoupled TAN approval (app-based authentication).
+
+        When the bank returns code 3955, the user needs to approve
+        in their banking app. This method polls until approval or timeout.
+
+        Args:
+            dialog: Active dialog
+            init_response: Response from dialog initialization
+            parameters: Parameter store to get HKTAN version from BPD
+            timeout: Maximum wait time in seconds
+            poll_interval: Time between poll attempts in seconds
+        """
+        # Find HITAN segment from init response
+        hitan = init_response.find_segment_first("HITAN")
+        if not hitan:
+            logger.warning("No HITAN segment in response, cannot poll")
+            return
+
+        # Get the task reference from HITAN for status polling
+        task_ref = getattr(hitan, "task_reference", None)
+        if not task_ref:
+            logger.warning("No task_reference in HITAN, cannot poll")
+            return
+
+        # Find highest supported HKTAN version
+        hitans = None
+        for seg in parameters.bpd.segments.find_segments("HITANS"):
+            if hitans is None or seg.header.version > hitans.header.version:
+                hitans = seg
+
+        if not hitans:
+            logger.warning("No HITANS in BPD, cannot build status HKTAN")
+            return
+
+        hktan_version = hitans.header.version
+        hktan_class = HKTAN_VERSIONS.get(hktan_version)
+
+        # Fall back to lower supported version
+        if not hktan_class:
+            for v in sorted(HKTAN_VERSIONS.keys(), reverse=True):
+                if v <= hktan_version:
+                    hktan_class = HKTAN_VERSIONS[v]
+                    hktan_version = v
+                    break
+
+        if not hktan_class:
+            logger.warning("No supported HKTAN version found for polling")
+            return
+
+        max_attempts = int(timeout / poll_interval)
+        attempts = 0
+
+        logger.info(
+            "Polling for decoupled TAN approval (timeout=%ss, interval=%ss)",
+            timeout,
+            poll_interval,
+        )
+
+        while attempts < max_attempts:
+            if attempts > 0:
+                time.sleep(poll_interval)
+
+            attempts += 1
+
+            # Build status query HKTAN with tan_process='S'
+            status_hktan = hktan_class(tan_process="S")
+
+            # Set task reference for status polling
+            if hasattr(status_hktan, "task_reference"):
+                status_hktan.task_reference = task_ref
+
+            # Required for status polling: indicate no more TANs follow
+            if hasattr(status_hktan, "further_tan_follows"):
+                status_hktan.further_tan_follows = False
+
+            logger.debug(
+                "Poll attempt %d: sending HKTAN status query", attempts
+            )
+
+            # Send status query (bypass HKTAN injection)
+            # Use internal method to avoid auto-HKTAN injection
+            response = dialog._send_segments(  # noqa: SLF001
+                [status_hktan], internal=True
+            )
+
+            # Check response codes
+            # 3956 = Still waiting for approval
+            # 0010/0020 = Success
+            if response.get_response_by_code("3956"):
+                logger.debug("Poll attempt %d: still waiting", attempts)
+                continue
+
+            # No 3956 means either success or error
+            if response.has_errors:
+                error_resp = next(
+                    (r for r in response.all_responses if r.is_error), None
+                )
+                err_text = error_resp.text if error_resp else "Unknown error"
+                logger.error("Decoupled TAN polling failed: %s", err_text)
+                raise ValueError(f"Decoupled TAN rejected: {err_text}")
+
+            logger.info("Decoupled TAN approved after %d attempts", attempts)
+            return
+
+        # Timeout
+        raise TimeoutError(
+            f"Decoupled TAN not approved within {timeout}s. "
+            "Please approve the login request in your banking app."
+        )
 
     def _create_main_dialog(
         self,
@@ -351,13 +477,12 @@ class FinTSConnectionHelper:
             system_id=SYSTEM_ID_UNASSIGNED,
         )
 
-        # Use the configured security function even for sync dialog
-        # The legacy client uses the same security function for all dialogs
-        security_function = creds.tan_method or "999"
-        # IMPORTANT: HNVSK uses security_method_version=2 for two-step TAN
-        enc_version = 2 if creds.tan_method else 1
+        # For sync dialog, always use one-step auth (security_function=999)
+        # Some banks (like DKB) reject two-step TAN during sync/identification
+        # The actual TAN method is only used in the main dialog
+        security_function = "999"
         enc_mechanism = StandaloneEncryptionMechanism(
-            security_context, security_method_version=enc_version
+            security_context, security_method_version=1  # One-step for sync
         )
         auth_mechanism = StandaloneAuthenticationMechanism(
             context=security_context,
