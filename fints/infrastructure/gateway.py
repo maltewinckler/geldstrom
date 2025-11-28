@@ -11,7 +11,8 @@ from xml.etree import ElementTree as ET
 import time as time_module
 
 from fints.application.ports import BankGateway, GatewayCredentials
-from fints.client import FinTS3PinTanClient, FinTSOperations, NeedTANResponse
+from fints.client import FinTS3PinTanClient, NeedTANResponse
+from fints.domain import FinTSOperations
 from fints.exceptions import FinTSUnsupportedOperation
 from fints.domain import (
     Account,

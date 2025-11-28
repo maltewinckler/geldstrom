@@ -1,10 +1,8 @@
 import datetime
 import logging
-from abc import ABCMeta, abstractmethod
 from base64 import b64decode
 from collections import OrderedDict
 from collections.abc import Iterable
-from contextlib import contextmanager
 from decimal import Decimal
 from enum import Enum
 
@@ -14,12 +12,15 @@ from sepaxml import SepaTransfer
 from . import version
 from .connection import FinTSHTTPSConnection
 from .dialog import FinTSDialog
+from .domain import FinTSOperations, NeedRetryResponse, ResponseStatus, TransactionResponse
+from .domain.responses import DATA_BLOB_MAGIC_RETRY, RESPONSE_STATUS_MAPPING
 from .exceptions import *
 from .formals import (
     CUSTOMER_ID_ANONYMOUS, KTI1, BankIdentifier, DescriptionRequired,
     SynchronizationMode, TANMediaClass4, TANMediaType2,
     SupportedMessageTypes, StatementFormat, TANUsageOption
 )
+from .infrastructure.legacy import DialogSessionManager
 from .message import FinTSInstituteMessage
 from .models import SEPAAccount
 from .parser import FinTS3Serializer
@@ -42,7 +43,7 @@ from .segments.statement import DKKKU2, HKKAZ5, HKKAZ6, HKKAZ7, HKCAZ1, HKKAU2, 
 from .segments.transfer import HKCCM1, HKCCS1, HKIPZ1, HKIPM1
 from .types import SegmentSequence
 from .utils import (
-    MT535_Miniparser, Password, SubclassesMixin,
+    MT535_Miniparser, Password,
     compress_datablob, decompress_datablob, mt940_to_array,
 )
 
@@ -50,111 +51,10 @@ logger = logging.getLogger(__name__)
 
 SYSTEM_ID_UNASSIGNED = '0'
 DATA_BLOB_MAGIC = b'python-fints_DATABLOB'
-DATA_BLOB_MAGIC_RETRY = b'python-fints_RETRY_DATABLOB'
 
 # workaround for ING not offering PSD2 conform two step authentication
 # ING only accepts one step authentication and only allows reading operations
 ING_BANK_IDENTIFIER = BankIdentifier(country_identifier='280', bank_code='50010517')
-
-
-class FinTSOperations(Enum):
-    """This enum is used as keys in the 'supported_operations' member of the get_information() response.
-
-    The enum value is a tuple of transaction types ("Geschäftsvorfälle"). The operation is supported if
-    any of the listed transaction types is present/allowed.
-    """
-    GET_BALANCE = ("HKSAL", )
-    GET_TRANSACTIONS = ("HKKAZ", )
-    GET_TRANSACTIONS_XML = ("HKCAZ", )
-    GET_CREDIT_CARD_TRANSACTIONS = ("DKKKU", )
-    GET_STATEMENT = ("HKEKA", )
-    GET_STATEMENT_PDF = ("HKEKP", )
-    GET_HOLDINGS = ("HKWPD", )
-    GET_SEPA_ACCOUNTS = ("HKSPA", )
-    GET_SCHEDULED_DEBITS_SINGLE = ("HKDBS", )
-    GET_SCHEDULED_DEBITS_MULTIPLE = ("HKDMB", )
-    GET_STATUS_PROTOCOL = ("HKPRO", )
-    SEPA_TRANSFER_SINGLE = ("HKCCS", )
-    SEPA_TRANSFER_MULTIPLE = ("HKCCM", )
-    SEPA_DEBIT_SINGLE = ("HKDSE", )
-    SEPA_DEBIT_MULTIPLE = ("HKDME", )
-    SEPA_DEBIT_SINGLE_COR1 = ("HKDSC", )
-    SEPA_DEBIT_MULTIPLE_COR1 = ("HKDMC", )
-    SEPA_STANDING_DEBIT_SINGLE_CREATE = ("HKDDE", )
-    GET_SEPA_STANDING_DEBITS_SINGLE = ("HKDDB", )
-    SEPA_STANDING_DEBIT_SINGLE_DELETE = ("HKDDL", )
-
-
-class NeedRetryResponse(SubclassesMixin, metaclass=ABCMeta):
-    """Base class for Responses that need the operation to be externally retried.
-
-    A concrete subclass of this class is returned, if an operation cannot be completed and needs a retry/completion.
-    Typical (and only) example: Requiring a TAN to be provided."""
-
-    @abstractmethod
-    def get_data(self) -> bytes:
-        """Return a compressed datablob representing this object.
-
-        To restore the object, use :func:`fints.client.NeedRetryResponse.from_data`.
-        """
-        raise NotImplementedError
-
-    @classmethod
-    def from_data(cls, blob):
-        """Restore an object instance from a compressed datablob.
-
-        Returns an instance of a concrete subclass."""
-        version, data = decompress_datablob(DATA_BLOB_MAGIC_RETRY, blob)
-
-        if version == 1:
-            for clazz in cls._all_subclasses():
-                if clazz.__name__ == data["_class_name"]:
-                    return clazz._from_data_v1(data)
-
-        raise Exception("Invalid data blob data or version")
-
-
-class ResponseStatus(Enum):
-    """Error status of the response"""
-
-    UNKNOWN = 0
-    SUCCESS = 1  #: Response indicates Success
-    WARNING = 2  #: Response indicates a Warning
-    ERROR = 3  #: Response indicates an Error
-
-
-_RESPONSE_STATUS_MAPPING = {
-    '0': ResponseStatus.SUCCESS,
-    '3': ResponseStatus.WARNING,
-    '9': ResponseStatus.ERROR,
-}
-
-
-class TransactionResponse:
-    """Result of a FinTS operation.
-
-    The status member indicates the highest type of errors included in this Response object.
-    The responses member lists all individual response lines/messages, there may be multiple (e.g. 'Message accepted' and 'Order executed').
-    The data member may contain further data appropriate to the operation that was executed."""
-    status = ResponseStatus
-    responses = list
-    data = dict
-
-    def __init__(self, response_message):
-        self.status = ResponseStatus.UNKNOWN
-        self.responses = []
-        self.data = {}
-
-        for hirms in response_message.find_segments(HIRMS2):
-            for resp in hirms.responses:
-                self.set_status_if_higher(_RESPONSE_STATUS_MAPPING.get(resp.code[0], ResponseStatus.UNKNOWN))
-
-    def set_status_if_higher(self, status):
-        if status.value > self.status.value:
-            self.status = status
-
-    def __repr__(self):
-        return "<{o.__class__.__name__}(status={o.status!r}, responses={o.responses!r}, data={o.data!r})>".format(o=self)
 
 
 class FinTSClientMode(Enum):
@@ -193,10 +93,22 @@ class FinTS3Client:
         self.response_callbacks = []
         self.mode = mode
         self.init_tan_response = None
-        self._standing_dialog = None
+        self._dialog_manager = DialogSessionManager(self)
 
         if from_data:
             self.set_data(bytes(from_data))
+
+    # ------------------------------------------------------------------
+    # Compatibility helpers exposing the legacy _standing_dialog attribute
+    # ------------------------------------------------------------------
+
+    @property
+    def _standing_dialog(self):  # pragma: no cover - thin compatibility shim
+        return self._dialog_manager.standing_dialog
+
+    @_standing_dialog.setter
+    def _standing_dialog(self, value):  # pragma: no cover - thin compatibility shim
+        self._dialog_manager.standing_dialog = value
 
     def _new_dialog(self, lazy_init=False):
         raise NotImplemented()
@@ -214,7 +126,9 @@ class FinTS3Client:
             self.bpd_version = bpa.bpd_version
             self.bpd = SegmentSequence(
                 message.find_segments(
-                    callback=lambda m: len(m.header.type) == 6 and m.header.type[1] == 'I' and m.header.type[5] == 'S'
+                    callback=lambda m: len(m.header.type) == 6
+                    and m.header.type[1] == 'I'
+                    and m.header.type[5] == 'S'
                 )
             )
 
@@ -251,34 +165,13 @@ class FinTS3Client:
         return resume_func(command_seg, response)
 
     def __enter__(self):
-        if self._standing_dialog:
-            raise Exception("Cannot double __enter__() {}".format(self))
-        self._standing_dialog = self._get_dialog()
-        self._standing_dialog.__enter__()
+        self._dialog_manager.enter()
 
     def __exit__(self, exc_type, exc_value, traceback):
-        if self._standing_dialog:
-            if exc_type is not None and issubclass(exc_type, FinTSSCARequiredError):
-                # In case of SCARequiredError, the dialog has already been closed by the bank
-                self._standing_dialog.open = False
-            else:
-                self._standing_dialog.__exit__(exc_type, exc_value, traceback)
-        else:
-            raise Exception("Cannot double __exit__() {}".format(self))
-
-        self._standing_dialog = None
+        self._dialog_manager.exit(exc_type, exc_value, traceback)
 
     def _get_dialog(self, lazy_init=False):
-        if lazy_init and self._standing_dialog:
-            raise Exception("Cannot _get_dialog(lazy_init=True) with _standing_dialog")
-
-        if self._standing_dialog:
-            return self._standing_dialog
-
-        if not lazy_init:
-            self._ensure_system_id()
-
-        return self._new_dialog(lazy_init=lazy_init)
+        return self._dialog_manager.get_dialog(lazy_init=lazy_init)
 
     def _set_data_v1(self, data):
         self.system_id = data.get('system_id', self.system_id)
@@ -943,11 +836,13 @@ class FinTS3Client:
             return self._send_with_possible_retry(dialog, seg, self._continue_sepa_transfer)
 
     def _continue_sepa_transfer(self, command_seg, response):
-        retval = TransactionResponse(response)
+        retval = TransactionResponse(response, HIRMS2)
 
         for seg in response.find_segments(HIRMS2):
             for resp in seg.responses:
-                retval.set_status_if_higher(_RESPONSE_STATUS_MAPPING.get(resp.code[0], ResponseStatus.UNKNOWN))
+                retval.set_status_if_higher(
+                    RESPONSE_STATUS_MAPPING.get(resp.code[0], ResponseStatus.UNKNOWN)
+                )
                 retval.responses.append(resp)
 
         return retval
@@ -1011,11 +906,13 @@ class FinTS3Client:
             return self._send_with_possible_retry(dialog, seg, self._continue_sepa_debit)
 
     def _continue_sepa_debit(self, command_seg, response):
-        retval = TransactionResponse(response)
+        retval = TransactionResponse(response, HIRMS2)
 
         for seg in response.find_segments(HIRMS2):
             for resp in seg.responses:
-                retval.set_status_if_higher(_RESPONSE_STATUS_MAPPING.get(resp.code[0], ResponseStatus.UNKNOWN))
+                retval.set_status_if_higher(
+                    RESPONSE_STATUS_MAPPING.get(resp.code[0], ResponseStatus.UNKNOWN)
+                )
                 retval.responses.append(resp)
 
         for seg in response.find_segments(DebitResponseBase):
@@ -1091,19 +988,11 @@ class FinTS3Client:
 
                 # Exiting the context here ends the dialog, unless frozen with pause_dialog() again.
         """
-        if not self._standing_dialog:
-            raise Exception("Cannot pause dialog, no standing dialog exists")
-        return self._standing_dialog.pause()
+        return self._dialog_manager.pause()
 
-    @contextmanager
     def resume_dialog(self, dialog_data):
         # FIXME document, test,    NOTE NO UNTRUSTED SOURCES
-        if self._standing_dialog:
-            raise Exception("Cannot resume dialog, existing standing dialog")
-        self._standing_dialog = FinTSDialog.create_resume(self, dialog_data)
-        with self._standing_dialog:
-            yield self
-        self._standing_dialog = None
+        return self._dialog_manager.resume(dialog_data)
 
 
 class NeedTANResponse(NeedRetryResponse):

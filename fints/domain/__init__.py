@@ -2,6 +2,8 @@
 from .accounts import Account, AccountCapabilities, AccountOwner
 from .balances import BalanceAmount, BalanceSnapshot
 from .bank import BankCapabilities, BankRoute
+from .operations import FinTSOperations
+from .responses import NeedRetryResponse, ResponseStatus, TransactionResponse
 from .session import SessionState
 from .transactions import TransactionEntry, TransactionFeed
 
@@ -13,7 +15,11 @@ __all__ = [
     "BalanceSnapshot",
     "BankCapabilities",
     "BankRoute",
+    "FinTSOperations",
+    "NeedRetryResponse",
+    "ResponseStatus",
     "SessionState",
     "TransactionEntry",
     "TransactionFeed",
+    "TransactionResponse",
 ]
