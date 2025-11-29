@@ -1,7 +1,7 @@
 """Shared connection helper for FinTS adapters.
 
 This module provides a unified way to create dialog connections
-with proper security mechanisms, replacing direct FinTS3PinTanClient usage.
+with proper security mechanisms.
 
 Key features:
 - Standalone security mechanisms (no legacy client dependency)
@@ -561,8 +561,8 @@ class FinTSConnectionHelper:
         """Extract parameter dictionary from client blob.
 
         The client blob can be:
-        1. Compressed bytes from legacy FinTS3PinTanClient.deconstruct()
-        2. A plain dictionary (from new ParameterStore.to_dict())
+        1. Compressed bytes (legacy format, for session state migration)
+        2. A plain dictionary (from ParameterStore.to_dict())
 
         Args:
             client_blob: Either compressed bytes or a dictionary

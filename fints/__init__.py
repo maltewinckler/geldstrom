@@ -21,9 +21,6 @@ Quick Start:
         for account in client.list_accounts():
             balance = client.get_balance(account)
             print(f"{account.iban}: {balance.booked.amount}")
-
-For legacy compatibility, the original FinTS3PinTanClient is still available
-but is deprecated in favor of the new FinTS3Client.
 """
 
 # Version
@@ -55,27 +52,6 @@ from fints.domain import (
 # --- Application exports ---
 from fints.application import GatewayCredentials
 
-# --- Legacy client (deprecated) ---
-# Import lazily to avoid circular imports and show deprecation on use
-
-
-def __getattr__(name: str):
-    """Lazy import for deprecated FinTS3PinTanClient."""
-    if name == "FinTS3PinTanClient":
-        import warnings
-
-        warnings.warn(
-            "FinTS3PinTanClient is deprecated. Use FinTS3Client instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        from fints.client import FinTS3PinTanClient
-
-        return FinTS3PinTanClient
-
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-
-
 __all__ = [
     # Version
     "version",
@@ -83,8 +59,6 @@ __all__ = [
     "FinTS3Client",
     "ReadOnlyFinTSClient",
     "ClientCredentials",
-    # Legacy (deprecated)
-    "FinTS3PinTanClient",
     # Domain models
     "Account",
     "AccountCapabilities",

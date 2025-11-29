@@ -3,32 +3,23 @@ from __future__ import annotations
 
 import hashlib
 import logging
-import time as time_module
-from contextlib import contextmanager
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
-from typing import TYPE_CHECKING, Any, Iterable, Sequence
+from typing import TYPE_CHECKING, Iterable, Sequence
 from xml.etree import ElementTree as ET
 
 from fints.application.ports import GatewayCredentials
-from fints.domain import Account, TransactionEntry, TransactionFeed
+from fints.domain import TransactionEntry, TransactionFeed
 from fints.domain.ports.transactions import TransactionHistoryPort
 from fints.exceptions import FinTSUnsupportedOperation
-from fints.infrastructure.fints.auth import NeedTANResponse
 from fints.infrastructure.fints.session import FinTSSessionState
 
 from .connection import FinTSConnectionHelper
 
 if TYPE_CHECKING:
-    from fints.client import FinTS3PinTanClient
     from fints.models import SEPAAccount
 
 logger = logging.getLogger(__name__)
-
-
-# Feature flag to enable new infrastructure
-# The new infrastructure uses dialog/operations modules directly
-USE_NEW_INFRASTRUCTURE = True
 
 
 class FinTSTransactionHistory(TransactionHistoryPort):
@@ -69,23 +60,6 @@ class FinTSTransactionHistory(TransactionHistoryPort):
         Returns:
             TransactionFeed with transaction entries
         """
-        if USE_NEW_INFRASTRUCTURE:
-            return self._fetch_history_new(
-                state, account_id, start_date, end_date, include_pending
-            )
-        return self._fetch_history_legacy(
-            state, account_id, start_date, end_date, include_pending
-        )
-
-    def _fetch_history_new(
-        self,
-        state: FinTSSessionState,
-        account_id: str,
-        start_date: date | None,
-        end_date: date | None,
-        include_pending: bool,
-    ) -> TransactionFeed:
-        """Fetch history using new infrastructure."""
         from fints.infrastructure.fints.operations import (
             AccountOperations,
             TransactionOperations,
@@ -98,7 +72,7 @@ class FinTSTransactionHistory(TransactionHistoryPort):
             tx_ops = TransactionOperations(ctx.dialog, ctx.parameters)
 
             # Find SEPA account
-            sepa_account = self._locate_sepa_account_new(account_ops, account_id)
+            sepa_account = self._locate_sepa_account(account_ops, account_id)
 
             try:
                 # Try MT940 format first
@@ -119,166 +93,19 @@ class FinTSTransactionHistory(TransactionHistoryPort):
                     result.pending_documents if include_pending else [],
                 )
 
-    def _fetch_history_legacy(
-        self,
-        state: FinTSSessionState,
-        account_id: str,
-        start_date: date | None,
-        end_date: date | None,
-        include_pending: bool,
-    ) -> TransactionFeed:
-        """Fetch history using legacy client."""
-        client = self._build_client(state)
+    # --- Helpers ---
 
-        with self._logged_in(client):
-            sepa_account = self._locate_sepa_account(client, account_id)
-
-            try:
-                # Try MT940 format first (HKKAZ)
-                transactions = client.get_transactions(
-                    sepa_account,
-                    start_date,
-                    end_date,
-                )
-                transactions = self._maybe_complete_tan(client, transactions)
-                return self._transactions_from_mt940(account_id, transactions)
-
-            except FinTSUnsupportedOperation:
-                # Fall back to CAMT format (HKCAZ)
-                streams = client.get_transactions_xml(
-                    sepa_account,
-                    start_date,
-                    end_date,
-                )
-                booked_streams, pending_streams = self._maybe_complete_tan(
-                    client,
-                    streams,
-                )
-                return self._transactions_from_camt(
-                    account_id,
-                    booked_streams,
-                    pending_streams if include_pending else [],
-                )
-
-    # --- New infrastructure helpers ---
-
-    def _locate_sepa_account_new(self, account_ops, account_id: str) -> "SEPAAccount":
+    def _locate_sepa_account(self, account_ops, account_id: str) -> "SEPAAccount":
         """Find SEPA account using operations."""
         for sepa in account_ops.fetch_sepa_accounts():
             if self._account_key(sepa) == account_id:
                 return sepa
         raise ValueError(f"Account {account_id} not available from bank")
 
-    # --- Legacy helpers ---
-
-    def _build_client(
-        self,
-        state: FinTSSessionState,
-    ) -> "FinTS3PinTanClient":
-        """Build a configured FinTS client from session state."""
-        from fints.client import FinTS3PinTanClient
-
-        creds = self._credentials
-        kwargs: dict[str, Any] = {
-            "bank_identifier": creds.route.bank_code,
-            "user_id": creds.user_id,
-            "pin": creds.pin,
-            "server": creds.server_url,
-            "customer_id": creds.customer_id or creds.user_id,
-            "product_id": creds.product_id,
-            "product_version": creds.product_version,
-            "tan_medium": creds.tan_medium,
-            "from_data": state.client_blob,
-            "system_id": state.system_id,
-        }
-
-        client = FinTS3PinTanClient(**kwargs)
-
-        if creds.tan_method:
-            client.set_tan_mechanism(creds.tan_method)
-
-        return client
-
-    @contextmanager
-    def _logged_in(self, client: "FinTS3PinTanClient"):
-        """Context manager for client login/logout."""
-        with client:
-            yield client
-
     @staticmethod
     def _account_key(account: "SEPAAccount") -> str:
         """Create lookup key from SEPA account."""
         return f"{account.accountnumber}:{account.subaccount or '0'}"
-
-    def _locate_sepa_account(
-        self,
-        client: "FinTS3PinTanClient",
-        account_id: str,
-    ) -> "SEPAAccount":
-        """Find SEPA account by account_id."""
-        for sepa in client.get_sepa_accounts():
-            if self._account_key(sepa) == account_id:
-                return sepa
-        raise ValueError(f"Account {account_id} not available from bank")
-
-    # --- TAN handling ---
-
-    def _maybe_complete_tan(self, client: "FinTS3PinTanClient", response):
-        """Handle TAN requirement if response is NeedTANResponse."""
-        if isinstance(response, NeedTANResponse):
-            return self._handle_need_tan_response(client, response)
-        return response
-
-    def _handle_need_tan_response(
-        self,
-        client: "FinTS3PinTanClient",
-        challenge: NeedTANResponse,
-    ):
-        """Handle decoupled TAN challenge."""
-        if not challenge.decoupled:
-            raise RuntimeError(
-                "Bank requires manual TAN entry for this operation; "
-                "interactive TAN handling is not implemented in the read-only client."
-            )
-
-        if challenge.challenge:
-            logger.warning(
-                "Awaiting approval in bank app: %s",
-                challenge.challenge,
-            )
-        else:
-            logger.warning("Awaiting approval in bank app for pending operation.")
-
-        return self._poll_decoupled_confirmation(client, challenge)
-
-    def _poll_decoupled_confirmation(
-        self,
-        client: "FinTS3PinTanClient",
-        challenge: NeedTANResponse,
-        interval_seconds: float = 2.0,
-        max_attempts: int = 30,
-    ):
-        """Poll for decoupled TAN confirmation."""
-        attempts = 0
-        current = challenge
-
-        while attempts < max_attempts:
-            if attempts:
-                time_module.sleep(interval_seconds)
-
-            result = client.send_tan(current, "")
-
-            if isinstance(result, NeedTANResponse):
-                current = result
-                attempts += 1
-                continue
-
-            return result
-
-        raise TimeoutError(
-            "Timed out waiting for decoupled TAN confirmation. "
-            "Please confirm the request in your banking app and try again."
-        )
 
     # --- MT940 parsing ---
 

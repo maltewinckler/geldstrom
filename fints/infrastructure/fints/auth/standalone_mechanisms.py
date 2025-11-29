@@ -1,7 +1,6 @@
 """Standalone security mechanisms for FinTS dialogs.
 
-These mechanisms don't require the legacy FinTS3PinTanClient and work
-directly with the Dialog/connection infrastructure.
+These mechanisms work directly with the Dialog/connection infrastructure.
 """
 from __future__ import annotations
 

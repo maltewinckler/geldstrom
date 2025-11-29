@@ -1,10 +1,46 @@
 # Legacy Client Deprecation Plan
 
+## ✅ COMPLETED - November 29, 2025
+
+The legacy client has been successfully removed! All functionality has been replaced
+with the new domain-driven design architecture.
+
+## Summary of Changes
+
+### Files Removed
+- `fints/client.py` (1058 LOC) - The monolithic legacy client
+- `fints/dialog.py` - Old dialog module
+- `fints/infrastructure/legacy/` (entire directory):
+  - `dialog_manager.py`
+  - `touchdown.py`
+  - `pintan.py`
+  - `tan.py`
+  - `__init__.py`
+- `fints/infrastructure/fints/services/` (entire directory - unused)
+- `fints/infrastructure/fints/auth/workflow.py` - Only used by legacy client
+- `fints/infrastructure/fints/auth/mechanisms.py` - Only used by legacy client
+- `tests/unit/test_client.py` - Tests for legacy client
+
+### Architecture Now
+- All adapters use `FinTSConnectionHelper` directly (no fallback)
+- All operations use `dialog/` and `operations/` modules
+- TAN handling via `standalone_mechanisms.py`
+- Clean separation: Domain → Application → Infrastructure
+
+### Test Results
+- 123 unit tests passing
+- 15 integration tests passing
+- Verified with Triodos and DKB banks
+
+---
+
+## Original Plan (Historical Reference)
+
 ## Goal
 
 Fully remove `fints/client.py` (1000+ LOC monolith) and all `fints/infrastructure/legacy/` files by replacing their functionality with clean, modular infrastructure components.
 
-## Current State
+## Historical State
 
 ### Files to Remove
 

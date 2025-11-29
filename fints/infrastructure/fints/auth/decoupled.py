@@ -4,16 +4,13 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Callable
+from typing import Callable
 
 from fints.domain.connection import (
     Challenge,
     ChallengeResult,
     DecoupledPoller,
 )
-
-if TYPE_CHECKING:
-    pass
 
 logger = logging.getLogger(__name__)
 
@@ -122,41 +119,8 @@ class DecoupledConfirmationPoller(DecoupledPoller):
         )
 
 
-def create_legacy_poller(client, send_tan_func) -> DecoupledConfirmationPoller:
-    """
-    Create a poller that works with the legacy FinTS client.
-
-    Args:
-        client: Legacy FinTS3PinTanClient instance
-        send_tan_func: Function to call for sending TAN (client.send_tan)
-
-    Returns:
-        Configured DecoupledConfirmationPoller
-    """
-    from .challenge import NeedTANResponse
-
-    def poll_function(challenge: Challenge) -> tuple[bool, Challenge | object]:
-        """Poll using the legacy client's send_tan method."""
-        if not isinstance(challenge, NeedTANResponse):
-            raise TypeError("Expected NeedTANResponse for legacy polling")
-
-        # Send empty TAN to poll status
-        result = send_tan_func(challenge, "")
-
-        # Check if we got another NeedTANResponse (still waiting)
-        if isinstance(result, NeedTANResponse):
-            return False, result
-
-        # Got actual result - confirmation received
-        return True, result
-
-    return DecoupledConfirmationPoller(poll_function)
-
-
 __all__ = [
     "DecoupledConfirmationPoller",
     "DecoupledPollingConfig",
     "PollFunction",
-    "create_legacy_poller",
 ]
-

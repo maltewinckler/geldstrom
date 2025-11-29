@@ -37,9 +37,8 @@ class FinTSReadOnlyGateway(BankGateway):
     Gateway for read-only FinTS banking operations.
 
     This gateway delegates to the infrastructure adapters, which handle
-    the actual FinTS protocol communication. The adapters support both
-    legacy (FinTS3PinTanClient) and new (dialog/operations) infrastructure
-    via feature flags.
+    the actual FinTS protocol communication using the dialog/operations
+    infrastructure.
 
     Example:
         gateway = FinTSReadOnlyGateway()

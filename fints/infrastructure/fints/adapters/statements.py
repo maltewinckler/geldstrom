@@ -2,8 +2,7 @@
 from __future__ import annotations
 
 import logging
-from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, Sequence
+from typing import TYPE_CHECKING, Sequence
 
 from fints.application.ports import GatewayCredentials
 from fints.domain import StatementDocument, StatementReference
@@ -14,15 +13,9 @@ from fints.infrastructure.fints.session import FinTSSessionState
 from .connection import FinTSConnectionHelper
 
 if TYPE_CHECKING:
-    from fints.client import FinTS3PinTanClient
     from fints.models import SEPAAccount
 
 logger = logging.getLogger(__name__)
-
-
-# Feature flag to enable new infrastructure
-# The new infrastructure uses dialog/operations modules directly
-USE_NEW_INFRASTRUCTURE = True
 
 
 class FinTSStatementAdapter(StatementPort):
@@ -56,16 +49,6 @@ class FinTSStatementAdapter(StatementPort):
         Returns:
             Sequence of StatementReference for available statements
         """
-        if USE_NEW_INFRASTRUCTURE:
-            return self._list_statements_new(state, account_id)
-        return self._list_statements_legacy(state, account_id)
-
-    def _list_statements_new(
-        self,
-        state: FinTSSessionState,
-        account_id: str,
-    ) -> Sequence[StatementReference]:
-        """List statements using new infrastructure."""
         from fints.infrastructure.fints.operations import (
             AccountOperations,
             StatementOperations,
@@ -78,27 +61,13 @@ class FinTSStatementAdapter(StatementPort):
             stmt_ops = StatementOperations(ctx.dialog, ctx.parameters)
 
             # Find SEPA account
-            sepa_account = self._locate_sepa_account_new(account_ops, account_id)
+            sepa_account = self._locate_sepa_account(account_ops, account_id)
 
             # List statements
             result = stmt_ops.list_statements(sepa_account)
 
             # Convert to domain objects
             return self._references_from_operations(account_id, result.statements)
-
-    def _list_statements_legacy(
-        self,
-        state: FinTSSessionState,
-        account_id: str,
-    ) -> Sequence[StatementReference]:
-        """List statements using legacy client."""
-        client = self._build_client(state)
-
-        with self._logged_in(client):
-            sepa_account = self._locate_sepa_account(client, account_id)
-            raw_statements = client.get_statements(sepa_account)
-
-        return self._parse_statement_list(account_id, raw_statements)
 
     def fetch_statement(
         self,
@@ -118,17 +87,6 @@ class FinTSStatementAdapter(StatementPort):
         Returns:
             StatementDocument with content
         """
-        if USE_NEW_INFRASTRUCTURE:
-            return self._fetch_statement_new(state, reference, preferred_mime_type)
-        return self._fetch_statement_legacy(state, reference, preferred_mime_type)
-
-    def _fetch_statement_new(
-        self,
-        state: FinTSSessionState,
-        reference: StatementReference,
-        preferred_mime_type: str | None,
-    ) -> StatementDocument:
-        """Fetch statement using new infrastructure."""
         from fints.infrastructure.fints.operations import (
             AccountOperations,
             StatementOperations,
@@ -141,7 +99,7 @@ class FinTSStatementAdapter(StatementPort):
             stmt_ops = StatementOperations(ctx.dialog, ctx.parameters)
 
             # Find SEPA account
-            sepa_account = self._locate_sepa_account_new(
+            sepa_account = self._locate_sepa_account(
                 account_ops, reference.account_id
             )
 
@@ -163,38 +121,19 @@ class FinTSStatementAdapter(StatementPort):
                 content=result.content or b"",
             )
 
-    def _fetch_statement_legacy(
-        self,
-        state: FinTSSessionState,
-        reference: StatementReference,
-        preferred_mime_type: str | None,
-    ) -> StatementDocument:
-        """Fetch statement using legacy client."""
-        client = self._build_client(state)
+    # --- Helpers ---
 
-        with self._logged_in(client):
-            sepa_account = self._locate_sepa_account(client, reference.account_id)
-
-            # Determine format from preference
-            fmt = self._format_from_mime(preferred_mime_type)
-
-            raw_statement = client.get_statement(
-                sepa_account,
-                number=reference.statement_number,
-                year=reference.year,
-                format=fmt,
-            )
-
-        return self._parse_statement_document(reference, raw_statement)
-
-    # --- New infrastructure helpers ---
-
-    def _locate_sepa_account_new(self, account_ops, account_id: str) -> "SEPAAccount":
+    def _locate_sepa_account(self, account_ops, account_id: str) -> "SEPAAccount":
         """Find SEPA account using operations."""
         for sepa in account_ops.fetch_sepa_accounts():
             if self._account_key(sepa) == account_id:
                 return sepa
         raise ValueError(f"Account {account_id} not available from bank")
+
+    @staticmethod
+    def _account_key(account: "SEPAAccount") -> str:
+        """Create lookup key from SEPA account."""
+        return f"{account.accountnumber}:{account.subaccount or '0'}"
 
     def _references_from_operations(
         self,
@@ -220,129 +159,6 @@ class FinTSStatementAdapter(StatementPort):
             references.append(ref)
 
         return tuple(references)
-
-    # --- Legacy helpers ---
-
-    def _build_client(
-        self,
-        state: FinTSSessionState,
-    ) -> "FinTS3PinTanClient":
-        """Build a configured FinTS client from session state."""
-        from fints.client import FinTS3PinTanClient
-
-        creds = self._credentials
-        kwargs: dict[str, Any] = {
-            "bank_identifier": creds.route.bank_code,
-            "user_id": creds.user_id,
-            "pin": creds.pin,
-            "server": creds.server_url,
-            "customer_id": creds.customer_id or creds.user_id,
-            "product_id": creds.product_id,
-            "product_version": creds.product_version,
-            "tan_medium": creds.tan_medium,
-            "from_data": state.client_blob,
-            "system_id": state.system_id,
-        }
-
-        client = FinTS3PinTanClient(**kwargs)
-
-        if creds.tan_method:
-            client.set_tan_mechanism(creds.tan_method)
-
-        return client
-
-    @contextmanager
-    def _logged_in(self, client: "FinTS3PinTanClient"):
-        """Context manager for client login/logout."""
-        with client:
-            yield client
-
-    @staticmethod
-    def _account_key(account: "SEPAAccount") -> str:
-        """Create lookup key from SEPA account."""
-        return f"{account.accountnumber}:{account.subaccount or '0'}"
-
-    def _locate_sepa_account(
-        self,
-        client: "FinTS3PinTanClient",
-        account_id: str,
-    ) -> "SEPAAccount":
-        """Find SEPA account by account_id."""
-        for sepa in client.get_sepa_accounts():
-            if self._account_key(sepa) == account_id:
-                return sepa
-        raise ValueError(f"Account {account_id} not available from bank")
-
-    def _parse_statement_list(
-        self,
-        account_id: str,
-        raw_statements: Sequence,
-    ) -> Sequence[StatementReference]:
-        """Convert raw statement list to StatementReference objects."""
-        references: list[StatementReference] = []
-
-        for raw in raw_statements:
-            # Extract statement metadata from raw response
-            number = getattr(raw, "statement_number", None)
-            year = getattr(raw, "year", None)
-            date = getattr(raw, "date", None)
-
-            if number is None or year is None:
-                continue
-
-            ref = StatementReference(
-                account_id=account_id,
-                statement_number=int(number),
-                year=int(year),
-                date=date,
-                available_formats=self._extract_formats(raw),
-            )
-            references.append(ref)
-
-        return tuple(references)
-
-    @staticmethod
-    def _extract_formats(raw) -> tuple[str, ...]:
-        """Extract available formats from raw statement info."""
-        formats: list[str] = []
-
-        # Check for PDF availability
-        if getattr(raw, "pdf_available", False):
-            formats.append("application/pdf")
-
-        # Check for MT940 availability
-        if getattr(raw, "mt940_available", True):  # Usually available
-            formats.append("application/x-mt940")
-
-        return tuple(formats) if formats else ("application/x-mt940",)
-
-    def _parse_statement_document(
-        self,
-        reference: StatementReference,
-        raw_statement,
-    ) -> StatementDocument:
-        """Convert raw statement to StatementDocument."""
-        content = getattr(raw_statement, "content", b"")
-        if isinstance(content, str):
-            content = content.encode("utf-8")
-
-        # Determine MIME type from content or format
-        mime_type = self._detect_mime_type(content)
-
-        return StatementDocument(
-            reference=reference,
-            mime_type=mime_type,
-            content=content,
-        )
-
-    @staticmethod
-    def _detect_mime_type(content: bytes) -> str:
-        """Detect MIME type from content."""
-        if content.startswith(b"%PDF"):
-            return "application/pdf"
-        if content.startswith(b":20:") or b"\n:20:" in content[:100]:
-            return "application/x-mt940"
-        return "application/octet-stream"
 
     @staticmethod
     def _format_from_mime(mime_type: str | None) -> StatementFormat | None:
