@@ -4,9 +4,6 @@ dist/
 *.egg-info
 env
 .idea/
-test*.py
-!tests/*
-tests/messages/private_*
 *.pyc
 
 .env

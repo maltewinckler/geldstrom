@@ -1,0 +1,311 @@
+"""Tests for the FinTS dialog infrastructure modules.
+
+These tests verify the Dialog and DialogFactory classes work correctly
+without depending on the legacy FinTS3PinTanClient.
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Sequence
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+from fints.constants import SYSTEM_ID_UNASSIGNED
+from fints.formals import Language2
+from fints.infrastructure.fints.dialog import (
+    ConnectionConfig,
+    Dialog,
+    DialogConfig,
+    DialogFactory,
+    DialogState,
+    DIALOG_ID_UNASSIGNED,
+    HTTPSDialogConnection,
+    ProcessedResponse,
+    ResponseProcessor,
+)
+from fints.infrastructure.fints.protocol import ParameterStore
+
+
+# ---------------------------------------------------------------------------
+# Fixtures
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def mock_connection():
+    """Create a mock HTTP connection."""
+    conn = MagicMock(spec=HTTPSDialogConnection)
+    conn.url = "https://test.bank/fints"
+    return conn
+
+
+@pytest.fixture
+def dialog_config():
+    """Create a basic dialog configuration."""
+    from fints.formals import BankIdentifier
+
+    bank_id = BankIdentifier("280", "12345678")
+
+    return DialogConfig(
+        bank_identifier=bank_id,
+        user_id="testuser",
+        customer_id="testuser",
+        system_id=SYSTEM_ID_UNASSIGNED,
+        product_name="TestProduct",
+        product_version="1.0",
+        language=Language2.DE,
+    )
+
+
+@pytest.fixture
+def parameter_store():
+    """Create an empty parameter store."""
+    return ParameterStore()
+
+
+@pytest.fixture
+def mock_response():
+    """Create a mock ProcessedResponse."""
+    return ProcessedResponse(
+        dialog_id="test-dialog-123",
+        message_number=1,
+        global_responses=[],
+        segment_responses=[],
+        bpd_version=78,
+        upd_version=5,
+    )
+
+
+# ---------------------------------------------------------------------------
+# DialogState Tests
+# ---------------------------------------------------------------------------
+
+
+class TestDialogState:
+    """Tests for DialogState dataclass."""
+
+    def test_default_values(self):
+        """DialogState should have sensible defaults."""
+        state = DialogState()
+        assert state.dialog_id == DIALOG_ID_UNASSIGNED
+        assert state.message_number == 1
+        assert state.is_open is False
+        assert state.is_initialized is False
+
+    def test_custom_values(self):
+        """DialogState should accept custom values."""
+        state = DialogState(
+            dialog_id="custom-123",
+            message_number=5,
+            is_open=True,
+            is_initialized=True,
+        )
+        assert state.dialog_id == "custom-123"
+        assert state.message_number == 5
+        assert state.is_open is True
+
+
+# ---------------------------------------------------------------------------
+# DialogConfig Tests
+# ---------------------------------------------------------------------------
+
+
+class TestDialogConfig:
+    """Tests for DialogConfig dataclass."""
+
+    def test_minimal_config(self):
+        """DialogConfig should require only essential fields."""
+        from fints.formals import BankIdentifier
+
+        bank_id = BankIdentifier("280", "12345678")
+        config = DialogConfig(
+            bank_identifier=bank_id,
+            user_id="user",
+            customer_id="customer",
+        )
+        assert config.user_id == "user"
+        assert config.system_id == SYSTEM_ID_UNASSIGNED
+        assert config.language == Language2.DE
+
+    def test_full_config(self, dialog_config):
+        """DialogConfig should accept all fields."""
+        assert dialog_config.user_id == "testuser"
+        assert dialog_config.product_name == "TestProduct"
+        assert dialog_config.product_version == "1.0"
+
+
+# ---------------------------------------------------------------------------
+# Dialog Tests
+# ---------------------------------------------------------------------------
+
+
+class TestDialog:
+    """Tests for Dialog class."""
+
+    def test_dialog_creation(self, mock_connection, dialog_config, parameter_store):
+        """Dialog should initialize with correct state."""
+        dialog = Dialog(
+            connection=mock_connection,
+            config=dialog_config,
+            parameters=parameter_store,
+        )
+
+        assert dialog.dialog_id == DIALOG_ID_UNASSIGNED
+        assert dialog.is_open is False
+        assert dialog.parameters is parameter_store
+
+    def test_dialog_cannot_send_when_closed(
+        self, mock_connection, dialog_config, parameter_store
+    ):
+        """Dialog.send() should raise if not open."""
+        dialog = Dialog(
+            connection=mock_connection,
+            config=dialog_config,
+            parameters=parameter_store,
+        )
+
+        with pytest.raises(Exception, match="not open"):
+            dialog.send(MagicMock())
+
+    def test_dialog_cannot_init_twice(
+        self, mock_connection, dialog_config, parameter_store, mock_response
+    ):
+        """Dialog.initialize() should raise if already open."""
+        dialog = Dialog(
+            connection=mock_connection,
+            config=dialog_config,
+            parameters=parameter_store,
+        )
+
+        # Mock the entire _send_segments to bypass message building
+        with patch.object(dialog, "_send_segments") as mock_send:
+            mock_send.return_value = mock_response
+
+            # First init should work
+            dialog.initialize()
+            assert dialog.is_open
+
+            # Second init should fail
+            with pytest.raises(Exception, match="already open"):
+                dialog.initialize()
+
+    def test_dialog_end_when_not_open(
+        self, mock_connection, dialog_config, parameter_store
+    ):
+        """Dialog.end() should be safe when not open."""
+        dialog = Dialog(
+            connection=mock_connection,
+            config=dialog_config,
+            parameters=parameter_store,
+        )
+
+        # Should not raise
+        dialog.end()
+        assert not dialog.is_open
+
+
+# ---------------------------------------------------------------------------
+# ConnectionConfig Tests
+# ---------------------------------------------------------------------------
+
+
+class TestConnectionConfig:
+    """Tests for ConnectionConfig dataclass."""
+
+    def test_minimal_config(self):
+        """ConnectionConfig should require only URL."""
+        config = ConnectionConfig(url="https://bank.example/fints")
+        assert config.url == "https://bank.example/fints"
+        assert config.timeout == 30.0
+        assert config.max_retries == 3
+
+    def test_custom_timeout(self):
+        """ConnectionConfig should accept custom timeout."""
+        config = ConnectionConfig(url="https://bank.example/fints", timeout=60.0)
+        assert config.timeout == 60.0
+
+
+# ---------------------------------------------------------------------------
+# HTTPSDialogConnection Tests
+# ---------------------------------------------------------------------------
+
+
+class TestHTTPSDialogConnection:
+    """Tests for HTTPSDialogConnection class."""
+
+    def test_creation_from_string(self):
+        """HTTPSDialogConnection should accept URL string."""
+        with patch("requests.Session"):
+            conn = HTTPSDialogConnection("https://test.bank/fints")
+            assert conn.url == "https://test.bank/fints"
+
+    def test_creation_from_config(self):
+        """HTTPSDialogConnection should accept ConnectionConfig."""
+        config = ConnectionConfig(url="https://test.bank/fints", timeout=45.0)
+        with patch("requests.Session"):
+            conn = HTTPSDialogConnection(config)
+            assert conn.url == "https://test.bank/fints"
+
+
+# ---------------------------------------------------------------------------
+# DialogFactory Tests
+# ---------------------------------------------------------------------------
+
+
+class TestDialogFactory:
+    """Tests for DialogFactory class."""
+
+    def test_factory_creation(self, dialog_config, parameter_store):
+        """DialogFactory should initialize correctly."""
+        factory = DialogFactory(
+            connection_config="https://test.bank/fints",
+            dialog_config=dialog_config,
+            parameters=parameter_store,
+        )
+        assert factory._dialog_config is dialog_config
+        assert factory._parameters is parameter_store
+
+    def test_factory_accepts_connection_config(self, dialog_config, parameter_store):
+        """DialogFactory should accept ConnectionConfig."""
+        config = ConnectionConfig(url="https://test.bank/fints")
+        factory = DialogFactory(
+            connection_config=config,
+            dialog_config=dialog_config,
+            parameters=parameter_store,
+        )
+        assert factory._connection_config.url == "https://test.bank/fints"
+
+    def test_create_dialog(self, dialog_config, parameter_store):
+        """DialogFactory.create_dialog() should create uninitialized dialog."""
+        factory = DialogFactory(
+            connection_config="https://test.bank/fints",
+            dialog_config=dialog_config,
+            parameters=parameter_store,
+        )
+
+        with patch.object(HTTPSDialogConnection, "__init__", return_value=None):
+            dialog = factory.create_dialog()
+            assert isinstance(dialog, Dialog)
+            assert not dialog.is_open
+
+
+# ---------------------------------------------------------------------------
+# ResponseProcessor Tests
+# ---------------------------------------------------------------------------
+
+
+class TestResponseProcessor:
+    """Tests for ResponseProcessor class."""
+
+    def test_callback_registration(self):
+        """ResponseProcessor should manage callbacks."""
+        processor = ResponseProcessor()
+
+        callback = MagicMock()
+        processor.add_callback(callback)
+        assert callback in processor._callbacks
+
+        processor.remove_callback(callback)
+        assert callback not in processor._callbacks
+
