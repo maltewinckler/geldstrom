@@ -142,7 +142,7 @@ class BalanceOperations:
         hisal_class = SUPPORTED_HISAL.get(version)
         if not hisal_class:
             # Fall back to generic segment search
-            hisal_type = f"HISAL"
+            hisal_type = "HISAL"
         else:
             hisal_type = hisal_class
 

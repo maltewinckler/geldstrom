@@ -1,3 +1,20 @@
+"""Legacy FinTS parser (Container-based).
+
+.. deprecated::
+    This module is deprecated. For new code, use the Pydantic-based parser
+    from `fints.infrastructure.fints.protocol`:
+
+    Example migration:
+        # Old (deprecated)
+        from fints.parser import FinTS3Parser, FinTS3Serializer
+
+        # New (Pydantic-based)
+        from fints.infrastructure.fints.protocol import (
+            FinTSParser,
+            FinTSSerializer,
+            SegmentRegistry,
+        )
+"""
 import re
 import warnings
 from collections.abc import Iterable
@@ -13,12 +30,12 @@ from .segments import (  # noqa
 )
 from .segments.base import FinTS3Segment
 
-# 
+#
 # FinTS 3.0 structure:
 #     Message := ( Segment "'" )+
 #     Segment := ( DEG "+" )+
 #     DEG     := ( ( DE | DEG ) ":")+
-#  
+#
 #  First DEG in segment is segment header
 #  Many DEG (Data Element Group) on Segment level are just DE (Data Element),
 #  Recursion DEG -> DEG must be limited, since no other separator characters
@@ -30,7 +47,7 @@ from .segments.base import FinTS3Segment
 #    1. level: Sequence of Segments
 #    2. level: Sequence of Data Elements or Data Element Groups
 #    3. level: Flat sequence of possibly nested Data Element or Data Element Groups
-# 
+#
 #    On level 2 each item can be either a single item (a single Data Element), or
 #    a sequence. A sequence on level 2 can be either a repeated Data Element, or
 #    a flat representation of a Data Element Group or repeated Data Element Group.
@@ -94,7 +111,7 @@ class ParserState:
         pos = start
         unclaimed = []
         last_was = None
-        
+
         while pos < end:
             match = TOKEN_RE.match(data[pos:end])
             if match:
@@ -172,7 +189,7 @@ class FinTS3Parser:
         for name, field in seg._fields.items():
             repeat = field.count != 1
             constructed = isinstance(field, DataElementGroupField)
-            
+
             if not repeat:
                 try:
                     val = next(data)
@@ -379,7 +396,7 @@ class FinTS3Serializer:
 
         if segment._additional_data:
             seg.extend(segment._additional_data)
-            
+
         return seg
 
     def serialize_deg(self, deg, allow_skip=False):

@@ -138,7 +138,6 @@ class ChallengeHandler(Protocol):
         Returns:
             ChallengeResult with user's response or status
         """
-        ...
 
 
 @runtime_checkable
@@ -174,7 +173,6 @@ class DecoupledPoller(Protocol):
         Returns:
             ChallengeResult indicating success, timeout, or cancellation
         """
-        ...
 
 
 class InteractiveChallengeHandler:

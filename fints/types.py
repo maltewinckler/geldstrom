@@ -1,3 +1,23 @@
+"""Legacy FinTS type system (Container-based).
+
+.. deprecated::
+    This module is deprecated. For new code, use the Pydantic-based types
+    from `fints.infrastructure.fints.protocol`:
+
+    - `fints.infrastructure.fints.protocol.types` - Annotated types
+    - `fints.infrastructure.fints.protocol.base` - Base models
+
+    Example migration:
+        # Old (deprecated)
+        from fints.types import Container, SegmentSequence
+
+        # New (Pydantic-based)
+        from fints.infrastructure.fints.protocol import (
+            FinTSModel,
+            FinTSSegment,
+            SegmentSequence,
+        )
+"""
 from collections import OrderedDict
 from collections.abc import Iterable
 from contextlib import suppress

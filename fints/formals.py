@@ -1,3 +1,23 @@
+"""Legacy FinTS formal definitions (Container-based).
+
+.. deprecated::
+    This module is deprecated. For new code, use the Pydantic-based models
+    from `fints.infrastructure.fints.protocol`:
+
+    - `fints.infrastructure.fints.protocol.formals` - Data Element Groups
+    - `fints.infrastructure.fints.protocol.segments` - Segment definitions
+
+    Example migration:
+        # Old (deprecated)
+        from fints.formals import Amount1, Balance2, KTI1
+
+        # New (Pydantic-based)
+        from fints.infrastructure.fints.protocol import (
+            Amount,
+            Balance,
+            AccountInternational,
+        )
+"""
 import re
 
 

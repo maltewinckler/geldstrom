@@ -1,3 +1,24 @@
+"""Legacy FinTS field definitions (descriptor-based).
+
+.. deprecated::
+    This module is deprecated. For new code, use the Pydantic-based types
+    from `fints.infrastructure.fints.protocol`:
+
+    - `fints.infrastructure.fints.protocol.types` - Annotated types for fields
+    - `fints.infrastructure.fints.protocol.base` - Base DEG/Segment models
+
+    Example migration:
+        # Old (deprecated)
+        from fints.fields import DataElementField, DataElementGroupField
+
+        # New (Pydantic-based)
+        from fints.infrastructure.fints.protocol import (
+            FinTSDataElementGroup,
+            FinTSSegment,
+            FinTSDate,
+            FinTSAmount,
+        )
+"""
 import datetime
 import decimal
 import re
@@ -22,7 +43,7 @@ class ContainerField(TypedField):
 
     def _default_value(self):
         return self.type()
-    
+
 
 class DataElementGroupField(DocTypeMixin, ContainerField):
     pass
@@ -45,7 +66,7 @@ class GenericGroupField(DataElementGroupField):
             return Container()
         else:
             return self.type()
-    
+
     def _parse_value(self, value):
         if self.type is None:
             warnings.warn("Generic field used for type {!r} value {!r}".format(self.type, value))
@@ -73,7 +94,7 @@ class NumericField(FieldRenderFormatStringMixin, DataElementField):
     _DOC_TYPE = int
     _FORMAT_STRING = "{:d}"
 
-    def _parse_value(self, value): 
+    def _parse_value(self, value):
         _value = str(value)
         if len(_value) > 1 and _value[0] == '0':
             raise ValueError("Leading zeroes not allowed for value of type 'num': {!r}".format(value))
@@ -103,7 +124,7 @@ class DigitsField(FieldRenderFormatStringMixin, DataElementField):
     _DOC_TYPE = str
     _FORMAT_STRING = "{}"
 
-    def _parse_value(self, value): 
+    def _parse_value(self, value):
         _value = str(value)
         if not re.match(r'^\d*$', _value):
             raise TypeError("Only digits allowed for value of type 'dig': {!r}".format(value))
@@ -119,7 +140,7 @@ class FloatField(DataElementField):
     def _parse_value(self, value):
         if isinstance(value, float):
             return value
-        
+
         if isinstance(value, decimal.Decimal):
             value = str(value.normalize()).replace(".", ",")
 
