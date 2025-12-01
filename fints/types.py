@@ -234,6 +234,13 @@ class ValueList:
 # fallbacks for bank-specific extensions.
 USE_PYDANTIC_PARSER = True
 
+# Strict parsing mode - when True, parser errors raise exceptions instead of warnings.
+# This is useful for testing and migration validation. When False (default),
+# unknown segments and parsing errors become warnings and fallback objects.
+# Set via environment variable FINTS_STRICT_PARSING=1 or programmatically.
+import os as _os
+STRICT_PARSING = _os.environ.get("FINTS_STRICT_PARSING", "").lower() in ("1", "true", "yes")
+
 
 class SegmentSequence:
     """A sequence of FinTS segment objects (Pydantic or legacy).
@@ -241,23 +248,41 @@ class SegmentSequence:
     This class bridges between the legacy Container-based segments and the
     new Pydantic-based segments. It can parse messages using either the
     legacy parser (default) or the Pydantic parser (when USE_PYDANTIC_PARSER=True).
+
+    Parsing Modes:
+        - Normal (default): Unknown segments become warnings, fallbacks are used
+        - Strict (STRICT_PARSING=True): Unknown segments raise exceptions
+
+    To enable strict mode:
+        - Set environment variable: FINTS_STRICT_PARSING=1
+        - Or set module flag: fints.types.STRICT_PARSING = True
+        - Or pass strict=True to constructor
     """
 
-    def __init__(self, segments=None, use_pydantic: bool | None = None):
+    def __init__(
+        self,
+        segments=None,
+        use_pydantic: bool | None = None,
+        strict: bool | None = None,
+    ):
         """Initialize a segment sequence.
 
         Args:
             segments: Either a list of segment objects, or raw bytes to parse.
             use_pydantic: Override USE_PYDANTIC_PARSER flag for this instance.
                          If None, uses the module-level flag.
+            strict: Override STRICT_PARSING flag. If True, parsing errors raise
+                   exceptions instead of warnings. Useful for testing.
         """
         if isinstance(segments, bytes):
             should_use_pydantic = use_pydantic if use_pydantic is not None else USE_PYDANTIC_PARSER
+            strict_mode = strict if strict is not None else STRICT_PARSING
 
             if should_use_pydantic:
                 # Use Pydantic parser for response parsing
                 from .infrastructure.fints.protocol.parser import FinTSParser
-                parser = FinTSParser(robust_mode=True)
+                # In strict mode, disable robust_mode to get exceptions
+                parser = FinTSParser(robust_mode=not strict_mode)
                 result = parser.parse_message(segments)
                 segments = list(result.segments)
             else:

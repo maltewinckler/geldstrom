@@ -23,6 +23,8 @@ from ..types import (
 from ..formals import (
     AccountIdentifier,
     AccountInternational,
+    BookedCamtStatements,
+    SupportedMessageTypes,
 )
 
 
@@ -231,8 +233,7 @@ class HKCAZ1(FinTSSegment):
     account: AccountInternational = Field(
         description="Kontoverbindung international",
     )
-    supported_camt_messages: list[FinTSAlphanumeric] = Field(
-        max_length=99,
+    supported_camt_messages: SupportedMessageTypes = Field(
         description="Unterstützte camt-messages",
     )
     all_accounts: FinTSBool = Field(
@@ -286,8 +287,7 @@ class HICAZ1(FinTSSegment):
     camt_descriptor: FinTSAlphanumeric = Field(
         description="camt-Deskriptor (e.g., urn:iso:std:iso:20022:tech:xsd:camt.052.001.02)",
     )
-    statement_booked: list[FinTSBinary] = Field(
-        min_length=1,
+    statement_booked: BookedCamtStatements = Field(
         description="Gebuchte Umsätze (CAMT XML)",
     )
     statement_pending: FinTSBinary | None = Field(

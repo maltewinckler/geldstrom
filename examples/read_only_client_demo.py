@@ -19,8 +19,15 @@ credentials and product metadata used to open the FinTS dialog:
     FINTS_TAN_METHOD=944
 
 The script prints discovered accounts and fetches the balance + recent transactions
-for the first account. It intentionally avoids storing session data persistently;
-feel free to extend `persist_session`/`load_session` helpers for your environment.
+for the first account.
+
+IMPORTANT: For banks with decoupled TAN (SecureGo, pushTAN, etc.), you will
+receive a push notification to approve the connection. The script will wait
+up to 120 seconds for approval before timing out.
+
+For more focused examples, see:
+- fetch_balance.py - Just fetch account balances
+- fetch_transactions.py - Fetch transaction history with date filters
 """
 from __future__ import annotations
 

@@ -1,9 +1,17 @@
+import glob
+import os.path
 import pytest
 from fints.formals import (
     Container, ContainerField, DataElementField,
     DataElementGroupField, DigitsField, Field, GenericGroupField,
     NumericField, SegmentHeader, SegmentSequence,
 )
+
+# Load TEST_MESSAGES directly to avoid import issues
+TEST_MESSAGES = {
+    os.path.basename(f).rsplit('.')[0]: open(f, 'rb').read() for f in
+    glob.glob(os.path.join(os.path.dirname(__file__), "messages", "*.bin"))
+}
 
 
 def test_container_simple():
@@ -329,7 +337,6 @@ def test_container_generic():
 
 
 def test_find_1():
-    from conftest import TEST_MESSAGES
     from fints.parser import FinTS3Parser
     from fints.segments.message import HNHBS1, HNHBK3
 
@@ -353,7 +360,6 @@ def test_find_1():
 
 
 def test_find_by_class():
-    from conftest import TEST_MESSAGES
     from fints.parser import FinTS3Parser
     from fints.segments.message import HNHBS1
 

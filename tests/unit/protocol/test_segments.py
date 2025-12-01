@@ -23,9 +23,11 @@ from fints.infrastructure.fints.protocol.formals import (
     Balance,
     BalanceSimple,
     BankIdentifier,
+    BookedCamtStatements,
     Confirmation,
     CreditDebit,
     StatementFormat,
+    SupportedMessageTypes,
     Timestamp,
 )
 from fints.infrastructure.fints.protocol.segments import (
@@ -500,15 +502,19 @@ class TestHKCAZ:
             bic="COBADEFFXXX",
         )
 
+        camt_messages = SupportedMessageTypes(
+            expected_type=["urn:iso:std:iso:20022:tech:xsd:camt.052.001.02"],
+        )
+
         segment = HKCAZ1(
             header=sample_header,
             account=account,
-            supported_camt_messages=["urn:iso:std:iso:20022:tech:xsd:camt.052.001.02"],
+            supported_camt_messages=camt_messages,
             all_accounts=False,
         )
         assert segment.SEGMENT_TYPE == "HKCAZ"
         assert segment.SEGMENT_VERSION == 1
-        assert len(segment.supported_camt_messages) == 1
+        assert len(segment.supported_camt_messages.expected_type) == 1
 
 
 class TestHICAZ:
@@ -524,11 +530,15 @@ class TestHICAZ:
             bic="COBADEFFXXX",
         )
 
+        booked = BookedCamtStatements(
+            camt_statements=[b"<Document>...</Document>"],
+        )
+
         segment = HICAZ1(
             header=sample_header,
             account=account,
             camt_descriptor="urn:iso:std:iso:20022:tech:xsd:camt.052.001.02",
-            statement_booked=[b"<Document>...</Document>"],
+            statement_booked=booked,
         )
         assert segment.camt_descriptor.startswith("urn:iso")
 

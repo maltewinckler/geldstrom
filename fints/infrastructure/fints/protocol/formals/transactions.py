@@ -44,7 +44,7 @@ class BookedCamtStatements(FinTSDataElementGroup):
     Source: FinTS 3.0 Messages - Multibankfähige Geschäftsvorfälle
     """
 
-    statements: list[FinTSBinary] = Field(
+    camt_statements: list[FinTSBinary] = Field(
         min_length=1,
         description="camt-Umsätze (XML)",
     )

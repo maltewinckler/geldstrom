@@ -15,6 +15,7 @@ from fints.domain import (
 from fints.domain.ports.accounts import AccountDiscoveryPort
 from fints.infrastructure.fints.protocol import BankIdentifier as FinTSBankIdentifier
 from fints.infrastructure.fints.session import FinTSSessionState
+from fints.infrastructure.fints.operations import AccountInfo
 
 from .connection import FinTSConnectionHelper
 
@@ -79,7 +80,7 @@ class FinTSAccountDiscovery(AccountDiscoveryPort):
         Returns:
             Sequence of Account domain objects
         """
-        from fints.infrastructure.fints.operations import AccountOperations, AccountInfo
+        from fints.infrastructure.fints.operations import AccountOperations
 
         helper = FinTSConnectionHelper(self._credentials)
 

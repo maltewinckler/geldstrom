@@ -166,21 +166,32 @@ class Dialog:
                 "Couldn't establish dialog with bank"
             ) from e
 
-    def send(self, *segments) -> ProcessedResponse:
+    def send(
+        self,
+        *segments,
+        decoupled_timeout: float = 120.0,
+        decoupled_poll_interval: float = 2.0,
+    ) -> ProcessedResponse:
         """
         Send segments to the bank within this dialog.
 
         For two-step TAN dialogs, this automatically injects HKTAN segments
         after business operations (segments that are not dialog management).
 
+        If the bank returns code 3955 (decoupled TAN required), this method
+        will automatically poll for approval using the configured timeout.
+
         Args:
             *segments: Segments to send
+            decoupled_timeout: Maximum wait time for decoupled TAN approval
+            decoupled_poll_interval: Time between poll attempts
 
         Returns:
             Processed response from the bank
 
         Raises:
             FinTSDialogStateError: If dialog is not open
+            TimeoutError: If decoupled TAN not approved within timeout
         """
         if not self._state.is_open:
             raise FinTSDialogStateError("Cannot send on dialog that is not open")
@@ -190,7 +201,19 @@ class Dialog:
         if self.is_two_step_tan:
             segment_list = self._inject_hktan_for_business_segments(segment_list)
 
-        return self._send_segments(segment_list, internal=False)
+        response = self._send_segments(segment_list, internal=False)
+
+        # Handle decoupled TAN if required (code 3955 = app approval needed)
+        if response.get_response_by_code("3955"):
+            logger.info("Decoupled TAN required for operation - waiting for app approval...")
+            # The final approval response contains the business data
+            final_response = self._handle_decoupled_tan(
+                response, decoupled_timeout, decoupled_poll_interval
+            )
+            if final_response is not None:
+                return final_response
+
+        return response
 
     def _inject_hktan_for_business_segments(self, segments: list) -> list:
         """
@@ -303,6 +326,134 @@ class Dialog:
         # IMPORTANT: Do NOT set tan_medium_name (legacy client sends it as None)
 
         return hktan
+
+    def _handle_decoupled_tan(
+        self,
+        init_response: ProcessedResponse,
+        timeout: float = 120.0,
+        poll_interval: float = 2.0,
+    ) -> ProcessedResponse | None:
+        """
+        Handle decoupled TAN approval (app-based authentication).
+
+        When the bank returns code 3955, the user needs to approve
+        in their banking app. This method polls until approval or timeout.
+
+        Args:
+            init_response: Response that triggered decoupled TAN
+            timeout: Maximum wait time in seconds
+            poll_interval: Time between poll attempts in seconds
+
+        Returns:
+            The final response after approval (contains business data), or None
+
+        Raises:
+            TimeoutError: If approval not received within timeout
+            ValueError: If TAN is rejected
+        """
+        import time
+
+        # Find HITAN segment from response
+        hitan = init_response.find_segment_first("HITAN")
+        if not hitan:
+            logger.warning("No HITAN segment in response, cannot poll for approval")
+            return None
+
+        # Get the task reference from HITAN for status polling
+        task_ref = getattr(hitan, "task_reference", None)
+        if not task_ref:
+            logger.warning("No task_reference in HITAN, cannot poll for approval")
+            return None
+
+        # Find highest supported HKTAN version
+        hitans = None
+        for seg in self._parameters.bpd.segments.find_segments("HITANS"):
+            if hitans is None or seg.header.version > hitans.header.version:
+                hitans = seg
+
+        if not hitans:
+            logger.warning("No HITANS in BPD, cannot build status HKTAN")
+            return None
+
+        hktan_version = hitans.header.version
+        hktan_class = HKTAN_VERSIONS.get(hktan_version)
+
+        # Fall back to lower supported version
+        if not hktan_class:
+            for v in sorted(HKTAN_VERSIONS.keys(), reverse=True):
+                if v <= hktan_version:
+                    hktan_class = HKTAN_VERSIONS[v]
+                    hktan_version = v
+                    break
+
+        if not hktan_class:
+            logger.warning("No supported HKTAN version found for polling")
+            return None
+
+        max_attempts = int(timeout / poll_interval)
+        attempts = 0
+
+        logger.info(
+            "Polling for decoupled TAN approval (timeout=%ss, interval=%ss)",
+            timeout,
+            poll_interval,
+        )
+
+        while attempts < max_attempts:
+            if attempts > 0:
+                time.sleep(poll_interval)
+
+            attempts += 1
+
+            # Build status query HKTAN with tan_process='S'
+            status_hktan = hktan_class(tan_process="S")
+
+            # Set task reference for status polling
+            if hasattr(status_hktan, "task_reference"):
+                status_hktan.task_reference = task_ref
+
+            # Required for status polling: indicate no more TANs follow
+            if hasattr(status_hktan, "further_tan_follows"):
+                status_hktan.further_tan_follows = False
+
+            logger.debug(
+                "Poll attempt %d: sending HKTAN status query", attempts
+            )
+
+            # Send status query (bypass HKTAN injection)
+            response = self._send_segments([status_hktan], internal=True)
+
+            # Check response codes
+            # 3956 = Still waiting for approval
+            # 0010/0020 = Success
+            if response.get_response_by_code("3956"):
+                logger.debug("Poll attempt %d: still waiting for approval", attempts)
+                continue
+
+            # No 3956 means either success or error
+            if response.has_errors:
+                error_resp = next(
+                    (r for r in response.all_responses if r.is_error), None
+                )
+                err_text = error_resp.text if error_resp else "Unknown error"
+                logger.error("Decoupled TAN polling failed: %s", err_text)
+                # Common error: "Die Nachricht enthält Fehler" means bank timeout
+                if "Nachricht enthält Fehler" in err_text or "message" in err_text.lower():
+                    raise TimeoutError(
+                        "The bank's TAN request expired. Please try again and approve "
+                        "the request in your banking app before it times out."
+                    )
+                raise ValueError(f"Decoupled TAN rejected: {err_text}")
+
+            logger.info("Decoupled TAN approved after %d attempts", attempts)
+            # Return the final response which contains the business data
+            return response
+
+        # Timeout
+        raise TimeoutError(
+            f"Decoupled TAN not approved within {timeout}s. "
+            "Please approve the request in your banking app."
+        )
 
     def end(self) -> None:
         """

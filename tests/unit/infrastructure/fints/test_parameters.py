@@ -72,6 +72,7 @@ def _make_upd_segment(
 def empty_segment_sequence():
     """Create an empty SegmentSequence."""
     seq = MagicMock(spec=SegmentSequence)
+    seq.segments = []  # Add segments attribute for logging
     seq.find_segments.return_value = []
     seq.find_segment_highest_version.return_value = None
     seq.render_bytes.return_value = b""

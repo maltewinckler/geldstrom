@@ -11,7 +11,7 @@ from typing import ClassVar
 
 from pydantic import Field
 
-from ..base import FinTSSegment
+from ..base import FinTSDataElementGroup, FinTSSegment
 from ..types import (
     FinTSAlphanumeric,
     FinTSCode,
@@ -34,7 +34,7 @@ from ..formals import (
 # =============================================================================
 
 
-class SupportedLanguages(FinTSSegment):
+class SupportedLanguages(FinTSDataElementGroup):
     """Unterstützte Sprachen DEG for inline embedding."""
 
     languages: list[Language] = Field(
@@ -44,7 +44,7 @@ class SupportedLanguages(FinTSSegment):
     )
 
 
-class SupportedHBCIVersions(FinTSSegment):
+class SupportedHBCIVersions(FinTSDataElementGroup):
     """Unterstützte HBCI-Versionen DEG for inline embedding."""
 
     versions: list[FinTSCode] = Field(
@@ -54,13 +54,14 @@ class SupportedHBCIVersions(FinTSSegment):
     )
 
 
-class AccountInformationDEG(FinTSSegment):
+class AccountInformationDEG(FinTSDataElementGroup):
     """Kontoinformation DEG (for HIUPD6 reference)."""
 
     account_number: FinTSID = Field(
         description="Konto-/Depotnummer",
     )
-    subaccount_number: FinTSID = Field(
+    subaccount_number: FinTSID | None = Field(
+        default=None,
         description="Unterkontomerkmal",
     )
     bank_identifier: BankIdentifier = Field(

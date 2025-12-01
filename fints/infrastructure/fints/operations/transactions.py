@@ -211,6 +211,7 @@ class TransactionOperations:
         if not camt_messages:
             camt_messages = ("urn:iso:std:iso:20022:tech:xsd:camt.052.001.02",)
 
+        # HKCAZ expects SupportedMessageTypes DEG
         supported_messages = SupportedMessageTypes(expected_type=list(camt_messages))
 
         # Build account field
@@ -224,11 +225,12 @@ class TransactionOperations:
         def segment_factory(touchdown: str | None):
             return hkcaz_class(
                 account=account_field,
+                supported_camt_messages=supported_messages,
                 all_accounts=False,
                 date_start=start_date,
                 date_end=end_date,
+                max_number_responses=None,
                 touchdown_point=touchdown,
-                supported_camt_messages=supported_messages,
             )
 
         def extract_camt(seg) -> tuple[list[bytes], bytes | None] | None:

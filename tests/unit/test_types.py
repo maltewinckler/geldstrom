@@ -813,8 +813,8 @@ class TestEdgeCases:
         assert list(container._repr_items) == []
 
     def test_segment_sequence_from_bytes_mock(self):
-        """Test SegmentSequence initialization from bytes (mocked)."""
-        # This tests the code path, actual parsing is tested elsewhere
+        """Test SegmentSequence initialization from bytes (mocked) using legacy parser."""
+        # This tests the legacy code path, actual parsing is tested elsewhere
         # The parser is imported inside SegmentSequence.__init__, so we patch at the source
         with patch("fints.parser.FinTS3Parser") as mock_parser:
             mock_parser_instance = mock_parser.return_value
@@ -824,7 +824,8 @@ class TestEdgeCases:
                 MockSegment("SEG2", 1),
             ]
 
-            seq = SegmentSequence(b"raw bytes data")
+            # Use use_pydantic=False to test the legacy parser path
+            seq = SegmentSequence(b"raw bytes data", use_pydantic=False)
 
             assert len(seq.segments) == 2
             mock_parser_instance.explode_segments.assert_called_once()

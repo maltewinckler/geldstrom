@@ -574,9 +574,6 @@ class FinTSParser:
         raw_data = list(raw_segment[1:])  # Skip header
         raw_index = 0
 
-        if header.type in {"HISPA", "HKSPA", "HIUPD"}:
-            logger.warning("Parsing %s raw_data=%s", header.type, raw_data)
-
         for field_name in field_names:
             if raw_index >= len(raw_data):
                 # No more data - remaining fields use defaults
@@ -602,19 +599,25 @@ class FinTSParser:
                     inner_type = args[0]
                     # Check if inner type is a DEG
                     if hasattr(inner_type, "from_wire_list"):
-                        # Collect ALL remaining data for this list field
+                        # Collect remaining list items for this field
+                        # Stop when we encounter a non-list value (next field)
                         list_values = []
                         while raw_index < len(raw_data):
                             raw_value = raw_data[raw_index]
-                            raw_index += 1
+                            # Only consume actual list values as list items
+                            # None values are empty slots - skip them
+                            # Non-list values indicate we've hit the next field
                             if isinstance(raw_value, list):
+                                raw_index += 1
                                 item = inner_type.from_wire_list(raw_value)
-                                logger.warning("Parsed %s item %s", inner_type.__name__, item)
                                 list_values.append(item)
-                            elif raw_value is not None:
-                                item = inner_type.from_wire_list([raw_value])
-                                logger.warning("Parsed %s item %s", inner_type.__name__, item)
-                                list_values.append(item)
+                            elif raw_value is None:
+                                # Skip None values (empty slots in FinTS)
+                                raw_index += 1
+                            else:
+                                # Non-list, non-None value means we've hit the next field
+                                # Don't consume it - leave for next iteration
+                                break
                         if list_values:
                             data[field_name] = list_values
                         continue
@@ -802,8 +805,14 @@ class FinTSSerializer:
 
         return result
 
-    def _serialize_value(self, value: Any) -> str | bytes | None:
-        """Serialize a single value to wire format."""
+    def _serialize_value(self, value: Any) -> Any:
+        """Serialize a single value to wire format.
+
+        Returns the value as-is for types that escape_value handles specially
+        (date, time, int, bytes), or converts to string for others.
+        """
+        import datetime
+
         if value is None:
             return None
         if isinstance(value, bool):
@@ -812,6 +821,12 @@ class FinTSSerializer:
             return value
         if isinstance(value, Enum):
             return str(value.value)
+        # Let escape_value handle date/time formatting
+        if isinstance(value, (datetime.date, datetime.time)):
+            return value
+        # Let escape_value handle numbers
+        if isinstance(value, (int, float)):
+            return value
         return str(value)
 
     @staticmethod

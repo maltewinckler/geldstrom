@@ -12,6 +12,9 @@ from .session import FinTSSessionState, SessionState
 # Adapters are lazily imported to avoid circular dependencies
 # Import them directly from fints.infrastructure.fints.adapters when needed
 
+# Debug utilities - import explicitly when needed:
+#   from fints.infrastructure.fints.debug import ParserDebugger, analyze_segments
+
 __all__ = [
     "DATA_BLOB_MAGIC_RETRY",
     "FinTSOperations",

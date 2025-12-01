@@ -153,9 +153,9 @@ class TestTransactionDegs:
     def test_booked_camt_statements(self):
         """Create BookedCamtStatements."""
         statements = BookedCamtStatements(
-            statements=[b"<XML>...</XML>", b"<XML>...</XML>"],
+            camt_statements=[b"<XML>...</XML>", b"<XML>...</XML>"],
         )
-        assert len(statements.statements) == 2
+        assert len(statements.camt_statements) == 2
 
     def test_supported_sepa_pain_messages(self):
         """Create SupportedSEPAPainMessages."""

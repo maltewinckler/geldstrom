@@ -252,11 +252,16 @@ class FinTSModel(BaseModel):
             if isinstance(value, FinTSModel):
                 value = value.to_wire_list()
             elif isinstance(value, list):
-                # Handle list of FinTSModels - flatten into result
-                for item in value:
-                    if isinstance(item, FinTSModel):
-                        result.extend(item.to_wire_list())
-                    else:
+                # Check if this is a list of FinTSModels (repeating DEGs)
+                # or a list of simple values (repeating data elements)
+                if value and isinstance(value[0], FinTSModel):
+                    # List of DEGs - each becomes a separate wire list
+                    for item in value:
+                        result.append(item.to_wire_list())
+                else:
+                    # List of simple values - add each as separate element
+                    # (repeating data elements within DEG)
+                    for item in value:
                         result.append(item)
                 continue  # Skip the append below
 

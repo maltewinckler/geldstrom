@@ -1,5 +1,12 @@
+import glob
+import os.path
 import pytest
-from conftest import TEST_MESSAGES
+
+# Load TEST_MESSAGES from conftest manually to avoid import issues
+TEST_MESSAGES = {
+    os.path.basename(f).rsplit('.')[0]: open(f, 'rb').read() for f in
+    glob.glob(os.path.join(os.path.dirname(__file__), "messages", "*.bin"))
+}
 from fints.formals import SegmentSequence
 from fints.parser import FinTS3Parser, FinTSParserError, FinTSParserWarning
 from fints.segments.base import FinTS3Segment
