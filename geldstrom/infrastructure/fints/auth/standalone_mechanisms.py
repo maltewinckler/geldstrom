@@ -36,7 +36,7 @@ from geldstrom.infrastructure.fints.protocol import (
     HNVSD1,
     HNVSK3,
 )
-from geldstrom.types import SegmentSequence
+from geldstrom.infrastructure.fints.protocol.base import SegmentSequence
 
 if TYPE_CHECKING:
     from geldstrom.message import FinTSMessage

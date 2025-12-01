@@ -324,13 +324,19 @@ class PasswordField(AlphanumericField):
 
 
 class SegmentSequenceField(DataElementField):
+    """Field for nested segment sequences (e.g., HNVSD.data).
+
+    Uses the legacy parser to maintain consistency when parsing
+    with the legacy FinTS3Parser.
+    """
     type = 'sf'
 
     def _parse_value(self, value):
         if isinstance(value, SegmentSequence):
             return value
         else:
-            return SegmentSequence(value)
+            # Use legacy parser for consistency with Container-based segments
+            return SegmentSequence(value, use_pydantic=False)
 
     def _render_value(self, value):
         return value.render_bytes()

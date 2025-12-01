@@ -8,7 +8,7 @@ from typing import Callable, Sequence
 
 from geldstrom.message import FinTSInstituteMessage
 from geldstrom.infrastructure.fints.protocol import HIBPA3, HIUPA4, HIRMG2, HIRMS2, HNHBK3
-from geldstrom.types import SegmentSequence
+from geldstrom.infrastructure.fints.protocol.base import SegmentSequence
 
 logger = logging.getLogger(__name__)
 

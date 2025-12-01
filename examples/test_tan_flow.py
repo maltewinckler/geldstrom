@@ -27,7 +27,7 @@ logging.basicConfig(
 )
 
 # Enable DEBUG for FinTS dialog to see poll attempts
-logging.getLogger("fints.infrastructure.fints.dialog.factory").setLevel(logging.DEBUG)
+logging.getLogger("geldstrom.infrastructure.fints.dialog.factory").setLevel(logging.DEBUG)
 
 from geldstrom import (
     BankCredentials,

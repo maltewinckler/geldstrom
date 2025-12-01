@@ -5,8 +5,8 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any, Iterable, Mapping, Sequence
 
-from geldstrom.parser import FinTS3Serializer
-from geldstrom.types import SegmentSequence
+from .base import SegmentSequence
+from .parser import FinTSSerializer
 
 logger = logging.getLogger(__name__)
 
@@ -360,17 +360,11 @@ class ParameterStore:
         Handles both Pydantic and legacy segments.
         """
         def serialize_segment(segment):
-            """Serialize a single segment using the appropriate serializer."""
+            """Serialize a single segment using the Pydantic serializer."""
             if segment is None:
                 return None
-            # Check if this is a Pydantic segment
-            if hasattr(type(segment), 'model_fields'):
-                from .parser import FinTSSerializer
-                pydantic_serializer = FinTSSerializer()
-                return pydantic_serializer.serialize_message(segment)
-            else:
-                # Legacy segment
-                return FinTS3Serializer().serialize_message(segment)
+            serializer = FinTSSerializer()
+            return serializer.serialize_message(segment)
 
         return {
             "bpd_version": self._bpd.version,

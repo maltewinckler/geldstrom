@@ -105,11 +105,11 @@ class HNVSD1(FinTSSegment):
         This allows find_segments to recurse into the encrypted data.
         """
         if self._parsed_segments is None:
-            from geldstrom.types import SegmentSequence
+            from geldstrom.infrastructure.fints.protocol.base import SegmentSequence
             if isinstance(self.data, bytes):
                 self._parsed_segments = SegmentSequence(self.data)
             else:
-                self._parsed_segments = SegmentSequence([])
+                self._parsed_segments = SegmentSequence(segments=[])
         return self._parsed_segments
 
     def find_segments(self, *args, **kwargs):

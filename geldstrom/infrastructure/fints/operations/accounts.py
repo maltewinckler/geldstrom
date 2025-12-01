@@ -135,9 +135,12 @@ class AccountOperations:
         accounts: list[AccountInfo] = []
         for acc in raw_accounts:
             # Extract allowed operations
+            # Pydantic models use 'transaction_code', legacy uses 'transaction'
             allowed_ops = []
             for tx in acc.get("allowed_transactions", []):
-                if hasattr(tx, "transaction"):
+                if hasattr(tx, "transaction_code"):
+                    allowed_ops.append(tx.transaction_code)
+                elif hasattr(tx, "transaction"):
                     allowed_ops.append(tx.transaction)
 
             accounts.append(

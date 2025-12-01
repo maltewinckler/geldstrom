@@ -11,7 +11,7 @@ import requests
 
 from geldstrom.exceptions import FinTSConnectionError
 from geldstrom.message import FinTSInstituteMessage, FinTSMessage
-from geldstrom.types import SegmentSequence
+from geldstrom.infrastructure.fints.protocol.base import SegmentSequence
 from geldstrom.utils import Password, log_configuration
 
 logger = logging.getLogger(__name__)

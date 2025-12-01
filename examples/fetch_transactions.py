@@ -107,7 +107,7 @@ def main() -> None:
     args = parse_args()
 
     if args.verbose:
-        logging.getLogger("fints").setLevel(logging.DEBUG)
+        logging.getLogger("geldstrom").setLevel(logging.DEBUG)
 
     env = load_env(Path(args.env_file))
     credentials = build_credentials(env)

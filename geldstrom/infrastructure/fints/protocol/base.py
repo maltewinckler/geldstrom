@@ -644,6 +644,80 @@ class SegmentSequence(FinTSModel):
         """Return number of segments."""
         return len(self.segments)
 
+    # =========================================================================
+    # Serialization Methods (Phase 1 additions)
+    # =========================================================================
+
+    def render_bytes(self) -> bytes:
+        """Serialize all segments to FinTS wire format.
+
+        Returns:
+            Raw bytes in FinTS wire format, ready to send to a bank.
+
+        Example:
+            seq = SegmentSequence(segments=[seg1, seg2])
+            raw = seq.render_bytes()
+            # raw is now b"HNHBK:1:3+...'"
+        """
+        from .parser import FinTSSerializer
+
+        serializer = FinTSSerializer()
+        serialized_segments = [
+            serializer.serialize_segment(segment)
+            for segment in self.segments
+        ]
+        return serializer.implode_segments(serialized_segments)
+
+    @classmethod
+    def from_bytes(
+        cls,
+        data: bytes,
+        robust_mode: bool = True,
+    ) -> "SegmentSequence":
+        """Parse a FinTS message from raw bytes.
+
+        Args:
+            data: Raw bytes from bank response
+            robust_mode: If True (default), unknown segments become warnings.
+                        If False, unknown segments raise exceptions.
+
+        Returns:
+            SegmentSequence containing parsed segments
+
+        Example:
+            raw = b"HNHBK:1:3+...'"
+            seq = SegmentSequence.from_bytes(raw)
+            for seg in seq.find_segments(query="HISAL"):
+                print(seg)
+        """
+        from .parser import FinTSParser
+
+        parser = FinTSParser(robust_mode=robust_mode)
+        result = parser.parse_message(data)
+        return cls(segments=list(result.segments))
+
+    def __init__(self, segments: list[FinTSSegment] | bytes | None = None, **kwargs):
+        """Initialize a SegmentSequence.
+
+        Args:
+            segments: Either a list of segment objects, or raw bytes to parse.
+                     If bytes, uses the Pydantic parser.
+            **kwargs: Additional Pydantic model arguments.
+
+        Example:
+            # From segment list
+            seq = SegmentSequence(segments=[seg1, seg2])
+
+            # From raw bytes (parses automatically)
+            seq = SegmentSequence(b"HNHBK:1:3+...'")
+        """
+        if isinstance(segments, bytes):
+            # Parse bytes using Pydantic parser
+            parsed = self.from_bytes(segments)
+            super().__init__(segments=parsed.segments, **kwargs)
+        else:
+            super().__init__(segments=segments or [], **kwargs)
+
 
 # =============================================================================
 # Helper Functions

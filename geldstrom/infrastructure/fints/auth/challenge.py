@@ -9,7 +9,7 @@ import bleach
 
 from geldstrom.domain.connection import Challenge, ChallengeData, ChallengeType
 from geldstrom.infrastructure.fints import DATA_BLOB_MAGIC_RETRY, NeedRetryResponse
-from geldstrom.types import SegmentSequence
+from geldstrom.infrastructure.fints.protocol.base import SegmentSequence
 from geldstrom.utils import compress_datablob
 
 if TYPE_CHECKING:

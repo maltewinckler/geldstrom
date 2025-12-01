@@ -299,8 +299,8 @@ class TestParameterStore:
         """ParameterStore should serialize and deserialize."""
         store = ParameterStore(bpd=bpd_with_segments, upd=upd_with_accounts)
 
-        # Mock the serializer for BPA/UPA
-        with patch("geldstrom.infrastructure.fints.protocol.parameters.FinTS3Serializer") as mock_serializer:
+        # Mock the Pydantic serializer for BPA/UPA
+        with patch("geldstrom.infrastructure.fints.protocol.parameters.FinTSSerializer") as mock_serializer:
             mock_serializer.return_value.serialize_message.return_value = b"serialized"
 
             data = store.to_dict()
