@@ -330,7 +330,8 @@ class ParameterStore:
             upd_segments: New UPD segments
         """
         # Update BPD if newer
-        if bpd_version is not None and bpd_version >= self._bpd.version and bpd_segments:
+        # Note: Use 'is not None' because empty SegmentSequence is falsy
+        if bpd_version is not None and bpd_version >= self._bpd.version and bpd_segments is not None:
             bank_name = bpa.bank_name if bpa and hasattr(bpa, "bank_name") else None
             self._bpd = BankParameters(
                 version=bpd_version,
@@ -341,7 +342,8 @@ class ParameterStore:
             logger.debug("Updated BPD to version %d", bpd_version)
 
         # Update UPD if newer
-        if upd_version is not None and upd_version >= self._upd.version and upd_segments:
+        # Note: Use 'is not None' because empty SegmentSequence is falsy
+        if upd_version is not None and upd_version >= self._upd.version and upd_segments is not None:
             logger.warning(
                 "Updating UPD to version %d with %d segments",
                 upd_version,

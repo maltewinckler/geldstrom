@@ -14,9 +14,9 @@ import pytest
 from geldstrom.infrastructure.fints.protocol import (
     BankParameters,
     ParameterStore,
+    SegmentSequence,
     UserParameters,
 )
-from geldstrom.types import SegmentSequence
 
 
 # ---------------------------------------------------------------------------

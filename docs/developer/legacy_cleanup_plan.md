@@ -221,7 +221,11 @@ geldstrom/segments/         # 12 files - Legacy segments
 | 1.2 Update imports | ✅ Done | 2024-12-01 | Migrated 5 infrastructure files to Pydantic SegmentSequence |
 | 1.3 Validate | ✅ Done | 2024-12-01 | 541 unit + 27 integration tests pass |
 | 1.4 Fix capabilities | ✅ Done | 2024-12-01 | Fixed AllowedTransaction.transaction_code access |
-| 2.x Remove legacy | ⬜ Not started | | |
+| 2.1 Delete legacy modules | ✅ Done | 2024-12-01 | Removed types.py, fields.py, formals.py, parser.py, segments/ |
+| 2.2 Delete legacy tests | ✅ Done | 2024-12-01 | Removed test_types.py, test_formals.py, test_message_*.py, test_models.py |
+| 2.3 Fix FinTSMessage | ✅ Done | 2024-12-01 | Updated to extend Pydantic SegmentSequence with ClassVars |
+| 2.4 Fix recursion bug | ✅ Done | 2024-12-01 | Fixed find_segments to recurse regardless of query match |
+| 2.5 All tests pass | ✅ Done | 2024-12-01 | 408 unit + 27 integration tests pass |
 | 3.x Test cleanup | ⬜ Not started | | |
 | 4.x Documentation | ⬜ Not started | | |
 

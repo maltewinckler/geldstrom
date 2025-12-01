@@ -548,6 +548,9 @@ class SegmentSequence(FinTSModel):
             versions = list(version)
 
         for segment in self.segments:
+            # Check if this segment matches the criteria
+            matches = True
+
             # Check type match
             if queries:
                 type_match = any(
@@ -555,24 +558,39 @@ class SegmentSequence(FinTSModel):
                     for q in queries
                 )
                 if not type_match:
-                    continue
+                    matches = False
 
             # Check version match
-            if versions and segment.SEGMENT_VERSION not in versions:
-                continue
+            if matches and versions and segment.SEGMENT_VERSION not in versions:
+                matches = False
 
             # Check callback
-            if callback is not None and not callback(segment):
-                continue
+            if matches and callback is not None and not callback(segment):
+                matches = False
 
-            yield segment
+            # Yield the segment if it matches
+            if matches:
+                yield segment
 
-            # Recurse into nested segment sequences if requested
+            # Recurse into nested segment sequences REGARDLESS of match
+            # (we need to find nested segments that match even if the container doesn't)
             if recurse:
+                # Check model fields for nested SegmentSequence
                 for field_name in segment.__class__.model_fields.keys():
                     field_value = getattr(segment, field_name, None)
                     if isinstance(field_value, SegmentSequence):
                         yield from field_value.find_segments(
+                            query=query,
+                            version=version,
+                            callback=callback,
+                            recurse=recurse,
+                        )
+
+                # Also check for 'segments' property (used by HNVSD1 for encrypted data)
+                if hasattr(segment, "segments") and "segments" not in segment.__class__.model_fields:
+                    nested = getattr(segment, "segments", None)
+                    if isinstance(nested, SegmentSequence):
+                        yield from nested.find_segments(
                             query=query,
                             version=version,
                             callback=callback,
@@ -643,6 +661,62 @@ class SegmentSequence(FinTSModel):
     def __len__(self) -> int:
         """Return number of segments."""
         return len(self.segments)
+
+    def print_nested(
+        self,
+        stream=None,
+        level: int = 0,
+        indent: str = "    ",
+        prefix: str = "",
+        first_level_indent: bool = True,
+        trailer: str = "",
+        print_doc: bool = True,
+        first_line_suffix: str = "",
+    ) -> None:
+        """Print a human-readable representation of the segment sequence.
+
+        Args:
+            stream: Output stream (defaults to sys.stdout)
+            level: Current indentation level
+            indent: Indentation string per level
+            prefix: Prefix for each line
+            first_level_indent: Whether to indent the first line
+            trailer: Suffix for the last line
+            print_doc: Whether to include docstrings
+            first_line_suffix: Suffix for the first line
+        """
+        import sys
+
+        stream = stream or sys.stdout
+        stream.write(
+            ((prefix + level * indent) if first_level_indent else "")
+            + f"{self.__class__.__module__}.{self.__class__.__name__}(["
+            + first_line_suffix
+            + "\n"
+        )
+        for segment in self.segments:
+            docstring = ""
+            if print_doc and segment.__doc__:
+                docstring = segment.__doc__.splitlines()[0].strip()
+                if docstring:
+                    docstring = f" # {docstring}"
+
+            # Check if segment has print_nested method
+            if hasattr(segment, "print_nested"):
+                segment.print_nested(
+                    stream=stream,
+                    level=level + 1,
+                    indent=indent,
+                    prefix=prefix,
+                    trailer="," + docstring,
+                    print_doc=print_doc,
+                )
+            else:
+                # Fallback for segments without print_nested
+                stream.write(
+                    f"{prefix}{(level + 1) * indent}{segment!r},{docstring}\n"
+                )
+        stream.write(f"{prefix}{level * indent}]){trailer}\n")
 
     # =========================================================================
     # Serialization Methods (Phase 1 additions)

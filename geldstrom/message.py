@@ -1,7 +1,7 @@
 from enum import Enum
+from typing import Any, ClassVar, Optional
 
-from .formals import SegmentSequence
-from .infrastructure.fints.protocol import HIRMS2
+from .infrastructure.fints.protocol import HIRMS2, SegmentSequence
 from .infrastructure.fints.protocol.base import FinTSSegment as PydanticSegment
 
 
@@ -11,13 +11,43 @@ class MessageDirection(Enum):
 
 
 class FinTSMessage(SegmentSequence):
-    DIRECTION = None
-    # Auto-Numbering, dialog relation, security base
+    """Base class for FinTS messages.
 
-    def __init__(self, dialog=None, *args, **kwargs):
-        self.dialog = dialog
-        self.next_segment_number = 1
-        super().__init__(*args, **kwargs)
+    Extends SegmentSequence with message-level functionality:
+    - Auto-numbering of segments
+    - Dialog association
+    - Response lookup
+    """
+
+    DIRECTION: ClassVar[Optional[MessageDirection]] = None
+
+    # Non-model fields (excluded from Pydantic)
+    model_config = {"arbitrary_types_allowed": True}
+
+    # Instance attributes (not Pydantic fields)
+    _dialog: Any = None
+    _next_segment_number: int = 1
+
+    def __init__(self, dialog=None, **kwargs):
+        super().__init__(**kwargs)
+        self._dialog = dialog
+        self._next_segment_number = 1
+
+    @property
+    def dialog(self):
+        return self._dialog
+
+    @dialog.setter
+    def dialog(self, value):
+        self._dialog = value
+
+    @property
+    def next_segment_number(self):
+        return self._next_segment_number
+
+    @next_segment_number.setter
+    def next_segment_number(self, value):
+        self._next_segment_number = value
 
     def __iadd__(self, segment: PydanticSegment):
         """Append a segment to the message.
@@ -46,9 +76,12 @@ class FinTSMessage(SegmentSequence):
 
 
 class FinTSCustomerMessage(FinTSMessage):
-    DIRECTION = MessageDirection.FROM_CUSTOMER
-    # Identification, authentication
+    """Message sent from customer to bank."""
+
+    DIRECTION: ClassVar[MessageDirection] = MessageDirection.FROM_CUSTOMER
 
 
 class FinTSInstituteMessage(FinTSMessage):
-    DIRECTION = MessageDirection.FROM_INSTITUTE
+    """Message received from bank."""
+
+    DIRECTION: ClassVar[MessageDirection] = MessageDirection.FROM_INSTITUTE
