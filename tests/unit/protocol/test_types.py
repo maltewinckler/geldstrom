@@ -14,7 +14,7 @@ from decimal import Decimal
 import pytest
 from pydantic import BaseModel, ValidationError
 
-from fints.infrastructure.fints.protocol.types import (
+from geldstrom.infrastructure.fints.protocol.types import (
     # Validators
     parse_fints_amount,
     parse_fints_binary,

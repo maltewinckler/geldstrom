@@ -26,9 +26,9 @@ from typing import Mapping
 
 import pytest
 
-from fints.application import GatewayCredentials
-from fints.domain import BankCredentials, BankRoute
-from fints.readonly import ReadOnlyFinTSClient
+from geldstrom.application import GatewayCredentials
+from geldstrom.domain import BankCredentials, BankRoute
+from geldstrom.readonly import ReadOnlyFinTSClient
 
 
 # ---------------------------------------------------------------------------
@@ -299,7 +299,7 @@ def test_session_state_serialization_roundtrip(credentials: GatewayCredentials):
     assert isinstance(serialized, (str, bytes, dict))
 
     # Deserialize
-    from fints.infrastructure.fints.session import FinTSSessionState
+    from geldstrom.infrastructure.fints.session import FinTSSessionState
     restored_state = FinTSSessionState.deserialize(serialized)
 
     # Use restored state
@@ -423,8 +423,8 @@ def test_dialog_hktan_injection(credentials: GatewayCredentials):
     This test directly exercises the dialog's HKTAN injection by checking
     that business operations succeed (which requires correct HKTAN).
     """
-    from fints.infrastructure.fints.adapters.connection import FinTSConnectionHelper
-    from fints.infrastructure.fints.operations import TransactionOperations, AccountOperations
+    from geldstrom.infrastructure.fints.adapters.connection import FinTSConnectionHelper
+    from geldstrom.infrastructure.fints.operations import TransactionOperations, AccountOperations
     from datetime import date, timedelta
 
     helper = FinTSConnectionHelper(credentials)

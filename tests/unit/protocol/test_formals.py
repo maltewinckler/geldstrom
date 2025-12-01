@@ -14,7 +14,7 @@ from decimal import Decimal
 
 import pytest
 
-from fints.infrastructure.fints.protocol.formals import (
+from geldstrom.infrastructure.fints.protocol.formals import (
     # Enums
     CreditDebit,
     SecurityMethod,

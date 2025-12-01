@@ -1,67 +1,96 @@
 [build-system]
-build-backend = "setuptools.build_meta"
-requires = ["setuptools>=77.0"]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
 
 [project]
-name = "fints"
-license = "LGPL-3.0-or-later"
-license-files = ["LICENSE.txt"]
-description = "Pure-python FinTS 3.0 (formerly known as HBCI) implementation"
+name = "geldstrom"
+dynamic = ["version"]
+description = "German banking API client for account data and transactions"
 readme = "README.md"
-authors = [{ name = "Raphael Michel", email = "mail@raphaelmichel.de" }]
-keywords = [
-  "hbci",
-  "banking",
-  "fints",
-]
+license = "LGPL-3.0-or-later"
+authors = [{ name = "Malte Winckler", email = "malte@nichts-ist-einfach.de" }]
+keywords = ["banking", "fints", "hbci", "german-banking", "transactions"]
 classifiers = [
-  "Development Status :: 4 - Beta",
-  "Intended Audience :: Developers",
-  "Intended Audience :: Other Audience",
-  "Programming Language :: Python :: 3.9",
-  "Programming Language :: Python :: 3.10",
-  "Programming Language :: Python :: 3.11",
-  "Programming Language :: Python :: 3.12",
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Other Audience",
+    "License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
 ]
 requires-python = ">=3.9"
-dependencies = [
-  "bleach",
-  "mt-940",
-  "pydantic (>=2.0)",
-  "requests",
-  "sepaxml~=2.1",
-  "enum-tools~=0.12.0",
-]
-dynamic = ["version"]
 
-[project.urls]
-"Homepage" = "https://github.com/raphaelm/python-fints"
-
-[tool.setuptools.dynamic]
-version = { attr = "fints.version" }
-
-[tool.setuptools.packages.find]
-include = ["fints*"]
+# =============================================================================
+# Poetry Configuration
+# =============================================================================
 
 [tool.poetry]
-name = "fints"
-version = "0.0.0"
-description = "Pure-python FinTS 3.0 (formerly known as HBCI) implementation"
-authors = ["Raphael Michel <mail@raphaelmichel.de>"]
-license = "LGPL-3.0-or-later"
-readme = "README.md"
-homepage = "https://github.com/raphaelm/python-fints"
-keywords = ["hbci", "banking", "fints"]
-packages = [{ include = "fints" }]
+version = "0.0.0"  # Placeholder - actual version from geldstrom/__init__.py
+packages = [{ include = "geldstrom" }]
 
 [tool.poetry.dependencies]
 python = ">=3.9,<4.0"
-bleach = "*"
-"mt-940" = "*"
-requests = "*"
+bleach = "^5.0"
+mt-940 = "^4.0"
+pydantic = "^2.0"
+requests = "^2.25"
 sepaxml = "~2.1"
-"enum-tools" = "~0.12.0"
+enum-tools = "~0.12"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.0"
-pylint = {version = ">=2.0", python = ">=3.10"}
+ruff = "^0.8"
+
+# =============================================================================
+# Ruff Configuration
+# =============================================================================
+
+[tool.ruff]
+target-version = "py39"
+line-length = 88
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # pyflakes
+    "I",      # isort
+    "B",      # flake8-bugbear
+    "C4",     # flake8-comprehensions
+    "UP",     # pyupgrade
+    "ARG",    # flake8-unused-arguments
+    "SIM",    # flake8-simplify
+]
+ignore = [
+    "E501",   # line too long (handled by formatter)
+    "B008",   # do not perform function calls in argument defaults
+    "B905",   # zip without strict= (requires 3.10+)
+    "ARG001", # unused function argument (common in protocols/interfaces)
+    "ARG002", # unused method argument
+    "SIM108", # ternary operator (not always more readable)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["geldstrom"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*" = ["ARG", "B", "SIM"]
+"geldstrom/formals.py" = ["E501"]  # Legacy file with long lines
+
+# =============================================================================
+# Pytest Configuration
+# =============================================================================
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+]

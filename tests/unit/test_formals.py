@@ -1,7 +1,7 @@
 import glob
 import os.path
 import pytest
-from fints.formals import (
+from geldstrom.formals import (
     Container, ContainerField, DataElementField,
     DataElementGroupField, DigitsField, Field, GenericGroupField,
     NumericField, SegmentHeader, SegmentSequence,
@@ -293,7 +293,7 @@ def test_unset():
 def test_sequence_repr():
     s = SegmentSequence()
 
-    assert repr(s) == 'fints.types.SegmentSequence([])'
+    assert repr(s) == 'geldstrom.types.SegmentSequence([])'
 
 
 def test_valuelist_repr():
@@ -318,7 +318,7 @@ def test_empty_list():
 def test_segmentheader_short():
     h = SegmentHeader('HNHBS', 5, 1)
 
-    assert repr(h) == "fints.formals.SegmentHeader('HNHBS', 5, 1)"
+    assert repr(h) == "geldstrom.formals.SegmentHeader('HNHBS', 5, 1)"
 
 
 def test_container_generic():
@@ -337,8 +337,8 @@ def test_container_generic():
 
 
 def test_find_1():
-    from fints.parser import FinTS3Parser
-    from fints.segments.message import HNHBS1, HNHBK3
+    from geldstrom.parser import FinTS3Parser
+    from geldstrom.segments.message import HNHBS1, HNHBK3
 
     m = FinTS3Parser().parse_message(TEST_MESSAGES['basic_complicated'])
 
@@ -360,8 +360,8 @@ def test_find_1():
 
 
 def test_find_by_class():
-    from fints.parser import FinTS3Parser
-    from fints.segments.message import HNHBS1
+    from geldstrom.parser import FinTS3Parser
+    from geldstrom.segments.message import HNHBS1
 
     m = FinTS3Parser().parse_message(TEST_MESSAGES['basic_complicated'])
 

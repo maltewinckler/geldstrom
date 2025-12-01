@@ -1,5 +1,5 @@
 import pytest
-from fints.hhd.flicker import parse, HHD_VERSION_13
+from geldstrom.hhd.flicker import parse, HHD_VERSION_13
 
 
 # HITAN3:

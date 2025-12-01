@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fints.infrastructure.fints.operations.pagination import (
+from geldstrom.infrastructure.fints.operations.pagination import (
     PaginatedResult,
     TouchdownPaginator,
     find_highest_supported_version,

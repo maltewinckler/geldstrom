@@ -5,11 +5,11 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from fints.infrastructure.fints.operations.accounts import (
+from geldstrom.infrastructure.fints.operations.accounts import (
     AccountInfo,
     AccountOperations,
 )
-from fints.models import SEPAAccount
+from geldstrom.models import SEPAAccount
 
 
 class TestAccountInfo:

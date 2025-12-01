@@ -7,9 +7,9 @@ TEST_MESSAGES = {
     os.path.basename(f).rsplit('.')[0]: open(f, 'rb').read() for f in
     glob.glob(os.path.join(os.path.dirname(__file__), "messages", "*.bin"))
 }
-from fints.formals import SegmentSequence
-from fints.parser import FinTS3Parser, FinTSParserError, FinTSParserWarning
-from fints.segments.base import FinTS3Segment
+from geldstrom.formals import SegmentSequence
+from geldstrom.parser import FinTS3Parser, FinTSParserError, FinTSParserWarning
+from geldstrom.segments.base import FinTS3Segment
 
 
 @pytest.mark.parametrize("input_name", TEST_MESSAGES.keys())
@@ -35,8 +35,8 @@ def test_parse_other(input_name):
 
 
 def test_parse_counted():
-    from fints.segments.base import FinTS3Segment
-    from fints.formals import NumericField, Container, ContainerField
+    from geldstrom.segments.base import FinTS3Segment
+    from geldstrom.formals import NumericField, Container, ContainerField
 
     class ITST1(FinTS3Segment):
         a = NumericField(count=3)
@@ -133,7 +133,7 @@ def test_invalid():
 
 
 def test_robust_mode(mocker):
-    mocker.patch('fints.parser.robust_mode', True)
+    mocker.patch('geldstrom.parser.robust_mode', True)
 
     message1 = rb"""HNHBS:5:1'"""
     with pytest.warns(FinTSParserWarning, match='^Ignoring parser error.*: Required field'):

@@ -9,10 +9,10 @@ import re
 import random
 from unittest import mock
 
-import fints.parser
-from fints.types import SegmentSequence
-from fints.segments.message import HNHBK3, HNVSK3, HNVSD1, HNHBS1
-from fints.formals import SecurityProfile, SecurityIdentificationDetails, SecurityDateTime, EncryptionAlgorithm, KeyName, BankIdentifier
+import geldstrom.parser
+from geldstrom.types import SegmentSequence
+from geldstrom.segments.message import HNHBK3, HNVSK3, HNVSD1, HNHBS1
+from geldstrom.formals import SecurityProfile, SecurityIdentificationDetails, SecurityDateTime, EncryptionAlgorithm, KeyName, BankIdentifier
 
 TEST_MESSAGES = {
     os.path.basename(f).rsplit('.')[0]: open(f, 'rb').read() for f in
@@ -20,7 +20,7 @@ TEST_MESSAGES = {
 }
 
 # We will turn off robust mode generally for tests
-fints.parser.robust_mode = False
+geldstrom.parser.robust_mode = False
 
 
 @pytest.fixture

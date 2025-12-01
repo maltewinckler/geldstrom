@@ -6,7 +6,7 @@ from decimal import Decimal
 
 import pytest
 
-from fints.domain import (
+from geldstrom.domain import (
     Account,
     AccountCapabilities,
     AccountOwner,
@@ -17,7 +17,7 @@ from fints.domain import (
     TransactionEntry,
     TransactionFeed,
 )
-from fints.infrastructure.fints import SessionState
+from geldstrom.infrastructure.fints import SessionState
 
 
 @pytest.fixture

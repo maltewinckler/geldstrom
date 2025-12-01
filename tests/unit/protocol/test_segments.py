@@ -14,8 +14,8 @@ from decimal import Decimal
 
 import pytest
 
-from fints.infrastructure.fints.protocol.base import SegmentHeader
-from fints.infrastructure.fints.protocol.formals import (
+from geldstrom.infrastructure.fints.protocol.base import SegmentHeader
+from geldstrom.infrastructure.fints.protocol.formals import (
     AccountIdentifier,
     AccountInternational,
     AccountInternationalSEPA,
@@ -30,7 +30,7 @@ from fints.infrastructure.fints.protocol.formals import (
     SupportedMessageTypes,
     Timestamp,
 )
-from fints.infrastructure.fints.protocol.segments import (
+from geldstrom.infrastructure.fints.protocol.segments import (
     # Balance segments
     HKSAL5,
     HKSAL6,

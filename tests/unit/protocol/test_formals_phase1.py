@@ -12,7 +12,7 @@ from decimal import Decimal
 
 import pytest
 
-from fints.infrastructure.fints.protocol.formals import (
+from geldstrom.infrastructure.fints.protocol.formals import (
     # TAN DEGs
     TANMedia4,
     TANMedia5,

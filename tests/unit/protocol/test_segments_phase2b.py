@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from fints.infrastructure.fints.protocol.segments import (
+from geldstrom.infrastructure.fints.protocol.segments import (
     # Bank segments
     HIBPA3,
     HIUPA4,
@@ -27,7 +27,7 @@ from fints.infrastructure.fints.protocol.segments import (
     ParameterTwostepTAN6,
     ParameterTwostepTAN7,
 )
-from fints.infrastructure.fints.protocol.formals import (
+from geldstrom.infrastructure.fints.protocol.formals import (
     BankIdentifier,
     Language,
     UPDUsage,
@@ -36,7 +36,7 @@ from fints.infrastructure.fints.protocol.formals import (
     AccountLimit,
     AllowedTransaction,
 )
-from fints.infrastructure.fints.protocol.base import SegmentHeader
+from geldstrom.infrastructure.fints.protocol.base import SegmentHeader
 
 
 # =============================================================================
@@ -217,7 +217,7 @@ class TestPinTanDegs:
 
     def test_twostep_parameters6(self):
         """Create TwoStepParameters6."""
-        from fints.infrastructure.fints.protocol.formals.enums import TANTimeDialogAssociation
+        from geldstrom.infrastructure.fints.protocol.formals.enums import TANTimeDialogAssociation
 
         param = TwoStepParameters6(
             security_function="920",
@@ -267,7 +267,7 @@ class TestPinTanSegments:
 
     def test_hitans6_creation(self):
         """Create HITANS6 segment."""
-        from fints.infrastructure.fints.protocol.formals.enums import TaskHashAlgorithm
+        from geldstrom.infrastructure.fints.protocol.formals.enums import TaskHashAlgorithm
 
         twostep = TwoStepParameters6(
             security_function="920",
@@ -292,7 +292,7 @@ class TestPinTanSegments:
 
     def test_hitans7_creation(self):
         """Create HITANS7 segment."""
-        from fints.infrastructure.fints.protocol.formals.enums import TaskHashAlgorithm
+        from geldstrom.infrastructure.fints.protocol.formals.enums import TaskHashAlgorithm
 
         twostep = TwoStepParameters7(
             security_function="921",
@@ -318,7 +318,7 @@ class TestPinTanSegments:
 
     def test_hitans7_multiple_tan_methods(self):
         """Create HITANS7 with multiple TAN methods."""
-        from fints.infrastructure.fints.protocol.formals.enums import TaskHashAlgorithm
+        from geldstrom.infrastructure.fints.protocol.formals.enums import TaskHashAlgorithm
 
         methods = [
             TwoStepParameters7(

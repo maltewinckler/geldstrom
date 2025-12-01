@@ -25,12 +25,12 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
 )
 
-from fints import (
+from geldstrom import (
     BankCredentials,
     BankRoute,
     ReadOnlyFinTSClient,
 )
-from fints.application import GatewayCredentials
+from geldstrom.application import GatewayCredentials
 
 
 def parse_args() -> argparse.Namespace:

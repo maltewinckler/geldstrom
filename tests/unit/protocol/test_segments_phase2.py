@@ -11,7 +11,7 @@ from datetime import date, time
 
 import pytest
 
-from fints.infrastructure.fints.protocol.segments import (
+from geldstrom.infrastructure.fints.protocol.segments import (
     # Dialog segments
     HNHBK3,
     HNHBS1,
@@ -38,7 +38,7 @@ from fints.infrastructure.fints.protocol.segments import (
     HITAB4,
     HITAB5,
 )
-from fints.infrastructure.fints.protocol.formals import (
+from geldstrom.infrastructure.fints.protocol.formals import (
     BankIdentifier,
     Response,
     ReferenceMessage,
@@ -72,7 +72,7 @@ from fints.infrastructure.fints.protocol.formals import (
     TANMedia4,
     TANMedia5,
 )
-from fints.infrastructure.fints.protocol.base import SegmentHeader
+from geldstrom.infrastructure.fints.protocol.base import SegmentHeader
 
 
 # =============================================================================

@@ -24,16 +24,16 @@ from typing import TYPE_CHECKING, Sequence
 
 import pytest
 
-from fints.application import GatewayCredentials
-from fints.domain import BankCredentials, BankRoute
-from fints.infrastructure.fints.protocol.parser import (
+from geldstrom.application import GatewayCredentials
+from geldstrom.domain import BankCredentials, BankRoute
+from geldstrom.infrastructure.fints.protocol.parser import (
     FinTSParser,
     FinTSParserWarning,
     FinTSSerializer,
 )
 
 if TYPE_CHECKING:
-    from fints.infrastructure.fints.adapters.connection import ConnectionContext
+    from geldstrom.infrastructure.fints.adapters.connection import ConnectionContext
 
 logger = logging.getLogger(__name__)
 
@@ -96,7 +96,7 @@ def credentials(request: pytest.FixtureRequest) -> GatewayCredentials:
 @pytest.fixture
 def connection_helper(credentials: GatewayCredentials):
     """Create a FinTSConnectionHelper for low-level testing."""
-    from fints.infrastructure.fints.adapters.connection import FinTSConnectionHelper
+    from geldstrom.infrastructure.fints.adapters.connection import FinTSConnectionHelper
     return FinTSConnectionHelper(credentials)
 
 
@@ -248,7 +248,7 @@ class TestStrictParsing:
 
     def test_account_fetch_no_warnings(self, connection_helper):
         """Verify HKSPA/HISPA parsing produces no critical warnings."""
-        from fints.infrastructure.fints.operations import AccountOperations
+        from geldstrom.infrastructure.fints.operations import AccountOperations
 
         collector = ParserWarningCollector()
 
@@ -265,7 +265,7 @@ class TestStrictParsing:
 
     def test_balance_fetch_no_warnings(self, connection_helper):
         """Verify HKSAL/HISAL parsing produces no critical warnings."""
-        from fints.infrastructure.fints.operations import AccountOperations, BalanceOperations
+        from geldstrom.infrastructure.fints.operations import AccountOperations, BalanceOperations
 
         collector = ParserWarningCollector()
 
@@ -292,11 +292,11 @@ class TestStrictParsing:
 
     def test_transaction_fetch_no_warnings(self, connection_helper):
         """Verify HKKAZ/HIKAZ or HKCAZ/HICAZ parsing produces no critical warnings."""
-        from fints.infrastructure.fints.operations import (
+        from geldstrom.infrastructure.fints.operations import (
             AccountOperations,
             TransactionOperations,
         )
-        from fints.exceptions import FinTSUnsupportedOperation
+        from geldstrom.exceptions import FinTSUnsupportedOperation
 
         collector = ParserWarningCollector()
 
@@ -389,7 +389,7 @@ class TestSegmentCoverage:
 
     def test_core_bpd_segments_recognized(self, connection_helper):
         """Verify core BPD segments have Pydantic models."""
-        from fints.infrastructure.fints.protocol.parser import get_default_registry
+        from geldstrom.infrastructure.fints.protocol.parser import get_default_registry
 
         registry = get_default_registry()
         missing_core: list[tuple[str, int]] = []
@@ -410,7 +410,7 @@ class TestSegmentCoverage:
 
     def test_core_upd_segments_recognized(self, connection_helper):
         """Verify core UPD segments have Pydantic models."""
-        from fints.infrastructure.fints.protocol.parser import get_default_registry
+        from geldstrom.infrastructure.fints.protocol.parser import get_default_registry
 
         registry = get_default_registry()
         missing_core: list[tuple[str, int]] = []
@@ -434,7 +434,7 @@ class TestSegmentCoverage:
 
         This test always passes but prints diagnostic information.
         """
-        from fints.infrastructure.fints.protocol.parser import get_default_registry
+        from geldstrom.infrastructure.fints.protocol.parser import get_default_registry
 
         registry = get_default_registry()
 
@@ -547,10 +547,10 @@ class TestRawResponseCapture:
 
     def test_capture_dialog_exchange(self, connection_helper, debug_output_dir, caplog):
         """Capture full dialog exchange for protocol debugging."""
-        from fints.infrastructure.fints.operations import AccountOperations
+        from geldstrom.infrastructure.fints.operations import AccountOperations
 
         # Enable debug logging
-        caplog.set_level(logging.DEBUG, logger="fints.infrastructure.fints.dialog")
+        caplog.set_level(logging.DEBUG, logger="geldstrom.infrastructure.fints.dialog")
 
         messages: list[dict] = []
 

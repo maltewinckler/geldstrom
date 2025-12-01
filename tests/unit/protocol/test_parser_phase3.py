@@ -9,14 +9,14 @@ from __future__ import annotations
 
 import pytest
 
-from fints.infrastructure.fints.protocol.parser import (
+from geldstrom.infrastructure.fints.protocol.parser import (
     FinTSParser,
     FinTSSerializer,
     SegmentRegistry,
     get_default_registry,
 )
-from fints.infrastructure.fints.protocol.base import SegmentHeader
-from fints.infrastructure.fints.protocol.segments import (
+from geldstrom.infrastructure.fints.protocol.base import SegmentHeader
+from geldstrom.infrastructure.fints.protocol.segments import (
     # Dialog
     HNHBK3, HNHBS1, HIRMG2, HIRMS2, HKSYN3, HISYN4, HKEND1,
     # Response DEG testing
@@ -33,7 +33,7 @@ from fints.infrastructure.fints.protocol.segments import (
     # Transfer
     HKCCS1,
 )
-from fints.infrastructure.fints.protocol.formals import (
+from geldstrom.infrastructure.fints.protocol.formals import (
     BankIdentifier,
     Language,
     Response,
@@ -124,7 +124,7 @@ class TestSegmentRegistry:
 
         # HKSAL highest is 7
         highest = registry.get_highest_version("HKSAL")
-        from fints.infrastructure.fints.protocol.segments import HKSAL7
+        from geldstrom.infrastructure.fints.protocol.segments import HKSAL7
         assert highest == HKSAL7
 
 

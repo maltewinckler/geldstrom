@@ -3,9 +3,17 @@
     "python.analysis.extraPaths": [
         "${workspaceFolder}"
     ],
-    "pylint.args": [
-        "--init-hook",
-        "import sys; sys.path.insert(0, '${workspaceFolder}')"
-    ]
-}
 
+    // Disable pylint (replaced by ruff)
+    "pylint.enabled": false,
+
+    // Ruff configuration (uses pyproject.toml for rules)
+    "[python]": {
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "charliermarsh.ruff",
+        "editor.codeActionsOnSave": {
+            "source.fixAll.ruff": "explicit",
+            "source.organizeImports.ruff": "explicit"
+        }
+    }
+}

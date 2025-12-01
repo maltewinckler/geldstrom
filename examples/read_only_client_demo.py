@@ -38,14 +38,14 @@ from pathlib import Path
 from typing import Mapping, Optional
 
 # New recommended imports from top-level fints package
-from fints import (
+from geldstrom import (
     BankCredentials,
     BankRoute,
     ReadOnlyFinTSClient,
     SessionToken,
 )
-from fints.application import GatewayCredentials
-from fints.infrastructure.fints import FinTSSessionState
+from geldstrom.application import GatewayCredentials
+from geldstrom.infrastructure.fints import FinTSSessionState
 
 SESSION_FILE = Path(".session_state.json")
 

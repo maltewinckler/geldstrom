@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import pytest
 
-from fints.infrastructure.fints.protocol.parser import (
+from geldstrom.infrastructure.fints.protocol.parser import (
     FinTSParser,
     FinTSParserError,
     FinTSParserWarning,
@@ -21,7 +21,7 @@ from fints.infrastructure.fints.protocol.parser import (
     Token,
     get_default_registry,
 )
-from fints.infrastructure.fints.protocol.segments import (
+from geldstrom.infrastructure.fints.protocol.segments import (
     HKSAL6,
     HKSAL7,
     HISAL6,

@@ -15,9 +15,9 @@ from decimal import Decimal
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
-from fints.domain import BankRoute
-from fints.infrastructure.gateway import FinTSReadOnlyGateway
-from fints.models import SEPAAccount
+from geldstrom.domain import BankRoute
+from geldstrom.infrastructure.gateway import FinTSReadOnlyGateway
+from geldstrom.models import SEPAAccount
 
 # --------------------------------------------------------------------------
 # Gateway Tests - verify delegation to adapters works
@@ -46,7 +46,7 @@ def test_gateway_instantiation():
 
 def test_transactions_adapter_camt_parsing():
     """Test CAMT parsing through the transaction adapter."""
-    from fints.infrastructure.fints.adapters.transactions import FinTSTransactionHistory
+    from geldstrom.infrastructure.fints.adapters.transactions import FinTSTransactionHistory
 
     # Create adapter instance (doesn't need real credentials for parsing tests)
     creds = MagicMock()
@@ -82,7 +82,7 @@ def test_transactions_adapter_camt_parsing():
 
 def test_transactions_adapter_pending_entries():
     """Test pending entry parsing through transaction adapter."""
-    from fints.infrastructure.fints.adapters.transactions import FinTSTransactionHistory
+    from geldstrom.infrastructure.fints.adapters.transactions import FinTSTransactionHistory
 
     creds = MagicMock()
     adapter = FinTSTransactionHistory(creds)
@@ -108,7 +108,7 @@ def test_transactions_adapter_pending_entries():
 
 def test_accounts_adapter_capabilities_from_operations():
     """Test capability extraction through accounts adapter."""
-    from fints.infrastructure.fints.adapters.accounts import FinTSAccountDiscovery
+    from geldstrom.infrastructure.fints.adapters.accounts import FinTSAccountDiscovery
 
     creds = MagicMock()
     adapter = FinTSAccountDiscovery(creds)
@@ -126,8 +126,8 @@ def test_accounts_adapter_capabilities_from_operations():
 
 def test_accounts_adapter_merges_sepa_metadata():
     """Test account info merging through accounts adapter."""
-    from fints.infrastructure.fints.adapters.accounts import FinTSAccountDiscovery
-    from fints.infrastructure.fints.operations import AccountInfo
+    from geldstrom.infrastructure.fints.adapters.accounts import FinTSAccountDiscovery
+    from geldstrom.infrastructure.fints.operations import AccountInfo
 
     creds = MagicMock()
     creds.route = BankRoute(country_code="DE", bank_code="50030000")
@@ -172,8 +172,8 @@ def test_accounts_adapter_merges_sepa_metadata():
 
 def test_balance_adapter_operations_parsing():
     """Test balance parsing through balance adapter."""
-    from fints.infrastructure.fints.adapters.balances import FinTSBalanceAdapter
-    from fints.infrastructure.fints.operations import BalanceResult, MT940Balance
+    from geldstrom.infrastructure.fints.adapters.balances import FinTSBalanceAdapter
+    from geldstrom.infrastructure.fints.operations import BalanceResult, MT940Balance
 
     creds = MagicMock()
     adapter = FinTSBalanceAdapter(creds)
@@ -198,7 +198,7 @@ def test_balance_adapter_operations_parsing():
 
 def test_transactions_adapter_mt940_parsing():
     """Test MT940 transaction parsing through transaction adapter."""
-    from fints.infrastructure.fints.adapters.transactions import FinTSTransactionHistory
+    from geldstrom.infrastructure.fints.adapters.transactions import FinTSTransactionHistory
 
     creds = MagicMock()
     adapter = FinTSTransactionHistory(creds)
@@ -234,7 +234,7 @@ def test_transactions_adapter_mt940_parsing():
 
 def test_accounts_adapter_route_from_bank_identifier():
     """Test route parsing through accounts adapter."""
-    from fints.infrastructure.fints.adapters.accounts import FinTSAccountDiscovery
+    from geldstrom.infrastructure.fints.adapters.accounts import FinTSAccountDiscovery
 
     creds = MagicMock()
     creds.route = BankRoute(country_code="DE", bank_code="50030000")

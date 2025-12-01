@@ -12,7 +12,7 @@ from decimal import Decimal
 
 import pytest
 
-from fints.infrastructure.fints.protocol.segments import (
+from geldstrom.infrastructure.fints.protocol.segments import (
     # Transfer segments
     HKCCS1,
     HKIPZ1,
@@ -35,7 +35,7 @@ from fints.infrastructure.fints.protocol.segments import (
     HIPROS3,
     HIPROS4,
 )
-from fints.infrastructure.fints.protocol.formals import (
+from geldstrom.infrastructure.fints.protocol.formals import (
     AccountInternational,
     Amount,
     BankIdentifier,
@@ -43,7 +43,7 @@ from fints.infrastructure.fints.protocol.formals import (
     ReferenceMessage,
     Response,
 )
-from fints.infrastructure.fints.protocol.base import SegmentHeader
+from geldstrom.infrastructure.fints.protocol.base import SegmentHeader
 
 
 # =============================================================================

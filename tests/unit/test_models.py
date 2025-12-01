@@ -1,12 +1,12 @@
 from io import StringIO
 
 import pytest
-from fints.formals import (
+from geldstrom.formals import (
     AlphanumericField, DataElementField, GenericField,
     NumericField, SegmentHeader, SegmentSequence,
 )
-from fints.segments.base import FinTS3Segment
-from fints.segments.message import HNHBK3, HNHBS1
+from geldstrom.segments.base import FinTS3Segment
+from geldstrom.segments.message import HNHBK3, HNHBS1
 
 
 def test_metaclass_foo():
@@ -17,7 +17,7 @@ def test_metaclass_foo():
 
 
 def test_fints3_only_de_and_deg():
-    from fints.formals import Field, Container, DataElementGroupField
+    from geldstrom.formals import Field, Container, DataElementGroupField
 
     with pytest.raises(TypeError, match="b=.* is not DataElementField or DataElementGroupField"):
         class Foo(FinTS3Segment):
@@ -131,72 +131,72 @@ def test_find_subclass():
 
 
 def test_nested_output_evalable():
-    import fints.segments, fints.formals
+    import geldstrom.segments, geldstrom.formals
 
-    a = SegmentSequence([fints.segments.message.HNHBK3(header=fints.formals.SegmentHeader('HNHBK', 1, 3, None), message_size='000000000428', hbci_version=300,
+    a = SegmentSequence([geldstrom.segments.message.HNHBK3(header=geldstrom.formals.SegmentHeader('HNHBK', 1, 3, None), message_size='000000000428', hbci_version=300,
                                                        dialog_id='430711670077=043999659571CN9D=', message_number=2,
-                                                       reference_message=fints.formals.ReferenceMessage(dialog_id='430711670077=043999659571CN9D=',
+                                                       reference_message=geldstrom.formals.ReferenceMessage(dialog_id='430711670077=043999659571CN9D=',
                                                                                                         message_number=2)),
-                         fints.segments.message.HNVSK3(header=fints.formals.SegmentHeader('HNVSK', 998, 3, None),
-                                                       security_profile=fints.formals.SecurityProfile(security_method='PIN', security_method_version=1),
+                         geldstrom.segments.message.HNVSK3(header=geldstrom.formals.SegmentHeader('HNVSK', 998, 3, None),
+                                                       security_profile=geldstrom.formals.SecurityProfile(security_method='PIN', security_method_version=1),
                                                        security_function='998', security_role='1',
-                                                       security_identification_details=fints.formals.SecurityIdentificationDetails(identified_role='2',
+                                                       security_identification_details=geldstrom.formals.SecurityIdentificationDetails(identified_role='2',
                                                                                                                                    cid=None,
                                                                                                                                    identifier='oIm3BlHv6mQBAADYgbPpp+kWrAQA'),
-                                                       security_datetime=fints.formals.SecurityDateTime(date_time_type='1', date=None, time=None),
-                                                       encryption_algorithm=fints.formals.EncryptionAlgorithm(usage_encryption='2', operation_mode='2',
+                                                       security_datetime=geldstrom.formals.SecurityDateTime(date_time_type='1', date=None, time=None),
+                                                       encryption_algorithm=geldstrom.formals.EncryptionAlgorithm(usage_encryption='2', operation_mode='2',
                                                                                                               encryption_algorithm='13',
                                                                                                               algorithm_parameter_value=b'00000000',
                                                                                                               algorithm_parameter_name='5',
                                                                                                               algorithm_parameter_iv_name='1',
                                                                                                               algorithm_parameter_iv_value=None),
-                                                       key_name=fints.formals.KeyName(
-                                                           bank_identifier=fints.formals.BankIdentifier(country_identifier='280', bank_code='15050500'),
+                                                       key_name=geldstrom.formals.KeyName(
+                                                           bank_identifier=geldstrom.formals.BankIdentifier(country_identifier='280', bank_code='15050500'),
                                                            user_id='hermes', key_type='S', key_number=0, key_version=0), compression_function='0',
-                                                       certificate=fints.formals.Certificate(certificate_type=None, certificate_content=None)),
-                         fints.segments.message.HNVSD1(header=fints.formals.SegmentHeader('HNVSD', 999, 1, None), data=SegmentSequence([
-                                                                                                                                           fints.segments.message.HNSHK4(
-                                                                                                                                               header=fints.formals.SegmentHeader(
+                                                       certificate=geldstrom.formals.Certificate(certificate_type=None, certificate_content=None)),
+                         geldstrom.segments.message.HNVSD1(header=geldstrom.formals.SegmentHeader('HNVSD', 999, 1, None), data=SegmentSequence([
+                                                                                                                                           geldstrom.segments.message.HNSHK4(
+                                                                                                                                               header=geldstrom.formals.SegmentHeader(
                                                                                                                                                    'HNSHK', 2,
                                                                                                                                                    4, None),
-                                                                                                                                               security_profile=fints.formals.SecurityProfile(
+                                                                                                                                               security_profile=geldstrom.formals.SecurityProfile(
                                                                                                                                                    security_method='PIN',
                                                                                                                                                    security_method_version=1),
                                                                                                                                                security_function='999',
                                                                                                                                                security_reference='9166926',
                                                                                                                                                security_application_area='1',
                                                                                                                                                security_role='1',
-                                                                                                                                               security_identification_details=fints.formals.SecurityIdentificationDetails(
+                                                                                                                                               security_identification_details=geldstrom.formals.SecurityIdentificationDetails(
                                                                                                                                                    identified_role='2',
                                                                                                                                                    cid=None,
                                                                                                                                                    identifier='oIm3BlHv6mQBAADYgbPpp+kWrAQA'),
                                                                                                                                                security_reference_number=1,
-                                                                                                                                               security_datetime=fints.formals.SecurityDateTime(
+                                                                                                                                               security_datetime=geldstrom.formals.SecurityDateTime(
                                                                                                                                                    date_time_type='1',
                                                                                                                                                    date=None,
                                                                                                                                                    time=None),
-                                                                                                                                               hash_algorithm=fints.formals.HashAlgorithm(
+                                                                                                                                               hash_algorithm=geldstrom.formals.HashAlgorithm(
                                                                                                                                                    usage_hash='1',
                                                                                                                                                    hash_algorithm='999',
                                                                                                                                                    algorithm_parameter_name='1',
                                                                                                                                                    algorithm_parameter_value=None),
-                                                                                                                                               signature_algorithm=fints.formals.SignatureAlgorithm(
+                                                                                                                                               signature_algorithm=geldstrom.formals.SignatureAlgorithm(
                                                                                                                                                    usage_signature='6',
                                                                                                                                                    signature_algorithm='10',
                                                                                                                                                    operation_mode='16'),
-                                                                                                                                               key_name=fints.formals.KeyName(
-                                                                                                                                                   bank_identifier=fints.formals.BankIdentifier(
+                                                                                                                                               key_name=geldstrom.formals.KeyName(
+                                                                                                                                                   bank_identifier=geldstrom.formals.BankIdentifier(
                                                                                                                                                        country_identifier='280',
                                                                                                                                                        bank_code='15050500'),
                                                                                                                                                    user_id='hermes',
                                                                                                                                                    key_type='S',
                                                                                                                                                    key_number=0,
                                                                                                                                                    key_version=0),
-                                                                                                                                               certificate=fints.formals.Certificate(
+                                                                                                                                               certificate=geldstrom.formals.Certificate(
                                                                                                                                                    certificate_type=None,
                                                                                                                                                    certificate_content=None)),
-                                                                                                                                           fints.segments.base.FinTS3Segment(
-                                                                                                                                               header=fints.formals.SegmentHeader(
+                                                                                                                                           geldstrom.segments.base.FinTS3Segment(
+                                                                                                                                               header=geldstrom.formals.SegmentHeader(
                                                                                                                                                    'HIRMG', 3,
                                                                                                                                                    2, None),
                                                                                                                                                _additional_data=[
@@ -206,13 +206,13 @@ def test_nested_output_evalable():
                                                                                                                                                    ['0100',
                                                                                                                                                     None,
                                                                                                                                                     'Dialog beendet.']]),
-                                                                                                                                           fints.segments.base.FinTS3Segment(
-                                                                                                                                               header=fints.formals.SegmentHeader(
+                                                                                                                                           geldstrom.segments.base.FinTS3Segment(
+                                                                                                                                               header=geldstrom.formals.SegmentHeader(
                                                                                                                                                    'HNSHA', 4,
                                                                                                                                                    2, None),
                                                                                                                                                _additional_data=[
                                                                                                                                                    '9166926'])])),
-                         fints.segments.message.HNHBS1(header=fints.formals.SegmentHeader('HNHBS', 5, 1, None), message_number=2)])
+                         geldstrom.segments.message.HNHBS1(header=geldstrom.formals.SegmentHeader('HNHBS', 5, 1, None), message_number=2)])
 
     output = StringIO()
     a.print_nested(stream=output)

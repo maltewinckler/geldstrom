@@ -29,12 +29,12 @@ logging.basicConfig(
 # Enable DEBUG for FinTS dialog to see poll attempts
 logging.getLogger("fints.infrastructure.fints.dialog.factory").setLevel(logging.DEBUG)
 
-from fints import (
+from geldstrom import (
     BankCredentials,
     BankRoute,
     ReadOnlyFinTSClient,
 )
-from fints.application import GatewayCredentials
+from geldstrom.application import GatewayCredentials
 
 
 def load_env(path: Path) -> dict[str, str]:

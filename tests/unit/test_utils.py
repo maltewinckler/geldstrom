@@ -1,5 +1,5 @@
 import pytest
-from fints.utils import decode_phototan_image
+from geldstrom.utils import decode_phototan_image
 
 
 # HITAN3:

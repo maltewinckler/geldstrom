@@ -57,15 +57,15 @@ def pytest_configure(config: pytest.Config) -> None:
 
     # Enable strict parsing if requested
     if config.getoption("--fints-strict", default=False):
-        import fints.types
-        fints.types.STRICT_PARSING = True
+        import geldstrom.types
+        geldstrom.types.STRICT_PARSING = True
         os.environ["FINTS_STRICT_PARSING"] = "1"
 
     # Enable debug logging if requested
     if config.getoption("--fints-debug", default=False):
-        logging.getLogger("fints").setLevel(logging.DEBUG)
-        logging.getLogger("fints.infrastructure.fints.dialog").setLevel(logging.DEBUG)
-        logging.getLogger("fints.infrastructure.fints.protocol").setLevel(logging.DEBUG)
+        logging.getLogger("geldstrom").setLevel(logging.DEBUG)
+        logging.getLogger("geldstrom.infrastructure.fints.dialog").setLevel(logging.DEBUG)
+        logging.getLogger("geldstrom.infrastructure.fints.protocol").setLevel(logging.DEBUG)
 
 
 def pytest_collection_modifyitems(config: pytest.Config, items):
@@ -98,7 +98,7 @@ def capture_parser_warnings():
             # Or get a report
             print(collector.report())
     """
-    from fints.infrastructure.fints.protocol.parser import FinTSParserWarning
+    from geldstrom.infrastructure.fints.protocol.parser import FinTSParserWarning
 
     class WarningCollector:
         def __init__(self):
@@ -200,18 +200,18 @@ def strict_parsing():
                 # Parser errors will raise exceptions here
                 SegmentSequence(raw_bytes)  # Raises on unknown segments
     """
-    import fints.types
+    import geldstrom.types
 
     class StrictParsingContext:
         def __init__(self):
             self._original = None
 
         def __enter__(self):
-            self._original = fints.types.STRICT_PARSING
-            fints.types.STRICT_PARSING = True
+            self._original = geldstrom.types.STRICT_PARSING
+            geldstrom.types.STRICT_PARSING = True
             return self
 
         def __exit__(self, *args):
-            fints.types.STRICT_PARSING = self._original
+            geldstrom.types.STRICT_PARSING = self._original
 
     return StrictParsingContext()

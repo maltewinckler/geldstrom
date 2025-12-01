@@ -16,14 +16,14 @@ from typing import ClassVar
 import pytest
 from pydantic import Field
 
-from fints.infrastructure.fints.protocol.base import (
+from geldstrom.infrastructure.fints.protocol.base import (
     FinTSDataElementGroup,
     FinTSModel,
     FinTSSegment,
     SegmentHeader,
     SegmentSequence,
 )
-from fints.infrastructure.fints.protocol.types import (
+from geldstrom.infrastructure.fints.protocol.types import (
     FinTSAlphanumeric,
     FinTSAmount,
     FinTSCurrency,

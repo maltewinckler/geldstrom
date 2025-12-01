@@ -11,9 +11,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fints.constants import SYSTEM_ID_UNASSIGNED
-from fints.infrastructure.fints.protocol import BankIdentifier, Language2
-from fints.infrastructure.fints.dialog import (
+from geldstrom.constants import SYSTEM_ID_UNASSIGNED
+from geldstrom.infrastructure.fints.protocol import BankIdentifier, Language2
+from geldstrom.infrastructure.fints.dialog import (
     ConnectionConfig,
     Dialog,
     DialogConfig,
@@ -24,7 +24,7 @@ from fints.infrastructure.fints.dialog import (
     ProcessedResponse,
     ResponseProcessor,
 )
-from fints.infrastructure.fints.protocol import ParameterStore
+from geldstrom.infrastructure.fints.protocol import ParameterStore
 
 
 # ---------------------------------------------------------------------------

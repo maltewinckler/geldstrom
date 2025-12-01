@@ -15,8 +15,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fints.exceptions import FinTSNoResponseError
-from fints.types import Container, ContainerMeta, Field, SegmentSequence, TypedField, ValueList
+from geldstrom.exceptions import FinTSNoResponseError
+from geldstrom.types import Container, ContainerMeta, Field, SegmentSequence, TypedField, ValueList
 
 
 # ==============================================================================
@@ -816,7 +816,7 @@ class TestEdgeCases:
         """Test SegmentSequence initialization from bytes (mocked) using legacy parser."""
         # This tests the legacy code path, actual parsing is tested elsewhere
         # The parser is imported inside SegmentSequence.__init__, so we patch at the source
-        with patch("fints.parser.FinTS3Parser") as mock_parser:
+        with patch("geldstrom.parser.FinTS3Parser") as mock_parser:
             mock_parser_instance = mock_parser.return_value
             mock_parser_instance.explode_segments.return_value = [["seg1"], ["seg2"]]
             mock_parser_instance.parse_segment.side_effect = [
@@ -832,9 +832,9 @@ class TestEdgeCases:
 
     def test_segment_sequence_pydantic_parser_flag(self):
         """Test SegmentSequence uses Pydantic parser when flag is True."""
-        from fints.infrastructure.fints.protocol.base import SegmentSequence as PydanticSegmentSequence
+        from geldstrom.infrastructure.fints.protocol.base import SegmentSequence as PydanticSegmentSequence
 
-        with patch("fints.infrastructure.fints.protocol.parser.FinTSParser") as mock_parser:
+        with patch("geldstrom.infrastructure.fints.protocol.parser.FinTSParser") as mock_parser:
             mock_result = MagicMock()
             mock_result.segments = []
             mock_parser.return_value.parse_message.return_value = mock_result
@@ -848,7 +848,7 @@ class TestEdgeCases:
 
     def test_segment_sequence_legacy_parser_default(self):
         """Test SegmentSequence uses legacy parser by default."""
-        with patch("fints.parser.FinTS3Parser") as mock_parser:
+        with patch("geldstrom.parser.FinTS3Parser") as mock_parser:
             mock_parser_instance = mock_parser.return_value
             mock_parser_instance.explode_segments.return_value = []
             mock_parser_instance.parse_segment.return_value = None

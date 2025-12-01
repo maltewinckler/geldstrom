@@ -11,12 +11,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fints.infrastructure.fints.protocol import (
+from geldstrom.infrastructure.fints.protocol import (
     BankParameters,
     ParameterStore,
     UserParameters,
 )
-from fints.types import SegmentSequence
+from geldstrom.types import SegmentSequence
 
 
 # ---------------------------------------------------------------------------
@@ -300,7 +300,7 @@ class TestParameterStore:
         store = ParameterStore(bpd=bpd_with_segments, upd=upd_with_accounts)
 
         # Mock the serializer for BPA/UPA
-        with patch("fints.infrastructure.fints.protocol.parameters.FinTS3Serializer") as mock_serializer:
+        with patch("geldstrom.infrastructure.fints.protocol.parameters.FinTS3Serializer") as mock_serializer:
             mock_serializer.return_value.serialize_message.return_value = b"serialized"
 
             data = store.to_dict()
