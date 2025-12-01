@@ -210,9 +210,8 @@ def parse_fints_numeric(value: Any) -> int:
         value = value.strip()
         if not value:
             raise ValueError("Numeric value cannot be empty string")
-        # Check for leading zeros (except "0" itself)
-        if len(value) > 1 and value[0] == "0":
-            raise ValueError(f"Leading zeros not allowed in FinTS numeric: {value!r}")
+        # Allow leading zeros - they're used in fixed-width fields like message_size
+        # The semantic value is the same (000000000123 == 123)
         try:
             return int(value, 10)
         except ValueError as e:

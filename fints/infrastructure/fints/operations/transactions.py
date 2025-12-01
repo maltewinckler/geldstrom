@@ -11,9 +11,9 @@ from datetime import date
 from typing import TYPE_CHECKING, Iterable, Sequence
 
 from fints.exceptions import FinTSUnsupportedOperation
-from fints.formals import SupportedMessageTypes
+from fints.infrastructure.fints.protocol import SupportedMessageTypes
 from fints.models import SEPAAccount
-from fints.segments.statement import HICAZ1, HKCAZ1, HKKAZ5, HKKAZ6, HKKAZ7
+from fints.infrastructure.fints.protocol import HICAZ1, HKCAZ1, HKKAZ5, HKKAZ6, HKKAZ7
 from fints.utils import mt940_to_array
 
 from .pagination import TouchdownPaginator, find_highest_supported_version
@@ -121,7 +121,8 @@ class TransactionOperations:
             )
 
         # Build account field
-        account_type = hkkaz_class._fields["account"].type
+        from .helpers import get_account_type_for_segment
+        account_type = get_account_type_for_segment(hkkaz_class)
         account_field = account_type.from_sepa_account(account)
 
         # Collect raw MT940 segments
@@ -210,10 +211,11 @@ class TransactionOperations:
         if not camt_messages:
             camt_messages = ("urn:iso:std:iso:20022:tech:xsd:camt.052.001.02",)
 
-        supported_messages = SupportedMessageTypes(list(camt_messages))
+        supported_messages = SupportedMessageTypes(expected_type=list(camt_messages))
 
         # Build account field
-        account_type = hkcaz_class._fields["account"].type
+        from .helpers import get_account_type_for_segment
+        account_type = get_account_type_for_segment(hkcaz_class)
         account_field = account_type.from_sepa_account(account)
 
         booked_docs: list[bytes] = []

@@ -298,10 +298,10 @@ class TestParseFintNumeric:
         """Whitespace is stripped."""
         assert parse_fints_numeric("  123  ") == 123
 
-    def test_parse_leading_zero_raises(self):
-        """Leading zeros raise ValueError (except for '0')."""
-        with pytest.raises(ValueError, match="Leading zeros not allowed"):
-            parse_fints_numeric("0123")
+    def test_parse_leading_zeros_allowed(self):
+        """Leading zeros are allowed for fixed-width numeric fields like message_size."""
+        assert parse_fints_numeric("0123") == 123
+        assert parse_fints_numeric("000000000123") == 123
 
     def test_parse_zero_is_valid(self):
         """'0' is a valid value."""

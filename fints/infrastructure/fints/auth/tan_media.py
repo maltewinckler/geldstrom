@@ -4,7 +4,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Sequence
 
-from fints.formals import TANMediaClass4, TANMediaType2, TANUsageOption
+from fints.infrastructure.fints.protocol import (
+    HKTAB4,
+    HKTAB5,
+    TANMediaClass4,
+    TANMediaType2,
+    TANUsageOption,
+)
 
 if TYPE_CHECKING:
     pass
@@ -58,24 +64,16 @@ class TanMediaDiscovery:
         Returns:
             Tuple of (usage_option, list of TanMediaInfo)
         """
-        from fints.segments.auth import HKTAB4, HKTAB5
-
         # Find highest supported HKTAB version
         hktab = self._find_hktab_command()
         if not hktab:
             return TANUsageOption.ALL_ACTIVE, []
 
         # Build and send request
-        if hktab == HKTAB5:
-            seg = hktab(
-                tan_media_type=media_type,
-                tan_media_class=str(media_class),
-            )
-        else:
-            seg = hktab(
-                tan_media_type=media_type,
-                tan_media_class=str(media_class),
-            )
+        seg = hktab(
+            tan_media_type=media_type,
+            tan_media_class=media_class,
+        )
 
         response = self._send(seg)
 
@@ -88,8 +86,6 @@ class TanMediaDiscovery:
 
     def _find_hktab_command(self):
         """Find the highest supported HKTAB version."""
-        from fints.segments.auth import HKTAB4, HKTAB5
-
         # Check for HITABS parameter segment
         for version, cls in [(5, HKTAB5), (4, HKTAB4)]:
             param_type = f"HITABS{version}"

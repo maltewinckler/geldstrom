@@ -20,7 +20,6 @@ from typing import TYPE_CHECKING, Any, Iterator, Mapping
 
 from fints.application.ports import GatewayCredentials
 from fints.constants import SYSTEM_ID_UNASSIGNED
-from fints.formals import BankIdentifier, CUSTOMER_ID_ANONYMOUS, SynchronizationMode
 from fints.infrastructure.fints.auth.standalone_mechanisms import (
     SecurityContext,
     StandaloneAuthenticationMechanism,
@@ -33,10 +32,18 @@ from fints.infrastructure.fints.dialog import (
     DialogFactory,
     HTTPSDialogConnection,
 )
-from fints.infrastructure.fints.protocol import ParameterStore
+from fints.infrastructure.fints.protocol import (
+    BankIdentifier,
+    CUSTOMER_ID_ANONYMOUS,
+    SynchronizationMode,
+    ParameterStore,
+    HKTAN2,
+    HKTAN6,
+    HKTAN7,
+    HKSYN3,
+    HISYN4,
+)
 from fints.infrastructure.fints.session import FinTSSessionState
-from fints.segments.auth import HKTAN2, HKTAN6, HKTAN7
-from fints.segments.dialog import HKSYN3, HISYN4
 from fints.utils import Password, decompress_datablob, compress_datablob
 
 # Magic bytes for the compressed data blob format
@@ -119,8 +126,8 @@ class FinTSConnectionHelper:
 
         # Build bank identifier
         bank_id = BankIdentifier(
-            BankIdentifier.COUNTRY_ALPHA_TO_NUMERIC.get("DE", "280"),
-            creds.route.bank_code,
+            country_identifier=BankIdentifier.COUNTRY_ALPHA_TO_NUMERIC.get("DE", "280"),
+            bank_code=creds.route.bank_code,
         )
 
         # Determine system ID
@@ -503,7 +510,7 @@ class FinTSConnectionHelper:
         try:
             # Initialize with HKSYN3 to request system ID
             response = sync_dialog.initialize(
-                extra_segments=[HKSYN3(SynchronizationMode.NEW_SYSTEM_ID)]
+                extra_segments=[HKSYN3(synchronization_mode=SynchronizationMode.NEW_SYSTEM_ID)]
             )
 
             # Extract system ID from HISYN4 response

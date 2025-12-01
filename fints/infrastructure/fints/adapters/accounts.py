@@ -13,7 +13,7 @@ from fints.domain import (
     BankRoute,
 )
 from fints.domain.ports.accounts import AccountDiscoveryPort
-from fints.formals import BankIdentifier as FinTSBankIdentifier
+from fints.infrastructure.fints.protocol import BankIdentifier as FinTSBankIdentifier
 from fints.infrastructure.fints.session import FinTSSessionState
 
 from .connection import FinTSConnectionHelper
@@ -79,7 +79,7 @@ class FinTSAccountDiscovery(AccountDiscoveryPort):
         Returns:
             Sequence of Account domain objects
         """
-        from fints.infrastructure.fints.operations import AccountOperations
+        from fints.infrastructure.fints.operations import AccountOperations, AccountInfo
 
         helper = FinTSConnectionHelper(self._credentials)
 
@@ -88,7 +88,32 @@ class FinTSAccountDiscovery(AccountDiscoveryPort):
 
             # Fetch SEPA accounts and UPD accounts
             sepa_accounts = ops.fetch_sepa_accounts()
-            upd_accounts = ops.get_accounts_from_upd()
+            upd_accounts = list(ops.get_accounts_from_upd())
+            if not upd_accounts and sepa_accounts:
+                logger.warning(
+                    "UPD accounts missing; synthesizing from %d SEPA accounts",
+                    len(sepa_accounts),
+                )
+                for sepa in sepa_accounts:
+                    upd_accounts.append(
+                        AccountInfo(
+                            account_number=sepa.accountnumber or sepa.iban,
+                            subaccount_number=sepa.subaccount,
+                            iban=sepa.iban,
+                            bic=sepa.bic,
+                            currency="EUR",
+                            owner_name=[],
+                            product_name=None,
+                            account_type=None,
+                            bank_identifier=None,
+                            allowed_operations=[],
+                        )
+                    )
+            logger.warning(
+                "Fetched %d SEPA accounts, %d UPD accounts",
+                len(sepa_accounts),
+                len(upd_accounts),
+            )
 
             # Merge and convert to domain
             return self._accounts_from_operations(
@@ -106,7 +131,6 @@ class FinTSAccountDiscovery(AccountDiscoveryPort):
         sepa_accounts: Sequence["SEPAAccount"],
     ) -> Sequence[Account]:
         """Convert operations result to domain Account objects."""
-        from fints.infrastructure.fints.operations import AccountInfo
 
         sepa_lookup = {self._account_key(sepa): sepa for sepa in sepa_accounts}
         domain_accounts: list[Account] = []
@@ -149,6 +173,7 @@ class FinTSAccountDiscovery(AccountDiscoveryPort):
                 )
             )
 
+        logger.warning("Converted %d domain accounts", len(domain_accounts))
         return tuple(domain_accounts)
 
     def _capabilities_from_operations(

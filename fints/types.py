@@ -227,20 +227,68 @@ class ValueList:
         stream.write((prefix + level * indent) + "]{}\n".format(trailer))
 
 
-class SegmentSequence:
-    """A sequence of FinTS3Segment objects"""
+# Feature flag to use Pydantic parser for response parsing
+# Set to True to enable Pydantic-based parsing for incoming messages
+# Default to using the Pydantic parser for incoming messages. All known
+# segment types have Pydantic definitions and the parser has generic
+# fallbacks for bank-specific extensions.
+USE_PYDANTIC_PARSER = True
 
-    def __init__(self, segments=None):
+
+class SegmentSequence:
+    """A sequence of FinTS segment objects (Pydantic or legacy).
+
+    This class bridges between the legacy Container-based segments and the
+    new Pydantic-based segments. It can parse messages using either the
+    legacy parser (default) or the Pydantic parser (when USE_PYDANTIC_PARSER=True).
+    """
+
+    def __init__(self, segments=None, use_pydantic: bool | None = None):
+        """Initialize a segment sequence.
+
+        Args:
+            segments: Either a list of segment objects, or raw bytes to parse.
+            use_pydantic: Override USE_PYDANTIC_PARSER flag for this instance.
+                         If None, uses the module-level flag.
+        """
         if isinstance(segments, bytes):
-            from .parser import FinTS3Parser
-            parser = FinTS3Parser()
-            data = parser.explode_segments(segments)
-            segments = [parser.parse_segment(segment) for segment in data]
+            should_use_pydantic = use_pydantic if use_pydantic is not None else USE_PYDANTIC_PARSER
+
+            if should_use_pydantic:
+                # Use Pydantic parser for response parsing
+                from .infrastructure.fints.protocol.parser import FinTSParser
+                parser = FinTSParser(robust_mode=True)
+                result = parser.parse_message(segments)
+                segments = list(result.segments)
+            else:
+                # Use legacy parser for response parsing - handles all segment types correctly
+                from .parser import FinTS3Parser
+                parser = FinTS3Parser()
+                data = parser.explode_segments(segments)
+                segments = [parser.parse_segment(segment) for segment in data]
         self.segments = list(segments) if segments else []
 
     def render_bytes(self) -> bytes:
-        from .parser import FinTS3Serializer
-        return FinTS3Serializer().serialize_message(self)
+        """Serialize all segments to FinTS wire format.
+
+        Uses Pydantic serializer for Pydantic segments, legacy for legacy.
+        """
+        # Check if any segment is legacy (has _fields attribute)
+        has_legacy = any(hasattr(seg, '_fields') for seg in self.segments)
+
+        if has_legacy:
+            # Use legacy serializer for legacy segments
+            from .parser import FinTS3Serializer
+            return FinTS3Serializer().serialize_message(self)
+
+        # All segments are Pydantic - use new serializer
+        from .infrastructure.fints.protocol.parser import FinTSSerializer
+        serializer = FinTSSerializer()
+        serialized_segments = [
+            serializer.serialize_segment(segment)
+            for segment in self.segments
+        ]
+        return serializer.implode_segments(serialized_segments)
 
     def __repr__(self):
         return "{}.{}({!r})".format(self.__class__.__module__, self.__class__.__name__, self.segments)
@@ -262,8 +310,15 @@ class SegmentSequence:
                 docstring = " # {}".format(docstring)
             else:
                 docstring = ""
-            segment.print_nested(stream=stream, level=level + 1, indent=indent, prefix=prefix, first_level_indent=True, trailer=",", print_doc=print_doc,
-                                 first_line_suffix=docstring)
+            # Handle both legacy and Pydantic segments
+            if hasattr(segment, 'print_nested'):
+                segment.print_nested(stream=stream, level=level + 1, indent=indent, prefix=prefix, first_level_indent=True, trailer=",", print_doc=print_doc,
+                                     first_line_suffix=docstring)
+            else:
+                # Pydantic segment - use repr
+                stream.write(
+                    (prefix + (level + 1) * indent) + "{!r},{}\n".format(segment, docstring)
+                )
         stream.write((prefix + level * indent) + "]){}\n".format(trailer))
 
     def find_segments(self, query=None, version=None, callback=None, recurse=True, throw=False):
@@ -295,15 +350,58 @@ class SegmentSequence:
             callback = lambda s: True
 
         for s in self.segments:
-            if ((not query) or any((isinstance(s, t) if isinstance(t, type) else s.header.type == t) for t in query)) and \
-                    ((not version) or any(s.header.version == v for v in version)) and \
-                    callback(s):
+            # Check type match
+            type_match = not query  # If no query, match all
+            for t in query:
+                if isinstance(t, type):
+                    # Check isinstance first
+                    if isinstance(s, t):
+                        type_match = True
+                        break
+                    # For Pydantic segment classes, also check by SEGMENT_TYPE/VERSION
+                    if hasattr(t, 'SEGMENT_TYPE') and hasattr(t, 'SEGMENT_VERSION'):
+                        if s.header.type == t.SEGMENT_TYPE and s.header.version == t.SEGMENT_VERSION:
+                            type_match = True
+                            break
+                    # For legacy segment classes with TYPE/VERSION
+                    if hasattr(t, 'TYPE') and hasattr(t, 'VERSION'):
+                        if s.header.type == t.TYPE and s.header.version == t.VERSION:
+                            type_match = True
+                            break
+                else:
+                    # String query - match by type name
+                    if s.header.type == t:
+                        type_match = True
+                        break
+
+            # Check version match
+            version_match = (not version) or any(s.header.version == v for v in version)
+
+            if type_match and version_match and callback(s):
                 yield s
                 found_something = True
 
             if recurse:
-                for name, field in s._fields.items():
-                    val = getattr(s, name)
+                # Check if segment itself has a find_segments method (e.g., HNVSD1)
+                # This is different from the SegmentSequence.find_segments we're in
+                segment_find = getattr(type(s), 'find_segments', None)
+                if segment_find and segment_find is not SegmentSequence.find_segments:
+                    for v in s.find_segments(query=query, version=version, callback=callback, recurse=recurse):
+                        yield v
+                        found_something = True
+
+                # Get fields from either legacy or Pydantic segments
+                if hasattr(s, '_fields'):
+                    # Legacy Container segment
+                    field_names = s._fields.keys()
+                elif hasattr(type(s), 'model_fields'):
+                    # Pydantic segment - access model_fields from the class, not instance
+                    field_names = type(s).model_fields.keys()
+                else:
+                    field_names = []
+
+                for name in field_names:
+                    val = getattr(s, name, None)
                     if val and hasattr(val, 'find_segments'):
                         for v in val.find_segments(query=query, version=version, callback=callback, recurse=recurse):
                             yield v

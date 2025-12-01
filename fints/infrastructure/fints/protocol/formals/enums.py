@@ -2,13 +2,47 @@
 
 These enums define the valid codes used in FinTS protocol messages.
 Each enum corresponds to a specific code field in the FinTS specification.
+
+All enums inherit from FinTSEnum which ensures __str__ returns the value,
+matching the behavior of legacy RepresentableEnum. This is required for
+compatibility with legacy FinTS field parsing which relies on str(enum)
+returning the raw protocol value.
 """
 from __future__ import annotations
 
 from enum import Enum
 
 
-class SecurityMethod(str, Enum):
+class FinTSEnum(str, Enum):
+    """Base class for FinTS string enums that returns value from __str__.
+
+    This ensures compatibility with legacy field parsing which expects
+    str(enum) to return the protocol value, not the enum name.
+
+    Example:
+        >>> str(SynchronizationMode.NEW_SYSTEM_ID)
+        '0'  # Returns value, not 'SynchronizationMode.NEW_SYSTEM_ID'
+    """
+
+    def __str__(self) -> str:
+        """Return the enum value as string."""
+        return str(self.value)
+
+
+class FinTSIntEnum(int, Enum):
+    """Base class for FinTS integer enums that returns value from __str__.
+
+    Example:
+        >>> str(ServiceType.HTTPS)
+        '3'  # Returns value, not 'ServiceType.HTTPS'
+    """
+
+    def __str__(self) -> str:
+        """Return the enum value as string."""
+        return str(self.value)
+
+
+class SecurityMethod(FinTSEnum):
     """Sicherheitsverfahren (Security Method).
 
     Source: FinTS 3.0 Formals, Sicherheitsverfahren
@@ -19,7 +53,7 @@ class SecurityMethod(str, Enum):
     PIN = "PIN"   # PIN/TAN
 
 
-class IdentifiedRole(str, Enum):
+class IdentifiedRole(FinTSEnum):
     """Rolle des Identifizierten (Identified Role).
 
     Source: FinTS 3.0 Formals
@@ -28,7 +62,7 @@ class IdentifiedRole(str, Enum):
     MR = "2"  # Message Receiver
 
 
-class DateTimeType(str, Enum):
+class DateTimeType(FinTSEnum):
     """Datum/Uhrzeit-Typ (Date/Time Type).
 
     Source: FinTS 3.0 Formals
@@ -37,7 +71,7 @@ class DateTimeType(str, Enum):
     CRT = "6"  # Certificate Revocation Time
 
 
-class SecurityRole(str, Enum):
+class SecurityRole(FinTSEnum):
     """Rolle des Sicherheitslieferanten (Security Role).
 
     Source: FinTS 3.0 Sicherheitsverfahren HBCI
@@ -47,7 +81,7 @@ class SecurityRole(str, Enum):
     WIT = "4"  # Zeuge/Übermittler (Witness/Transmitter)
 
 
-class SecurityApplicationArea(str, Enum):
+class SecurityApplicationArea(FinTSEnum):
     """Bereich der Sicherheitsapplikation (Security Application Area).
 
     Source: FinTS 3.0 Sicherheitsverfahren HBCI
@@ -56,7 +90,7 @@ class SecurityApplicationArea(str, Enum):
     SHT = "2"  # Von Signaturkopf bis Signaturabschluss
 
 
-class CompressionFunction(str, Enum):
+class CompressionFunction(FinTSEnum):
     """Komprimierungsfunktion (Compression Function).
 
     Source: FinTS 3.0 Sicherheitsverfahren HBCI
@@ -72,7 +106,7 @@ class CompressionFunction(str, Enum):
     ZZZ = "999"   # Gegenseitig vereinbart (Mutually agreed)
 
 
-class KeyType(str, Enum):
+class KeyType(FinTSEnum):
     """Schlüsselart (Key Type).
 
     Source: FinTS 3.0 Formals
@@ -82,7 +116,7 @@ class KeyType(str, Enum):
     V = "V"  # Chiffrierschlüssel (Cipher Key)
 
 
-class UsageEncryption(str, Enum):
+class UsageEncryption(FinTSEnum):
     """Verwendungsmodus der Verschlüsselung (Encryption Usage).
 
     Source: FinTS 3.0 Formals
@@ -90,7 +124,7 @@ class UsageEncryption(str, Enum):
     OSY = "2"  # Owner Symmetric
 
 
-class OperationMode(str, Enum):
+class OperationMode(FinTSEnum):
     """Operationsmodus (Operation Mode).
 
     Source: FinTS 3.0 Formals
@@ -103,7 +137,7 @@ class OperationMode(str, Enum):
     ZZZ = "999"             # Gegenseitig vereinbart (DDV: Retail-MAC)
 
 
-class EncryptionAlgorithmCoded(str, Enum):
+class EncryptionAlgorithmCoded(FinTSEnum):
     """Verschlüsselungsalgorithmus kodiert (Encryption Algorithm).
 
     Source: FinTS 3.0 Formals
@@ -112,7 +146,7 @@ class EncryptionAlgorithmCoded(str, Enum):
     AES256 = "14"      # AES-256
 
 
-class AlgorithmParameterName(str, Enum):
+class AlgorithmParameterName(FinTSEnum):
     """Algorithmusparameter, Name (Algorithm Parameter Name).
 
     Source: FinTS 3.0 Formals
@@ -121,7 +155,7 @@ class AlgorithmParameterName(str, Enum):
     KYP = "6"  # Symmetrischer Schlüssel, verschlüsselt mit öffentlichem Schlüssel
 
 
-class AlgorithmParameterIVName(str, Enum):
+class AlgorithmParameterIVName(FinTSEnum):
     """Algorithmusparameter IV, Name (Algorithm Parameter IV Name).
 
     Source: FinTS 3.0 Formals
@@ -129,7 +163,7 @@ class AlgorithmParameterIVName(str, Enum):
     IVC = "1"  # Initialization value, clear text
 
 
-class CreditDebit(str, Enum):
+class CreditDebit(FinTSEnum):
     """Soll-Haben-Kennzeichen (Credit/Debit Indicator).
 
     Source: FinTS 3.0 Messages - Multibankfähige Geschäftsvorfälle
@@ -138,7 +172,7 @@ class CreditDebit(str, Enum):
     DEBIT = "D"   # Soll (Debit)
 
 
-class SynchronizationMode(str, Enum):
+class SynchronizationMode(FinTSEnum):
     """Synchronisierungsmodus (Synchronization Mode).
 
     Source: FinTS 3.0 Formals
@@ -148,7 +182,7 @@ class SynchronizationMode(str, Enum):
     SIGNATURE_ID = "2"    # Signatur-ID zurückmelden
 
 
-class SystemIDStatus(str, Enum):
+class SystemIDStatus(FinTSEnum):
     """Kundensystem-Status (System ID Status).
 
     Source: FinTS 3.0 Formals
@@ -157,7 +191,7 @@ class SystemIDStatus(str, Enum):
     ID_NECESSARY = "1"    # Kundensystem-ID wird benötigt
 
 
-class UPDUsage(str, Enum):
+class UPDUsage(FinTSEnum):
     """UPD-Verwendung (UPD Usage).
 
     Source: FinTS 3.0 Formals
@@ -166,7 +200,7 @@ class UPDUsage(str, Enum):
     UPD_INCONCLUSIVE = "1"   # Keine Aussage über nicht aufgeführte GV
 
 
-class Language(str, Enum):
+class Language(FinTSEnum):
     """Dialogsprache (Dialog Language).
 
     Source: FinTS 3.0 Formals
@@ -177,7 +211,7 @@ class Language(str, Enum):
     FR = "3"       # Französisch
 
 
-class ServiceType(int, Enum):
+class ServiceType(FinTSIntEnum):
     """Kommunikationsdienst (Service Type).
 
     Source: FinTS 3.0 Formals
@@ -187,7 +221,7 @@ class ServiceType(int, Enum):
     HTTPS = 3      # HTTPS
 
 
-class TANMediaType(str, Enum):
+class TANMediaType(FinTSEnum):
     """TAN-Medium-Art (TAN Media Type).
 
     Source: FinTS 3.0 Sicherheitsverfahren PIN/TAN
@@ -197,7 +231,7 @@ class TANMediaType(str, Enum):
     AVAILABLE = "2" # Verfügbar
 
 
-class TANMediaClass(str, Enum):
+class TANMediaClass(FinTSEnum):
     """TAN-Medium-Klasse (TAN Media Class).
 
     Source: FinTS 3.0 Sicherheitsverfahren PIN/TAN
@@ -210,7 +244,7 @@ class TANMediaClass(str, Enum):
     BILATERAL = "B" # Bilateral vereinbart
 
 
-class TANMediumStatus(str, Enum):
+class TANMediumStatus(FinTSEnum):
     """TAN-Medium-Status.
 
     Source: FinTS 3.0 Sicherheitsverfahren PIN/TAN
@@ -221,7 +255,7 @@ class TANMediumStatus(str, Enum):
     AVAILABLE_SUCCESSOR = "4" # Verfügbar Folgekarte
 
 
-class TANTimeDialogAssociation(str, Enum):
+class TANTimeDialogAssociation(FinTSEnum):
     """TAN Zeit- und Dialogbezug (TAN Time/Dialog Association).
 
     Source: FinTS 3.0 Sicherheitsverfahren PIN/TAN
@@ -232,7 +266,7 @@ class TANTimeDialogAssociation(str, Enum):
     NOT_APPLICABLE = "4"  # Nicht zutreffend
 
 
-class AllowedFormat(str, Enum):
+class AllowedFormat(FinTSEnum):
     """Erlaubtes Format im Zwei-Schritt-Verfahren (Allowed Format).
 
     Source: FinTS 3.0 Sicherheitsverfahren PIN/TAN
@@ -241,7 +275,76 @@ class AllowedFormat(str, Enum):
     ALPHANUMERIC = "2"  # Alphanumerisch
 
 
-class StatementFormat(str, Enum):
+class TANUsageOption(FinTSEnum):
+    """TAN-Einsatzoption (TAN Usage Option).
+
+    Source: FinTS 3.0 Sicherheitsverfahren PIN/TAN
+    """
+    ALL_ACTIVE = "0"          # Kunde kann alle "aktiven" Medien parallel nutzen
+    EXACTLY_ONE = "1"         # Kunde kann genau ein Medium zu einer Zeit nutzen
+    MOBILE_AND_GENERATOR = "2"  # Kunde kann Mobiltelefon und TAN-Generator parallel nutzen
+
+
+class TANListNumberRequired(FinTSEnum):
+    """TAN-Listennummer erforderlich (TAN List Number Required).
+
+    Source: FinTS 3.0 Sicherheitsverfahren PIN/TAN
+    """
+    MUST_NOT = "0"  # TAN-Listennummer darf nicht angegeben werden
+    CAN = "1"       # TAN-Listennummer kann angegeben werden
+    MUST = "2"      # TAN-Listennummer muss angegeben werden
+
+
+class InitializationMode(FinTSEnum):
+    """Initialisierungsmodus (Initialization Mode).
+
+    Source: FinTS 3.0 Sicherheitsverfahren PIN/TAN
+    """
+    CLEARTEXT_PIN = "00"        # Klartext-PIN ohne TAN
+    ENCRYPTED_PIN = "01"        # Verschlüsselte PIN und target/cleartext TAN
+    RESERVED_02 = "02"          # Reserviert
+
+
+class DescriptionRequired(FinTSEnum):
+    """Bezeichnung des TAN-Medium erforderlich (Description Required).
+
+    Source: FinTS 3.0 Sicherheitsverfahren PIN/TAN
+    """
+    MUST_NOT = "0"  # Bezeichnung des TAN-Mediums darf nicht angegeben werden
+    MAY = "1"       # Bezeichnung des TAN-Mediums kann angegeben werden
+    MUST = "2"      # Bezeichnung des TAN-Mediums muss angegeben werden
+
+
+class SMSChargeAccountRequired(FinTSEnum):
+    """SMS-Abbuchungskonto erforderlich (SMS Charge Account Required).
+
+    Source: FinTS 3.0 Sicherheitsverfahren PIN/TAN
+    """
+    MUST_NOT = "0"  # SMS-Abbuchungskonto darf nicht angegeben werden
+    MAY = "1"       # SMS-Abbuchungskonto kann angegeben werden
+    MUST = "2"      # SMS-Abbuchungskonto muss angegeben werden
+
+
+class PrincipalAccountRequired(FinTSEnum):
+    """Auftraggeberkonto erforderlich (Principal Account Required).
+
+    Source: FinTS 3.0 Sicherheitsverfahren PIN/TAN
+    """
+    MUST_NOT = "0"  # Auftraggeberkonto darf nicht angegeben werden
+    MUST = "2"      # Auftraggeberkonto muss angegeben werden
+
+
+class TaskHashAlgorithm(FinTSEnum):
+    """Auftrags-Hashwertverfahren (Task Hash Algorithm).
+
+    Source: FinTS 3.0 Sicherheitsverfahren PIN/TAN
+    """
+    NONE = "0"       # Auftrags-Hashwert nicht unterstützt
+    RIPEMD_160 = "1" # RIPEMD-160
+    SHA_1 = "2"      # SHA-1
+
+
+class StatementFormat(FinTSEnum):
     """Kontoauszugsformat (Statement Format).
 
     Source: FinTS 3.0 Messages - Multibankfähige Geschäftsvorfälle
@@ -251,7 +354,7 @@ class StatementFormat(str, Enum):
     PDF = "3"      # Printable format (e.g., PDF)
 
 
-class Confirmation(str, Enum):
+class Confirmation(FinTSEnum):
     """Quittierung (Confirmation).
 
     Source: FinTS 3.0 Messages - Multibankfähige Geschäftsvorfälle
@@ -259,6 +362,14 @@ class Confirmation(str, Enum):
     NOT_REQUIRED = "0"        # Nicht notwendig
     CONFIRMED = "1"           # Quittiert
     AWAITING_CONFIRMATION = "2"  # Quittierung offen
+
+
+# Versioned aliases for backwards compatibility
+# These map legacy versioned enums to their current equivalents
+Language2 = Language  # Language version 2 is same as Language
+TANMediaType2 = TANMediaType  # TANMediaType version 2
+TANMediaClass3 = TANMediaClass  # TANMediaClass version 3 (subset)
+TANMediaClass4 = TANMediaClass  # TANMediaClass version 4
 
 
 __all__ = [
@@ -290,6 +401,18 @@ __all__ = [
     "TANMediumStatus",
     "TANTimeDialogAssociation",
     "AllowedFormat",
+    "TANUsageOption",
+    "TANListNumberRequired",
+    "InitializationMode",
+    "DescriptionRequired",
+    "SMSChargeAccountRequired",
+    "PrincipalAccountRequired",
+    "TaskHashAlgorithm",
+    # Versioned aliases
+    "Language2",
+    "TANMediaType2",
+    "TANMediaClass3",
+    "TANMediaClass4",
     # Statement
     "StatementFormat",
     "Confirmation",

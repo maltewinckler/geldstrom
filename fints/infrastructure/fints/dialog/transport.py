@@ -5,7 +5,7 @@ import logging
 from typing import TYPE_CHECKING, Protocol, Sequence
 
 from fints.message import FinTSCustomerMessage, FinTSInstituteMessage, MessageDirection
-from fints.segments.message import HNHBK3, HNHBS1
+from fints.infrastructure.fints.protocol import HNHBK3, HNHBS1
 
 if TYPE_CHECKING:
     from fints.security import AuthenticationMechanism, EncryptionMechanism
@@ -175,7 +175,7 @@ class FinTSMessageTransport:
             auth_mech.sign_commit(message)
 
         # Add message trailer
-        message += HNHBS1(message_number)
+        message += HNHBS1(message_number=message_number)
 
         # Apply encryption
         if self._enc_mechanism:
@@ -231,7 +231,12 @@ def _create_customer_message(
     message = FinTSCustomerMessage(dialog=context)
 
     # Add message header
-    message += HNHBK3(0, 300, dialog_id, message_number)
+    message += HNHBK3(
+        message_size=0,
+        hbci_version=300,
+        dialog_id=dialog_id,
+        message_number=message_number,
+    )
 
     return message
 

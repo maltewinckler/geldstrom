@@ -9,9 +9,10 @@ import random
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from fints.formals import (
+from fints.infrastructure.fints.protocol import (
     AlgorithmParameterIVName,
     AlgorithmParameterName,
+    BankIdentifier,
     CompressionFunction,
     DateTimeType,
     EncryptionAlgorithm,
@@ -30,9 +31,11 @@ from fints.formals import (
     SignatureAlgorithm,
     UsageEncryption,
     UserDefinedSignature,
-    BankIdentifier,
+    HNSHA2,
+    HNSHK4,
+    HNVSD1,
+    HNVSK3,
 )
-from fints.segments.message import HNSHA2, HNSHK4, HNVSD1, HNVSK3
 from fints.types import SegmentSequence
 
 if TYPE_CHECKING:
@@ -83,43 +86,47 @@ class StandaloneEncryptionMechanism:
             1,
             HNVSK3(
                 security_profile=SecurityProfile(
-                    SecurityMethod.PIN, self.security_method_version
+                    security_method=SecurityMethod.PIN,
+                    security_method_version=self.security_method_version,
                 ),
                 security_function="998",
                 security_role=SecurityRole.ISS,
                 security_identification_details=SecurityIdentificationDetails(
-                    IdentifiedRole.MS,
+                    identified_role=IdentifiedRole.MS,
                     identifier=self._context.system_id,
                 ),
                 security_datetime=SecurityDateTime(
-                    DateTimeType.STS,
-                    _now.date(),
-                    _now.time(),
+                    date_time_type=DateTimeType.STS,
+                    date=_now.date(),
+                    time=_now.time(),
                 ),
                 encryption_algorithm=EncryptionAlgorithm(
-                    UsageEncryption.OSY,
-                    OperationMode.CBC,
-                    EncryptionAlgorithmCoded.TWOKEY3DES,
-                    b"\x00" * 8,
-                    AlgorithmParameterName.KYE,
-                    AlgorithmParameterIVName.IVC,
+                    usage_encryption=UsageEncryption.OSY,
+                    operation_mode=OperationMode.CBC,
+                    encryption_algorithm=EncryptionAlgorithmCoded.TWOKEY3DES,
+                    algorithm_parameter_value=b"\x00" * 8,
+                    algorithm_parameter_name=AlgorithmParameterName.KYE,
+                    algorithm_parameter_iv_name=AlgorithmParameterIVName.IVC,
                 ),
                 key_name=KeyName(
-                    self._context.bank_identifier,
-                    self._context.user_id,
-                    KeyType.V,
-                    0,
-                    0,
+                    bank_identifier=self._context.bank_identifier,
+                    user_id=self._context.user_id,
+                    key_type=KeyType.V,
+                    key_number=0,
+                    key_version=0,
                 ),
                 compression_function=CompressionFunction.NULL,
             ),
         )
         message.segments[1].header.number = 998
 
-        # Insert encrypted data container
+        # Insert encrypted data container - serialize to bytes
+        from fints.infrastructure.fints.protocol.parser import FinTSSerializer
+        serializer = FinTSSerializer()
+        data_bytes = serializer.serialize_message(plain_segments)
         message.segments.insert(
             2,
-            HNVSD1(data=SegmentSequence(segments=plain_segments)),
+            HNVSD1(data=data_bytes),
         )
         message.segments[2].header.number = 999
 
@@ -164,20 +171,23 @@ class StandaloneAuthenticationMechanism:
         rand = random.SystemRandom()
 
         self._pending_signature = HNSHK4(
-            security_profile=SecurityProfile(SecurityMethod.PIN, 1),
+            security_profile=SecurityProfile(
+                security_method=SecurityMethod.PIN,
+                security_method_version=1,
+            ),
             security_function=self.security_function,
-            security_reference=rand.randint(1000000, 9999999),
+            security_reference=str(rand.randint(1000000, 9999999)),
             security_application_area=SecurityApplicationArea.SHM,
             security_role=SecurityRole.ISS,
             security_identification_details=SecurityIdentificationDetails(
-                IdentifiedRole.MS,
+                identified_role=IdentifiedRole.MS,
                 identifier=self._context.system_id,
             ),
             security_reference_number=1,
             security_datetime=SecurityDateTime(
-                DateTimeType.STS,
-                _now.date(),
-                _now.time(),
+                date_time_type=DateTimeType.STS,
+                date=_now.date(),
+                time=_now.time(),
             ),
             hash_algorithm=HashAlgorithm(
                 usage_hash="1",
@@ -190,11 +200,11 @@ class StandaloneAuthenticationMechanism:
                 operation_mode="16",
             ),
             key_name=KeyName(
-                self._context.bank_identifier,
-                self._context.user_id,
-                KeyType.S,
-                0,
-                0,
+                bank_identifier=self._context.bank_identifier,
+                user_id=self._context.user_id,
+                key_type=KeyType.S,
+                key_number=0,
+                key_version=0,
             ),
         )
 

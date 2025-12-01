@@ -158,7 +158,9 @@ class UserParameters:
             List of account dictionaries with relevant fields
         """
         accounts = []
+        count_segments = 0
         for upd in self.segments.find_segments("HIUPD"):
+            count_segments += 1
             # account_information may be None for some banks (e.g., DKB)
             acc_info = getattr(upd, "account_information", None)
             acc = {
@@ -188,6 +190,7 @@ class UserParameters:
             if owner_2:
                 acc["owner_name"].append(owner_2)
             accounts.append(acc)
+        logger.warning("UserParameters.get_accounts found %d HIUPD segments", count_segments)
         return accounts
 
     def get_account_capabilities(
@@ -339,6 +342,11 @@ class ParameterStore:
 
         # Update UPD if newer
         if upd_version is not None and upd_version >= self._upd.version and upd_segments:
+            logger.warning(
+                "Updating UPD to version %d with %d segments",
+                upd_version,
+                len(upd_segments.segments),
+            )
             self._upd = UserParameters(
                 version=upd_version,
                 segments=upd_segments,
@@ -347,23 +355,30 @@ class ParameterStore:
             logger.debug("Updated UPD to version %d", upd_version)
 
     def to_dict(self) -> Mapping[str, Any]:
-        """Serialize parameter store to a dictionary."""
-        serializer = FinTS3Serializer()
+        """Serialize parameter store to a dictionary.
+
+        Handles both Pydantic and legacy segments.
+        """
+        def serialize_segment(segment):
+            """Serialize a single segment using the appropriate serializer."""
+            if segment is None:
+                return None
+            # Check if this is a Pydantic segment
+            if hasattr(type(segment), 'model_fields'):
+                from .parser import FinTSSerializer
+                pydantic_serializer = FinTSSerializer()
+                return pydantic_serializer.serialize_message(segment)
+            else:
+                # Legacy segment
+                return FinTS3Serializer().serialize_message(segment)
+
         return {
             "bpd_version": self._bpd.version,
             "bpd_bin": self._bpd.serialize(),
-            "bpa_bin": (
-                serializer.serialize_message(self._bpd.bpa)
-                if self._bpd.bpa
-                else None
-            ),
+            "bpa_bin": serialize_segment(self._bpd.bpa),
             "upd_version": self._upd.version,
             "upd_bin": self._upd.serialize(),
-            "upa_bin": (
-                serializer.serialize_message(self._upd.upa)
-                if self._upd.upa
-                else None
-            ),
+            "upa_bin": serialize_segment(self._upd.upa),
         }
 
     @classmethod

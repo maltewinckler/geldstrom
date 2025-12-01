@@ -15,13 +15,34 @@ These base classes provide:
 """
 from __future__ import annotations
 
-from typing import Any, ClassVar, Iterator, TypeVar
+import logging
+import types
+from typing import Any, ClassVar, Iterator, TypeVar, Union
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from .types import FinTSAlphanumeric, FinTSNumeric
 
 T = TypeVar("T", bound="FinTSModel")
+
+logger = logging.getLogger(__name__)
+
+
+def _is_string_type(annotation: Any) -> bool:
+    """Check if annotation is a string type.
+
+    Used to determine if None should be converted to empty string.
+    """
+    if annotation is str:
+        return True
+    # Check for annotated types like FinTSAlphanumeric
+    origin = getattr(annotation, "__origin__", None)
+    if origin is not None:
+        return False
+    # Check if it's a NewType or Annotated wrapping str
+    if hasattr(annotation, "__supertype__"):
+        return annotation.__supertype__ is str
+    return False
 
 
 class FinTSModel(BaseModel):
@@ -64,6 +85,10 @@ class FinTSModel(BaseModel):
         This method maps positional data from the wire format to model fields
         in the order they are defined in the model.
 
+        Handles both:
+        - Structured data: nested lists for nested DEGs (e.g., [['280', '12345'], 'user'])
+        - Flat data: all elements in a single list (e.g., ['280', '12345', 'user'])
+
         Args:
             data: List of values in field definition order, or None
 
@@ -88,22 +113,119 @@ class FinTSModel(BaseModel):
         field_names = list(cls.model_fields.keys())
         kwargs: dict[str, Any] = {}
 
-        for i, value in enumerate(data):
-            if i < len(field_names):
-                field_name = field_names[i]
-                field_info = cls.model_fields[field_name]
+        data_index = 0
 
-                # Handle nested FinTSModel types
-                annotation = field_info.annotation
-                if isinstance(value, list) and _is_fints_model_type(annotation):
-                    # Recursively parse nested model
-                    model_type = _extract_model_type(annotation)
-                    if model_type is not None:
+        for field_name in field_names:
+            if data_index >= len(data):
+                break
+
+            field_info = cls.model_fields[field_name]
+            annotation = field_info.annotation
+            origin = getattr(annotation, "__origin__", None)
+
+            # Unwrap Union/Optional to find the actual type
+            actual_annotation = annotation
+            if origin is Union or isinstance(annotation, types.UnionType):
+                args = getattr(annotation, "__args__", ())
+                for arg in args:
+                    if arg is not type(None):
+                        actual_annotation = arg
+                        origin = getattr(actual_annotation, "__origin__", None)
+                        break
+
+            # Handle list fields
+            if origin is list:
+                args = getattr(actual_annotation, "__args__", ())
+                if args:
+                    inner_type = args[0]
+                    # Strip Optional wrapper if present on inner type
+                    if getattr(inner_type, "__origin__", None) is type(None):
+                        continue  # Optional list with None
+                    # Get the actual type from Union if Optional
+                    inner_args = getattr(inner_type, "__args__", ())
+                    if inner_args and type(None) in inner_args:
+                        # Find the non-None type
+                        for arg in inner_args:
+                            if arg is not type(None):
+                                inner_type = arg
+                                break
+
+                    if hasattr(inner_type, "from_wire_list"):
+                        # This is a list[DEG] field - consume all remaining data
+                        inner_field_count = _count_model_fields(inner_type)
+                        list_values = []
+                        remaining_data = data[data_index:]
+
+                        # Parse data in chunks of inner_field_count
+                        chunk_start = 0
+                        while chunk_start < len(remaining_data):
+                            chunk = remaining_data[chunk_start:chunk_start + inner_field_count]
+                            if len(chunk) == 0:
+                                break
+                            try:
+                                item = inner_type.from_wire_list(chunk)
+                                list_values.append(item)
+                                chunk_start += inner_field_count
+                            except Exception as exc:
+                                logger.warning(
+                                    "Failed to parse list field %s.%s chunk %s: %s",
+                                    cls.__name__,
+                                    field_name,
+                                    chunk,
+                                    exc,
+                                )
+                                # If parsing fails, stop
+                                break
+
+                        if list_values:
+                            kwargs[field_name] = list_values
+                        # Consume all remaining data for this list field
+                        data_index = len(data)
+                        continue
+                    else:
+                        # This is a list[primitive] field - collect remaining data as list
+                        remaining_data = data[data_index:]
+                        if remaining_data:
+                            kwargs[field_name] = list(remaining_data)
+                        data_index = len(data)
+                        continue
+
+            value = data[data_index]
+
+            # Handle nested FinTSModel types
+            if _is_fints_model_type(annotation):
+                model_type = _extract_model_type(annotation)
+                if model_type is not None:
+                    if isinstance(value, list):
+                        # Already structured - use as-is
                         value = model_type.from_wire_list(value)
+                        data_index += 1
+                    else:
+                        # Flat data - consume multiple elements for nested model
+                        nested_field_count = _count_model_fields(model_type)
+                        nested_data = data[data_index:data_index + nested_field_count]
+                        value = model_type.from_wire_list(nested_data)
+                        data_index += nested_field_count
+                else:
+                    data_index += 1
+            else:
+                data_index += 1
 
-                # Only set non-None values (let defaults handle missing optional fields)
-                if value is not None:
-                    kwargs[field_name] = value
+            # Handle None values based on field type
+            if value is None:
+                # Check if field is optional
+                if origin is type(None):
+                    # Explicitly optional field - use None
+                    kwargs[field_name] = None
+                elif hasattr(annotation, "__args__") and type(None) in getattr(annotation, "__args__", ()):
+                    # Optional[X] or X | None - use None for missing
+                    continue  # Let defaults handle it
+                elif _is_string_type(annotation):
+                    # Required string field - None means empty string
+                    kwargs[field_name] = ""
+                # For other types, skip and let defaults/validation handle it
+            else:
+                kwargs[field_name] = value
 
         return cls(**kwargs)
 
@@ -129,6 +251,14 @@ class FinTSModel(BaseModel):
             # Handle nested FinTSModel
             if isinstance(value, FinTSModel):
                 value = value.to_wire_list()
+            elif isinstance(value, list):
+                # Handle list of FinTSModels - flatten into result
+                for item in value:
+                    if isinstance(item, FinTSModel):
+                        result.extend(item.to_wire_list())
+                    else:
+                        result.append(item)
+                continue  # Skip the append below
 
             result.append(value)
 
@@ -215,6 +345,18 @@ class FinTSSegment(FinTSModel):
             account: AccountIdentifier
             balance_booked: Balance
             # ... more fields
+
+    Segments can be instantiated with just the data fields - the header
+    will be auto-generated from SEGMENT_TYPE and SEGMENT_VERSION:
+
+        # Auto-header generation
+        seg = HKIDN2(
+            bank_identifier=bank_id,
+            customer_id="customer123",
+            system_id="0",
+            system_id_status=SystemIDStatus.ID_NECESSARY,
+        )
+        # seg.header is auto-generated with type="HKIDN", version=2, number=0
     """
 
     # Class-level metadata (override in subclasses)
@@ -223,6 +365,32 @@ class FinTSSegment(FinTSModel):
 
     # Segment header (always present as first element)
     header: SegmentHeader = Field(description="Segment header")
+
+    @model_validator(mode="before")
+    @classmethod
+    def _auto_generate_header(cls, data: Any) -> Any:
+        """Auto-generate header if not provided.
+
+        This allows segments to be instantiated with just data fields:
+            HKIDN2(bank_identifier=..., customer_id=..., ...)
+
+        Instead of requiring explicit header:
+            HKIDN2(header=SegmentHeader(...), bank_identifier=..., ...)
+        """
+        if isinstance(data, dict):
+            if "header" not in data or data["header"] is None:
+                # Get segment type/version from class
+                segment_type = getattr(cls, "SEGMENT_TYPE", "")
+                segment_version = getattr(cls, "SEGMENT_VERSION", 0)
+
+                if segment_type and segment_version:
+                    data["header"] = SegmentHeader(
+                        type=segment_type,
+                        number=0,  # Will be set by message builder
+                        version=segment_version,
+                        reference=None,
+                    )
+        return data
 
     @classmethod
     def segment_id(cls) -> str:
@@ -238,6 +406,7 @@ class FinTSSegment(FinTSModel):
         """Parse segment from FinTS wire format.
 
         The first element is always the header, followed by segment data.
+        Handles both structured data (nested lists) and flat data.
 
         Args:
             data: List starting with header, then segment fields
@@ -264,21 +433,37 @@ class FinTSSegment(FinTSModel):
         # Skip first field (header) in iteration
         remaining_fields = field_names[1:]
         remaining_data = data[1:]
+        data_index = 0
 
-        for i, value in enumerate(remaining_data):
-            if i < len(remaining_fields):
-                field_name = remaining_fields[i]
-                field_info = cls.model_fields[field_name]
+        for field_name in remaining_fields:
+            if data_index >= len(remaining_data):
+                break
 
-                # Handle nested FinTSModel types
-                annotation = field_info.annotation
-                if isinstance(value, list) and _is_fints_model_type(annotation):
-                    model_type = _extract_model_type(annotation)
-                    if model_type is not None:
+            field_info = cls.model_fields[field_name]
+            annotation = field_info.annotation
+            value = remaining_data[data_index]
+
+            # Handle nested FinTSModel types
+            if _is_fints_model_type(annotation):
+                model_type = _extract_model_type(annotation)
+                if model_type is not None:
+                    if isinstance(value, list):
+                        # Already structured - use as-is
                         value = model_type.from_wire_list(value)
+                        data_index += 1
+                    else:
+                        # Flat data - consume multiple elements for nested model
+                        nested_field_count = _count_model_fields(model_type)
+                        nested_data = remaining_data[data_index:data_index + nested_field_count]
+                        value = model_type.from_wire_list(nested_data)
+                        data_index += nested_field_count
+                else:
+                    data_index += 1
+            else:
+                data_index += 1
 
-                if value is not None:
-                    kwargs[field_name] = value
+            if value is not None:
+                kwargs[field_name] = value
 
         return cls(**kwargs)
 
@@ -497,6 +682,30 @@ def _extract_model_type(annotation: Any) -> type[FinTSModel] | None:
                 return result
 
     return None
+
+
+def _count_model_fields(model_type: type[FinTSModel]) -> int:
+    """Count total wire elements a model consumes, including nested models.
+
+    This recursively counts fields, expanding nested FinTSModel types
+    to their full field count.
+
+    Args:
+        model_type: The model type to count fields for
+
+    Returns:
+        Total number of wire elements consumed by this model
+    """
+    count = 0
+    for field_info in model_type.model_fields.values():
+        annotation = field_info.annotation
+        nested_type = _extract_model_type(annotation)
+        if nested_type is not None:
+            # Recursively count nested model fields
+            count += _count_model_fields(nested_type)
+        else:
+            count += 1
+    return count
 
 
 __all__ = [

@@ -30,12 +30,25 @@ from ..formals import (
 # MT940 Transaction Request Segments (HKKAZ)
 # =============================================================================
 
+# Note: Field order is critical in FinTS! The `account` field MUST come before
+# other fields. We cannot use inheritance for common fields because Pydantic
+# puts parent class fields first.
 
-class HKKAZBase(FinTSSegment):
-    """Base class for MT940 transaction request segments."""
+
+class HKKAZ5(FinTSSegment):
+    """Kontoumsätze anfordern/Zeitraum, version 5.
+
+    Request MT940 transactions using Account2 format.
+
+    Source: HBCI Homebanking-Computer-Interface, Schnittstellenspezifikation
+    """
 
     SEGMENT_TYPE: ClassVar[str] = "HKKAZ"
+    SEGMENT_VERSION: ClassVar[int] = 5
 
+    account: AccountIdentifier = Field(
+        description="Kontoverbindung Auftraggeber",
+    )
     all_accounts: FinTSBool = Field(
         description="Alle Konten abfragen",
     )
@@ -60,22 +73,7 @@ class HKKAZBase(FinTSSegment):
     )
 
 
-class HKKAZ5(HKKAZBase):
-    """Kontoumsätze anfordern/Zeitraum, version 5.
-
-    Request MT940 transactions using Account2 format.
-
-    Source: HBCI Homebanking-Computer-Interface, Schnittstellenspezifikation
-    """
-
-    SEGMENT_VERSION: ClassVar[int] = 5
-
-    account: AccountIdentifier = Field(
-        description="Kontoverbindung Auftraggeber",
-    )
-
-
-class HKKAZ6(HKKAZBase):
+class HKKAZ6(FinTSSegment):
     """Kontoumsätze anfordern/Zeitraum, version 6.
 
     Request MT940 transactions using Account3 format.
@@ -83,14 +81,37 @@ class HKKAZ6(HKKAZBase):
     Source: FinTS 3.0 Messages - Multibankfähige Geschäftsvorfälle
     """
 
+    SEGMENT_TYPE: ClassVar[str] = "HKKAZ"
     SEGMENT_VERSION: ClassVar[int] = 6
 
     account: AccountIdentifier = Field(
         description="Kontoverbindung Auftraggeber",
     )
+    all_accounts: FinTSBool = Field(
+        description="Alle Konten abfragen",
+    )
+    date_start: FinTSDate | None = Field(
+        default=None,
+        description="Von Datum",
+    )
+    date_end: FinTSDate | None = Field(
+        default=None,
+        description="Bis Datum",
+    )
+    max_number_responses: FinTSNumeric | None = Field(
+        default=None,
+        ge=0,
+        lt=10000,
+        description="Maximale Anzahl Einträge",
+    )
+    touchdown_point: FinTSAlphanumeric | None = Field(
+        default=None,
+        max_length=35,
+        description="Aufsetzpunkt für Fortsetzung",
+    )
 
 
-class HKKAZ7(HKKAZBase):
+class HKKAZ7(FinTSSegment):
     """Kontoumsätze anfordern/Zeitraum, version 7.
 
     Request MT940 transactions using international account format.
@@ -98,14 +119,40 @@ class HKKAZ7(HKKAZBase):
     Source: FinTS 3.0 Messages - Multibankfähige Geschäftsvorfälle
     """
 
+    SEGMENT_TYPE: ClassVar[str] = "HKKAZ"
     SEGMENT_VERSION: ClassVar[int] = 7
 
     account: AccountInternational = Field(
         description="Kontoverbindung international",
     )
+    all_accounts: FinTSBool = Field(
+        description="Alle Konten abfragen",
+    )
+    date_start: FinTSDate | None = Field(
+        default=None,
+        description="Von Datum",
+    )
+    date_end: FinTSDate | None = Field(
+        default=None,
+        description="Bis Datum",
+    )
+    max_number_responses: FinTSNumeric | None = Field(
+        default=None,
+        ge=0,
+        lt=10000,
+        description="Maximale Anzahl Einträge",
+    )
+    touchdown_point: FinTSAlphanumeric | None = Field(
+        default=None,
+        max_length=35,
+        description="Aufsetzpunkt für Fortsetzung",
+    )
 
 
-HKKAZ_VERSIONS: dict[int, type[HKKAZBase]] = {
+# Type alias for backwards compatibility
+HKKAZBase = HKKAZ5
+
+HKKAZ_VERSIONS: dict[int, type[FinTSSegment]] = {
     5: HKKAZ5,
     6: HKKAZ6,
     7: HKKAZ7,
@@ -256,10 +303,10 @@ HICAZ_VERSIONS: dict[int, type[FinTSSegment]] = {
 
 __all__ = [
     # MT940 Request
-    "HKKAZBase",
     "HKKAZ5",
     "HKKAZ6",
     "HKKAZ7",
+    "HKKAZBase",  # Type alias for HKKAZ5 (backwards compatibility)
     "HKKAZ_VERSIONS",
     # MT940 Response
     "HIKAZBase",

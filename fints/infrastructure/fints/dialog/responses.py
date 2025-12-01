@@ -7,9 +7,7 @@ from enum import Enum
 from typing import Callable, Sequence
 
 from fints.message import FinTSInstituteMessage
-from fints.segments.bank import HIBPA3, HIUPA4
-from fints.segments.dialog import HIRMG2, HIRMS2
-from fints.segments.message import HNHBK3
+from fints.infrastructure.fints.protocol import HIBPA3, HIUPA4, HIRMG2, HIRMS2, HNHBK3
 from fints.types import SegmentSequence
 
 logger = logging.getLogger(__name__)
@@ -234,7 +232,9 @@ class ResponseProcessor:
         if not upa:
             return None, None, None
 
-        upd_segments = SegmentSequence(response.find_segments("HIUPD"))
+        segments_iter = list(response.find_segments("HIUPD"))
+        logger.warning("Response contains %d HIUPD segments", len(segments_iter))
+        upd_segments = SegmentSequence(segments_iter)
         return upa, upa.upd_version, upd_segments
 
     def _invoke_callbacks(

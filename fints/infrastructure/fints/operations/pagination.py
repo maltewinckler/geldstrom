@@ -158,12 +158,24 @@ def find_highest_supported_version(
     Returns:
         Highest supported segment class, or None if not supported
     """
+    def get_version(cls) -> int:
+        """Get version from either legacy or Pydantic segment class."""
+        if hasattr(cls, 'SEGMENT_VERSION'):
+            return cls.SEGMENT_VERSION
+        return cls.VERSION
+
+    def get_type(cls) -> str:
+        """Get type from either legacy or Pydantic segment class."""
+        if hasattr(cls, 'SEGMENT_TYPE'):
+            return cls.SEGMENT_TYPE
+        return cls.TYPE
+
     # Build version map
-    version_map = {cls.VERSION: cls for cls in segment_classes}
+    version_map = {get_version(cls): cls for cls in segment_classes}
 
     # Build parameter segment name (HKSAL -> HISALS)
     first_class = segment_classes[0]
-    param_name = f"HI{first_class.TYPE[2:]}S"
+    param_name = f"HI{get_type(first_class)[2:]}S"
 
     # Find highest version in BPD
     max_version = bpd_segments.find_segment_highest_version(param_name, version_map.keys())

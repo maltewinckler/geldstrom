@@ -26,12 +26,25 @@ from ..formals import (
 # Balance Request Segments (HKSAL)
 # =============================================================================
 
+# Note: Field order is critical in FinTS! The `account` field MUST come before
+# `all_accounts` in the wire format. We cannot use inheritance for common fields
+# because Pydantic puts parent class fields first.
 
-class HKSALBase(FinTSSegment):
-    """Base class for balance request segments."""
+
+class HKSAL5(FinTSSegment):
+    """Saldenabfrage, version 5.
+
+    Request account balances using Account2 format.
+
+    Source: HBCI Homebanking-Computer-Interface, Schnittstellenspezifikation
+    """
 
     SEGMENT_TYPE: ClassVar[str] = "HKSAL"
+    SEGMENT_VERSION: ClassVar[int] = 5
 
+    account: AccountIdentifier = Field(
+        description="Kontoverbindung Auftraggeber",
+    )
     all_accounts: FinTSBool = Field(
         description="Alle Konten abfragen",
     )
@@ -48,22 +61,7 @@ class HKSALBase(FinTSSegment):
     )
 
 
-class HKSAL5(HKSALBase):
-    """Saldenabfrage, version 5.
-
-    Request account balances using Account2 format.
-
-    Source: HBCI Homebanking-Computer-Interface, Schnittstellenspezifikation
-    """
-
-    SEGMENT_VERSION: ClassVar[int] = 5
-
-    account: AccountIdentifier = Field(
-        description="Kontoverbindung Auftraggeber",
-    )
-
-
-class HKSAL6(HKSALBase):
+class HKSAL6(FinTSSegment):
     """Saldenabfrage, version 6.
 
     Request account balances using Account3 format.
@@ -71,14 +69,29 @@ class HKSAL6(HKSALBase):
     Source: FinTS 3.0 Messages - Multibankfähige Geschäftsvorfälle
     """
 
+    SEGMENT_TYPE: ClassVar[str] = "HKSAL"
     SEGMENT_VERSION: ClassVar[int] = 6
 
     account: AccountIdentifier = Field(
         description="Kontoverbindung Auftraggeber",
     )
+    all_accounts: FinTSBool = Field(
+        description="Alle Konten abfragen",
+    )
+    max_number_responses: FinTSNumeric | None = Field(
+        default=None,
+        ge=0,
+        lt=10000,
+        description="Maximale Anzahl Einträge",
+    )
+    touchdown_point: FinTSAlphanumeric | None = Field(
+        default=None,
+        max_length=35,
+        description="Aufsetzpunkt für Fortsetzung",
+    )
 
 
-class HKSAL7(HKSALBase):
+class HKSAL7(FinTSSegment):
     """Saldenabfrage, version 7.
 
     Request account balances using international account format (KTI1).
@@ -86,11 +99,30 @@ class HKSAL7(HKSALBase):
     Source: FinTS 3.0 Messages - Multibankfähige Geschäftsvorfälle
     """
 
+    SEGMENT_TYPE: ClassVar[str] = "HKSAL"
     SEGMENT_VERSION: ClassVar[int] = 7
 
     account: AccountInternational = Field(
         description="Kontoverbindung international",
     )
+    all_accounts: FinTSBool = Field(
+        description="Alle Konten abfragen",
+    )
+    max_number_responses: FinTSNumeric | None = Field(
+        default=None,
+        ge=0,
+        lt=10000,
+        description="Maximale Anzahl Einträge",
+    )
+    touchdown_point: FinTSAlphanumeric | None = Field(
+        default=None,
+        max_length=35,
+        description="Aufsetzpunkt für Fortsetzung",
+    )
+
+
+# Type alias for backwards compatibility
+HKSALBase = HKSAL5  # Base class alias
 
 
 # Version registry for HKSAL
@@ -105,18 +137,36 @@ HKSAL_VERSIONS: dict[int, type[HKSALBase]] = {
 # Balance Response Segments (HISAL)
 # =============================================================================
 
+# Note: Field order is critical in FinTS! We must match the wire format order.
 
-class HISALBase(FinTSSegment):
-    """Base class for balance response segments."""
+
+class HISAL5(FinTSSegment):
+    """Saldenrückmeldung, version 5.
+
+    Balance response using Account2 format and Balance1 (simple balance).
+
+    Source: HBCI Homebanking-Computer-Interface, Schnittstellenspezifikation
+    """
 
     SEGMENT_TYPE: ClassVar[str] = "HISAL"
+    SEGMENT_VERSION: ClassVar[int] = 5
 
+    account: AccountIdentifier = Field(
+        description="Kontoverbindung Auftraggeber",
+    )
     account_product: FinTSAlphanumeric = Field(
         max_length=30,
         description="Kontoproduktbezeichnung",
     )
     currency: FinTSCurrency = Field(
         description="Kontowährung",
+    )
+    balance_booked: BalanceSimple = Field(
+        description="Gebuchter Saldo",
+    )
+    balance_pending: BalanceSimple | None = Field(
+        default=None,
+        description="Saldo der vorgemerkten Umsätze",
     )
     line_of_credit: Amount | None = Field(
         default=None,
@@ -130,32 +180,6 @@ class HISALBase(FinTSSegment):
         default=None,
         description="Bereits verfügter Betrag",
     )
-    date_due: FinTSDate | None = Field(
-        default=None,
-        description="Fälligkeit",
-    )
-
-
-class HISAL5(HISALBase):
-    """Saldenrückmeldung, version 5.
-
-    Balance response using Account2 format and Balance1 (simple balance).
-
-    Source: HBCI Homebanking-Computer-Interface, Schnittstellenspezifikation
-    """
-
-    SEGMENT_VERSION: ClassVar[int] = 5
-
-    account: AccountIdentifier = Field(
-        description="Kontoverbindung Auftraggeber",
-    )
-    balance_booked: BalanceSimple = Field(
-        description="Gebuchter Saldo",
-    )
-    balance_pending: BalanceSimple | None = Field(
-        default=None,
-        description="Saldo der vorgemerkten Umsätze",
-    )
     booking_date: FinTSDate | None = Field(
         default=None,
         description="Buchungsdatum des Saldos",
@@ -166,7 +190,7 @@ class HISAL5(HISALBase):
     )
 
 
-class HISAL6(HISALBase):
+class HISAL6(FinTSSegment):
     """Saldenrückmeldung, version 6.
 
     Balance response using Account3 format and Balance2 (nested amount).
@@ -174,10 +198,18 @@ class HISAL6(HISALBase):
     Source: FinTS 3.0 Messages - Multibankfähige Geschäftsvorfälle
     """
 
+    SEGMENT_TYPE: ClassVar[str] = "HISAL"
     SEGMENT_VERSION: ClassVar[int] = 6
 
     account: AccountIdentifier = Field(
         description="Kontoverbindung Auftraggeber",
+    )
+    account_product: FinTSAlphanumeric = Field(
+        max_length=30,
+        description="Kontoproduktbezeichnung",
+    )
+    currency: FinTSCurrency = Field(
+        description="Kontowährung",
     )
     balance_booked: Balance = Field(
         description="Gebuchter Saldo",
@@ -185,6 +217,18 @@ class HISAL6(HISALBase):
     balance_pending: Balance | None = Field(
         default=None,
         description="Saldo der vorgemerkten Umsätze",
+    )
+    line_of_credit: Amount | None = Field(
+        default=None,
+        description="Kreditlinie",
+    )
+    available_amount: Amount | None = Field(
+        default=None,
+        description="Verfügbarer Betrag",
+    )
+    used_amount: Amount | None = Field(
+        default=None,
+        description="Bereits verfügter Betrag",
     )
     overdraft: Amount | None = Field(
         default=None,
@@ -194,9 +238,13 @@ class HISAL6(HISALBase):
         default=None,
         description="Buchungszeitpunkt",
     )
+    date_due: FinTSDate | None = Field(
+        default=None,
+        description="Fälligkeit",
+    )
 
 
-class HISAL7(HISALBase):
+class HISAL7(FinTSSegment):
     """Saldenrückmeldung, version 7.
 
     Balance response using international account format (KTI1).
@@ -204,10 +252,18 @@ class HISAL7(HISALBase):
     Source: FinTS 3.0 Messages - Multibankfähige Geschäftsvorfälle
     """
 
+    SEGMENT_TYPE: ClassVar[str] = "HISAL"
     SEGMENT_VERSION: ClassVar[int] = 7
 
     account: AccountInternational = Field(
         description="Kontoverbindung international",
+    )
+    account_product: FinTSAlphanumeric = Field(
+        max_length=30,
+        description="Kontoproduktbezeichnung",
+    )
+    currency: FinTSCurrency = Field(
+        description="Kontowährung",
     )
     balance_booked: Balance = Field(
         description="Gebuchter Saldo",
@@ -215,6 +271,18 @@ class HISAL7(HISALBase):
     balance_pending: Balance | None = Field(
         default=None,
         description="Saldo der vorgemerkten Umsätze",
+    )
+    line_of_credit: Amount | None = Field(
+        default=None,
+        description="Kreditlinie",
+    )
+    available_amount: Amount | None = Field(
+        default=None,
+        description="Verfügbarer Betrag",
+    )
+    used_amount: Amount | None = Field(
+        default=None,
+        description="Bereits verfügter Betrag",
     )
     overdraft: Amount | None = Field(
         default=None,
@@ -224,6 +292,14 @@ class HISAL7(HISALBase):
         default=None,
         description="Buchungszeitpunkt",
     )
+    date_due: FinTSDate | None = Field(
+        default=None,
+        description="Fälligkeit",
+    )
+
+
+# Type alias for backwards compatibility
+HISALBase = HISAL5  # Base class alias
 
 
 # Version registry for HISAL
@@ -266,15 +342,15 @@ def get_hisal_class(version: int) -> type[HISALBase]:
 
 __all__ = [
     # Request segments
-    "HKSALBase",
     "HKSAL5",
     "HKSAL6",
     "HKSAL7",
+    "HKSALBase",  # Type alias for HKSAL5 (backwards compatibility)
     # Response segments
-    "HISALBase",
     "HISAL5",
     "HISAL6",
     "HISAL7",
+    "HISALBase",  # Type alias for HISAL5 (backwards compatibility)
     # Registries
     "HKSAL_VERSIONS",
     "HISAL_VERSIONS",

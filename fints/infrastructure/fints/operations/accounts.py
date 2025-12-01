@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Sequence
 
 from fints.models import SEPAAccount
-from fints.segments.accounts import HISPA1, HKSPA1
+from fints.infrastructure.fints.protocol import HISPA1, HKSPA1
 
 if TYPE_CHECKING:
     from fints.infrastructure.fints.dialog import Dialog, ProcessedResponse
@@ -92,10 +92,14 @@ class AccountOperations:
 
         if response.raw_response is not None:
             for seg in response.raw_response.find_segments(HISPA1):
+                logger.warning("Inspecting HISPA segment %s", seg)
                 if seg.accounts:
+                    logger.warning("Segment has %d accounts", len(seg.accounts))
                     for acc in seg.accounts:
+                        logger.warning("Account data %s", acc)
                         sepa = acc.as_sepa_account()
                         if sepa:
+                            logger.warning("Converted to SEPA account %s", sepa)
                             accounts.append(sepa)
 
         # Fallback to UPD if HISPA returned no accounts

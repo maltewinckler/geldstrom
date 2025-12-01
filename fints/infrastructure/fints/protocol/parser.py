@@ -27,7 +27,9 @@ import re
 import warnings
 from collections.abc import Iterator
 from enum import Enum
-from typing import Any, TypeVar
+from typing import Any, TypeVar, Union
+import logging
+import types
 
 from pydantic import ValidationError
 
@@ -41,6 +43,27 @@ from .base import (
 
 # Import all segment classes for auto-registration
 from .segments import (
+    # Dialog segments
+    HNHBK3, HNHBS1,
+    HIRMG2, HIRMS2,
+    HKSYN3, HISYN4,
+    HKEND1,
+    # Message security segments
+    HNVSK3, HNVSD1,
+    HNSHK4, HNSHA2,
+    # Auth segments
+    HKIDN2, HKVVB3,
+    HKTAN2, HKTAN6, HKTAN7,
+    HITAN6, HITAN7,
+    HKTAB4, HKTAB5,
+    HITAB4, HITAB5,
+    # Bank parameter segments
+    HIBPA3,
+    HIUPA4, HIUPD6,
+    HKKOM4, HIKOM4,
+    # PIN/TAN parameter segments
+    HIPINS1,
+    HITANS1, HITANS2, HITANS3, HITANS4, HITANS5, HITANS6, HITANS7,
     # Balance segments
     HKSAL5, HKSAL6, HKSAL7,
     HISAL5, HISAL6, HISAL7,
@@ -55,10 +78,54 @@ from .segments import (
     HIEKA3, HIEKA4, HIEKA5,
     HKKAU1, HKKAU2,
     HIKAU1, HIKAU2,
+    # Transfer segments
+    HKCCS1, HKIPZ1,
+    HKCCM1, HKIPM1,
+    HICCMS1,
+    # Depot segments
+    HKWPD5, HKWPD6,
+    HIWPD5, HIWPD6,
+    # Journal segments
+    HKPRO3, HKPRO4,
+    HIPRO3, HIPRO4,
+    HIPROS3, HIPROS4,
+    # Informational segments
+    HIAZSS1,
+    HIVISS1,
+    # Parameter segments
+    HISPAS1, HISPAS2, HISPAS3,
+    HISALS4, HISALS5, HISALS6, HISALS7,
+    HIKAZS4, HIKAZS5, HIKAZS6, HIKAZS7,
+    HIEKAS3, HIEKAS4, HIEKAS5,
+    HISHV3,
+    HICCSS1_PARAMS,
+    HIDSCS1, HIBSES1, HIDSES1, HIDMES1, HIBMES1,
+    HIPAES1, HIPSPS1, HIQTGS1,
+    HICSAS1, HICSBS1, HICSLS1, HICSES1,
+    HICDBS1, HICDLS1, HICDNS1,
+    # Bank-specific generic segments
+    HIDSBS1, HICUBS1, HICUMS1, HICDES1, HIDSWS1,
+    HIECAS1, HIDBSS1, HIBBSS1, HIDMBS1, HIBMBS1,
+    HICMBS1, HICMES1, HICMLS1,
+    HIWPDS6, HIWPDS7,
+    HIIPZS1, HIIPMS1,
+    HICAZS1,
+    HIKAUS1, HIKAUS2,
+    HIPROS5,
+    HITABS4, HITABS5,
+    # Version 2 and additional
+    HIBMES2, HIBSES2, HIDSES2, HIDMES2,
+    HIWDUS5, HIKIFS7, HIBAZS1, HIZDFS1, HIDVKS2,
+    HIKOMS4, HIDSWS2,
+    HICCMS1_PARAMS, HICCMS2, HIDSCS2,
+    HIDMCS1, HIDMCS2,
+    HIDBSS2, HIBBSS2,
 )
 
 
 T = TypeVar("T", bound=FinTSSegment)
+
+logger = logging.getLogger(__name__)
 
 
 class FinTSParserWarning(UserWarning):
@@ -196,6 +263,27 @@ class SegmentRegistry:
         """Auto-register all known segment classes."""
         # All imported segment classes
         segment_classes = [
+            # Dialog
+            HNHBK3, HNHBS1,
+            HIRMG2, HIRMS2,
+            HKSYN3, HISYN4,
+            HKEND1,
+            # Message security
+            HNVSK3, HNVSD1,
+            HNSHK4, HNSHA2,
+            # Auth
+            HKIDN2, HKVVB3,
+            HKTAN2, HKTAN6, HKTAN7,
+            HITAN6, HITAN7,
+            HKTAB4, HKTAB5,
+            HITAB4, HITAB5,
+            # Bank parameters
+            HIBPA3,
+            HIUPA4, HIUPD6,
+            HKKOM4, HIKOM4,
+            # PIN/TAN parameters
+            HIPINS1,
+            HITANS1, HITANS2, HITANS3, HITANS4, HITANS5, HITANS6, HITANS7,
             # Balance
             HKSAL5, HKSAL6, HKSAL7,
             HISAL5, HISAL6, HISAL7,
@@ -210,6 +298,48 @@ class SegmentRegistry:
             HIEKA3, HIEKA4, HIEKA5,
             HKKAU1, HKKAU2,
             HIKAU1, HIKAU2,
+            # Transfer
+            HKCCS1, HKIPZ1,
+            HKCCM1, HKIPM1,
+            HICCMS1,
+            # Depot
+            HKWPD5, HKWPD6,
+            HIWPD5, HIWPD6,
+            # Journal
+            HKPRO3, HKPRO4,
+            HIPRO3, HIPRO4,
+            HIPROS3, HIPROS4,
+            # Informational
+            HIAZSS1,
+            HIVISS1,
+            # Parameter segments
+            HISPAS1, HISPAS2, HISPAS3,
+            HISALS4, HISALS5, HISALS6, HISALS7,
+            HIKAZS4, HIKAZS5, HIKAZS6, HIKAZS7,
+            HIEKAS3, HIEKAS4, HIEKAS5,
+            HISHV3,
+            HICCSS1_PARAMS,
+            HIDSCS1, HIBSES1, HIDSES1, HIDMES1, HIBMES1,
+            HIPAES1, HIPSPS1, HIQTGS1,
+            HICSAS1, HICSBS1, HICSLS1, HICSES1,
+            HICDBS1, HICDLS1, HICDNS1,
+            # Bank-specific generic segments
+            HIDSBS1, HICUBS1, HICUMS1, HICDES1, HIDSWS1,
+            HIECAS1, HIDBSS1, HIBBSS1, HIDMBS1, HIBMBS1,
+            HICMBS1, HICMES1, HICMLS1,
+            HIWPDS6, HIWPDS7,
+            HIIPZS1, HIIPMS1,
+            HICAZS1,
+            HIKAUS1, HIKAUS2,
+            HIPROS5,
+            HITABS4, HITABS5,
+            # Version 2 and additional
+            HIBMES2, HIBSES2, HIDSES2, HIDMES2,
+            HIWDUS5, HIKIFS7, HIBAZS1, HIZDFS1, HIDVKS2,
+            HIKOMS4, HIDSWS2,
+            HICCMS1_PARAMS, HICCMS2, HIDSCS2,
+            HIDMCS1, HIDMCS2,
+            HIDBSS2, HIBBSS2,
         ]
 
         for cls in segment_classes:
@@ -349,7 +479,8 @@ class FinTSParser:
                     f"Unknown segment type {header.type}v{header.version}",
                     FinTSParserWarning
                 )
-                return None
+                # Create a dynamic fallback segment that captures raw data
+                return self._create_fallback_segment(header, raw_segment)
             raise FinTSParserError(f"Unknown segment type {header.type}v{header.version}")
 
         # Parse segment
@@ -363,6 +494,36 @@ class FinTSParser:
                 )
                 return None
             raise FinTSParserError(f"Error parsing {header.type}v{header.version}: {e}") from e
+
+    def _create_fallback_segment(
+        self,
+        header: SegmentHeader,
+        raw_segment: list[Any],
+    ) -> FinTSSegment:
+        """Create a fallback segment for unknown segment types.
+
+        This allows the parser to continue processing even when
+        encountering unknown bank-specific segments.
+        """
+        from .segments.params import GenericSegment
+
+        # Create a minimal segment with just the header and raw data
+        # Store raw data in the generic fields
+        segment = GenericSegment(header=header)
+        segment._raw_data = raw_segment  # Store raw data for debugging
+
+        # Try to populate the generic data fields
+        data_elements = raw_segment[1:]  # Skip header
+        for i, value in enumerate(data_elements[:10]):  # Up to 10 fields
+            field_name = f"data{i + 1}"
+            if hasattr(segment, field_name):
+                setattr(segment, field_name, value)
+
+        # Store any remaining data
+        if len(data_elements) > 10:
+            segment.extra_data = data_elements[10:]
+
+        return segment
 
     def _parse_header(self, raw_header: Any) -> SegmentHeader:
         """Parse segment header from raw data."""
@@ -391,8 +552,15 @@ class FinTSParser:
     ) -> T:
         """Parse segment data into a specific class.
 
-        Uses the model's from_wire_list method for parsing.
+        In FinTS wire format, each segment is a list of DEGs (Data Element Groups).
+        Each DEG can be:
+        - A simple value (string, number, etc.)
+        - A list of values (multiple elements in a DEG, separated by ':')
+
+        The parser creates structured data where nested DEGs are already lists.
         """
+        from .base import _is_fints_model_type, _extract_model_type
+
         # Prepare data for Pydantic model
         data = {
             "header": header,
@@ -402,19 +570,77 @@ class FinTSParser:
         field_names = list(cls.model_fields.keys())
         field_names.remove("header")  # Already handled
 
-        # Map remaining data to fields
-        raw_data_iter = iter(raw_segment[1:])  # Skip header
+        # Remaining data after header - each element is a DEG
+        raw_data = list(raw_segment[1:])  # Skip header
+        raw_index = 0
+
+        if header.type in {"HISPA", "HKSPA", "HIUPD"}:
+            logger.warning("Parsing %s raw_data=%s", header.type, raw_data)
 
         for field_name in field_names:
-            field_info = cls.model_fields[field_name]
-
-            try:
-                raw_value = next(raw_data_iter)
-            except StopIteration:
+            if raw_index >= len(raw_data):
                 # No more data - remaining fields use defaults
                 break
 
-            # Parse the value based on field type
+            field_info = cls.model_fields[field_name]
+            annotation = field_info.annotation
+            origin = getattr(annotation, "__origin__", None)
+
+            actual_annotation = annotation
+            if origin is Union or isinstance(annotation, types.UnionType):
+                args = getattr(annotation, "__args__", ())
+                for arg in args:
+                    if arg is not type(None):
+                        actual_annotation = arg
+                        origin = getattr(actual_annotation, "__origin__", None)
+                        break
+
+            # Check if this is a list field with a DEG type
+            if origin is list:
+                args = getattr(actual_annotation, "__args__", ())
+                if args:
+                    inner_type = args[0]
+                    # Check if inner type is a DEG
+                    if hasattr(inner_type, "from_wire_list"):
+                        # Collect ALL remaining data for this list field
+                        list_values = []
+                        while raw_index < len(raw_data):
+                            raw_value = raw_data[raw_index]
+                            raw_index += 1
+                            if isinstance(raw_value, list):
+                                item = inner_type.from_wire_list(raw_value)
+                                logger.warning("Parsed %s item %s", inner_type.__name__, item)
+                                list_values.append(item)
+                            elif raw_value is not None:
+                                item = inner_type.from_wire_list([raw_value])
+                                logger.warning("Parsed %s item %s", inner_type.__name__, item)
+                                list_values.append(item)
+                        if list_values:
+                            data[field_name] = list_values
+                        continue
+
+            # Get the raw value for this field
+            raw_value = raw_data[raw_index]
+            raw_index += 1
+
+            # Check for nested DEG type
+            if _is_fints_model_type(actual_annotation):
+                model_type = _extract_model_type(actual_annotation)
+                if model_type is not None:
+                    if isinstance(raw_value, list):
+                        # DEG is a list - pass to from_wire_list
+                        parsed_value = model_type.from_wire_list(raw_value)
+                    elif raw_value is not None:
+                        # Single value - wrap in list for from_wire_list
+                        parsed_value = model_type.from_wire_list([raw_value])
+                    else:
+                        parsed_value = None
+
+                    if parsed_value is not None:
+                        data[field_name] = parsed_value
+                    continue
+
+            # Regular field - parse the single value
             parsed_value = self._parse_field_value(raw_value, field_info)
             if parsed_value is not None or not field_info.is_required():
                 data[field_name] = parsed_value
@@ -544,10 +770,17 @@ class FinTSSerializer:
         return self.implode_segments(result)
 
     def serialize_segment(self, segment: FinTSSegment) -> list[Any]:
-        """Serialize a single segment to wire format data."""
+        """Serialize a single segment to wire format data.
+
+        Uses the segment's to_wire_list() method if available for custom formatting.
+        """
+        # Use to_wire_list() if available (handles special formatting like HNHBK message_size)
+        if hasattr(segment, 'to_wire_list') and type(segment).to_wire_list is not FinTSModel.to_wire_list:
+            return segment.to_wire_list()
+
         result: list[Any] = []
 
-        for field_name in segment.model_fields.keys():
+        for field_name in type(segment).model_fields.keys():
             value = getattr(segment, field_name)
 
             if value is None:
@@ -590,13 +823,7 @@ class FinTSSerializer:
             level2: list[bytes] = []
             for deg in segment:
                 if isinstance(deg, (list, tuple)):
-                    highest_index = max(
-                        ((i + 1) for (i, e) in enumerate(deg) if e != b'' and e is not None),
-                        default=0
-                    )
-                    level2.append(
-                        b":".join(FinTSSerializer.escape_value(de) for de in deg[:highest_index])
-                    )
+                    level2.append(FinTSSerializer._implode_deg(deg))
                 else:
                     level2.append(FinTSSerializer.escape_value(deg))
             level1.append(b"+".join(level2))
@@ -604,16 +831,52 @@ class FinTSSerializer:
         return b"'".join(level1) + b"'"
 
     @staticmethod
+    def _implode_deg(deg: list | tuple) -> bytes:
+        """Serialize a DEG (data element group) to bytes.
+
+        Handles nested DEGs recursively.
+        """
+        # Find highest non-empty index to trim trailing empty values
+        highest_index = max(
+            ((i + 1) for (i, e) in enumerate(deg) if e != b'' and e is not None),
+            default=0
+        )
+
+        parts: list[bytes] = []
+        for de in deg[:highest_index]:
+            if isinstance(de, (list, tuple)):
+                # Nested DEG - serialize recursively
+                parts.append(FinTSSerializer._implode_deg(de))
+            else:
+                parts.append(FinTSSerializer.escape_value(de))
+
+        return b":".join(parts)
+
+    @staticmethod
     def escape_value(val: Any) -> bytes:
         """Escape a value for wire format."""
+        import datetime
+
         if isinstance(val, str):
             return re.sub(r"([+:'@?])", r"?\1", val).encode('iso-8859-1')
         elif isinstance(val, bytes):
             return f"@{len(val)}@".encode('us-ascii') + val
         elif val is None:
             return b''
+        elif isinstance(val, bool):
+            return b'J' if val else b'N'
+        elif isinstance(val, datetime.date):
+            # FinTS date format: YYYYMMDD
+            return val.strftime('%Y%m%d').encode('iso-8859-1')
+        elif isinstance(val, datetime.time):
+            # FinTS time format: HHMMSS
+            return val.strftime('%H%M%S').encode('iso-8859-1')
+        elif isinstance(val, (int, float)):
+            return str(val).encode('iso-8859-1')
+        elif isinstance(val, Enum):
+            return str(val.value).encode('iso-8859-1')
         else:
-            raise TypeError(f"Can only escape str, bytes and None, got {type(val)}")
+            raise TypeError(f"Can only escape str, bytes, int, bool and None, got {type(val)}")
 
 
 __all__ = [

@@ -10,8 +10,12 @@ import logging
 from typing import TYPE_CHECKING
 
 from fints.constants import SYSTEM_ID_UNASSIGNED
-from fints.formals import CUSTOMER_ID_ANONYMOUS, SynchronizationMode
-from fints.segments.dialog import HKSYN3, HISYN4
+from fints.infrastructure.fints.protocol import (
+    CUSTOMER_ID_ANONYMOUS,
+    HKSYN3,
+    HISYN4,
+    SynchronizationMode,
+)
 
 if TYPE_CHECKING:
     from fints.infrastructure.fints.dialog import Dialog, DialogFactory
@@ -95,7 +99,7 @@ class SystemIdSynchronizer:
         # Open a dialog with lazy_init to include HKSYN3 in init
         with self._dialog_factory.open_dialog(
             lazy_init=True,
-            extra_init_segments=[HKSYN3(SynchronizationMode.NEW_SYSTEM_ID)],
+            extra_init_segments=[HKSYN3(synchronization_mode=SynchronizationMode.NEW_SYSTEM_ID)],
         ) as dialog:
             # Initialize with sync request
             response = dialog.initialize()

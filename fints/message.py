@@ -1,8 +1,8 @@
 from enum import Enum
 
 from .formals import SegmentSequence
-from .segments.base import FinTS3Segment
-from .segments.dialog import HIRMS2
+from .infrastructure.fints.protocol import HIRMS2
+from .infrastructure.fints.protocol.base import FinTSSegment as PydanticSegment
 
 
 class MessageDirection(Enum):
@@ -19,9 +19,15 @@ class FinTSMessage(SegmentSequence):
         self.next_segment_number = 1
         super().__init__(*args, **kwargs)
 
-    def __iadd__(self, segment: FinTS3Segment):
-        if not isinstance(segment, FinTS3Segment):
-            raise TypeError("Can only append FinTS3Segment instances, not {!r}".format(segment))
+    def __iadd__(self, segment: PydanticSegment):
+        """Append a segment to the message.
+
+        Only Pydantic segments are supported for outgoing messages.
+        """
+        if not isinstance(segment, PydanticSegment):
+            raise TypeError(
+                "Can only append PydanticSegment instances, not {!r}".format(segment)
+            )
         segment.header.number = self.next_segment_number
         self.next_segment_number += 1
         self.segments.append(segment)

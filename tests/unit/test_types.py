@@ -829,3 +829,32 @@ class TestEdgeCases:
             assert len(seq.segments) == 2
             mock_parser_instance.explode_segments.assert_called_once()
 
+    def test_segment_sequence_pydantic_parser_flag(self):
+        """Test SegmentSequence uses Pydantic parser when flag is True."""
+        from fints.infrastructure.fints.protocol.base import SegmentSequence as PydanticSegmentSequence
+
+        with patch("fints.infrastructure.fints.protocol.parser.FinTSParser") as mock_parser:
+            mock_result = MagicMock()
+            mock_result.segments = []
+            mock_parser.return_value.parse_message.return_value = mock_result
+
+            # Test explicit use_pydantic=True parameter
+            seq = SegmentSequence(b"raw bytes data", use_pydantic=True)
+
+            assert len(seq.segments) == 0
+            mock_parser.assert_called_once_with(robust_mode=True)
+            mock_parser.return_value.parse_message.assert_called_once()
+
+    def test_segment_sequence_legacy_parser_default(self):
+        """Test SegmentSequence uses legacy parser by default."""
+        with patch("fints.parser.FinTS3Parser") as mock_parser:
+            mock_parser_instance = mock_parser.return_value
+            mock_parser_instance.explode_segments.return_value = []
+            mock_parser_instance.parse_segment.return_value = None
+
+            # Default should use legacy parser
+            seq = SegmentSequence(b"raw bytes data", use_pydantic=False)
+
+            assert len(seq.segments) == 0
+            mock_parser.assert_called_once()
+

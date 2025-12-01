@@ -51,12 +51,25 @@ class ReportPeriod(FinTSDataElementGroup):
 # Statement Request Segments (HKEKA)
 # =============================================================================
 
+# Note: Field order is critical in FinTS! The `account` field MUST come before
+# other fields. We cannot use inheritance for common fields because Pydantic
+# puts parent class fields first.
 
-class HKEKABase(FinTSSegment):
-    """Base class for statement request segments."""
+
+class HKEKA3(FinTSSegment):
+    """Kontoauszug anfordern, version 3.
+
+    Request account statement using Account3 format.
+
+    Source: FinTS 3.0 Messages - Multibankfähige Geschäftsvorfälle
+    """
 
     SEGMENT_TYPE: ClassVar[str] = "HKEKA"
+    SEGMENT_VERSION: ClassVar[int] = 3
 
+    account: AccountIdentifier = Field(
+        description="Kontoverbindung Auftraggeber",
+    )
     statement_format: StatementFormat | None = Field(
         default=None,
         description="Kontoauszugsformat",
@@ -84,22 +97,7 @@ class HKEKABase(FinTSSegment):
     )
 
 
-class HKEKA3(HKEKABase):
-    """Kontoauszug anfordern, version 3.
-
-    Request account statement using Account3 format.
-
-    Source: FinTS 3.0 Messages - Multibankfähige Geschäftsvorfälle
-    """
-
-    SEGMENT_VERSION: ClassVar[int] = 3
-
-    account: AccountIdentifier = Field(
-        description="Kontoverbindung Auftraggeber",
-    )
-
-
-class HKEKA4(HKEKABase):
+class HKEKA4(FinTSSegment):
     """Kontoauszug anfordern, version 4.
 
     Request account statement using international account format.
@@ -107,14 +105,40 @@ class HKEKA4(HKEKABase):
     Source: FinTS 3.0 Messages - Multibankfähige Geschäftsvorfälle
     """
 
+    SEGMENT_TYPE: ClassVar[str] = "HKEKA"
     SEGMENT_VERSION: ClassVar[int] = 4
 
     account: AccountInternational = Field(
         description="Kontoverbindung international",
     )
+    statement_format: StatementFormat | None = Field(
+        default=None,
+        description="Kontoauszugsformat",
+    )
+    statement_number: FinTSNumeric = Field(
+        ge=0,
+        lt=100000,
+        description="Kontoauszugsnummer",
+    )
+    statement_year: FinTSNumeric = Field(
+        ge=1900,
+        lt=10000,
+        description="Kontoauszugsjahr",
+    )
+    max_number_responses: FinTSNumeric | None = Field(
+        default=None,
+        ge=0,
+        lt=10000,
+        description="Maximale Anzahl Einträge",
+    )
+    touchdown_point: FinTSAlphanumeric | None = Field(
+        default=None,
+        max_length=35,
+        description="Aufsetzpunkt für Fortsetzung",
+    )
 
 
-class HKEKA5(HKEKABase):
+class HKEKA5(FinTSSegment):
     """Kontoauszug anfordern, version 5.
 
     Request account statement using international account format.
@@ -122,14 +146,43 @@ class HKEKA5(HKEKABase):
     Source: FinTS 3.0 Messages - Multibankfähige Geschäftsvorfälle
     """
 
+    SEGMENT_TYPE: ClassVar[str] = "HKEKA"
     SEGMENT_VERSION: ClassVar[int] = 5
 
     account: AccountInternational = Field(
         description="Kontoverbindung international",
     )
+    statement_format: StatementFormat | None = Field(
+        default=None,
+        description="Kontoauszugsformat",
+    )
+    statement_number: FinTSNumeric = Field(
+        ge=0,
+        lt=100000,
+        description="Kontoauszugsnummer",
+    )
+    statement_year: FinTSNumeric = Field(
+        ge=1900,
+        lt=10000,
+        description="Kontoauszugsjahr",
+    )
+    max_number_responses: FinTSNumeric | None = Field(
+        default=None,
+        ge=0,
+        lt=10000,
+        description="Maximale Anzahl Einträge",
+    )
+    touchdown_point: FinTSAlphanumeric | None = Field(
+        default=None,
+        max_length=35,
+        description="Aufsetzpunkt für Fortsetzung",
+    )
 
 
-HKEKA_VERSIONS: dict[int, type[HKEKABase]] = {
+# Type alias for backwards compatibility
+HKEKABase = HKEKA3
+
+HKEKA_VERSIONS: dict[int, type[FinTSSegment]] = {
     3: HKEKA3,
     4: HKEKA4,
     5: HKEKA5,

@@ -11,9 +11,9 @@ from datetime import date, time
 from typing import TYPE_CHECKING, Sequence
 
 from fints.exceptions import FinTSUnsupportedOperation
-from fints.formals import Confirmation, StatementFormat
-from fints.models import SEPAAccount
-from fints.segments.statement import (
+from fints.infrastructure.fints.protocol import (
+    Confirmation,
+    StatementFormat,
     HIEKA3,
     HIEKA4,
     HIEKA5,
@@ -21,6 +21,7 @@ from fints.segments.statement import (
     HKEKA4,
     HKEKA5,
 )
+from fints.models import SEPAAccount
 
 from .pagination import TouchdownPaginator, find_highest_supported_version
 
@@ -133,7 +134,8 @@ class StatementOperations:
             )
 
         # Build account field
-        account_type = hkeka_class._fields["account"].type
+        from .helpers import get_account_type_for_segment
+        account_type = get_account_type_for_segment(hkeka_class)
         account_field = account_type.from_sepa_account(account)
 
         statements: list[StatementInfo] = []
@@ -212,7 +214,8 @@ class StatementOperations:
             )
 
         # Build account field
-        account_type = hkeka_class._fields["account"].type
+        from .helpers import get_account_type_for_segment
+        account_type = get_account_type_for_segment(hkeka_class)
         account_field = account_type.from_sepa_account(account)
 
         # Send fetch request

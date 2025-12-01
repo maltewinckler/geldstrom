@@ -8,10 +8,18 @@ from typing import TYPE_CHECKING, Any, Iterator, Sequence
 
 from fints.constants import SYSTEM_ID_UNASSIGNED
 from fints.exceptions import FinTSDialogError, FinTSDialogInitError, FinTSDialogStateError
-from fints.formals import CUSTOMER_ID_ANONYMOUS, Language2, SystemIDStatus
-from fints.segments.auth import HKIDN2, HKVVB3, HKTAN2, HKTAN6, HKTAN7
-from fints.segments.dialog import HKEND1
-from fints.segments.message import HNHBK3
+from fints.infrastructure.fints.protocol import (
+    CUSTOMER_ID_ANONYMOUS,
+    Language2,
+    SystemIDStatus,
+    HKIDN2,
+    HKVVB3,
+    HKTAN2,
+    HKTAN6,
+    HKTAN7,
+    HKEND1,
+    HNHBK3,
+)
 
 from .connection import ConnectionConfig, HTTPSDialogConnection
 from .responses import ProcessedResponse, ResponseProcessor
@@ -228,7 +236,7 @@ class Dialog:
         Returns:
             True if TAN is required, False otherwise
         """
-        from fints.segments.auth import HIPINS1
+        from fints.infrastructure.fints.protocol import HIPINS1
 
         hipins = self._parameters.bpd.segments.find_segment_first(HIPINS1)
         if not hipins:
@@ -306,7 +314,7 @@ class Dialog:
             return
 
         try:
-            self._send_segments([HKEND1(self._state.dialog_id)], internal=True)
+            self._send_segments([HKEND1(dialog_id=self._state.dialog_id)], internal=True)
         finally:
             self._state.is_open = False
 
@@ -323,17 +331,17 @@ class Dialog:
 
         return [
             HKIDN2(
-                config.bank_identifier,
-                config.customer_id,
-                config.system_id,
-                system_id_status,
+                bank_identifier=config.bank_identifier,
+                customer_id=config.customer_id,
+                system_id=config.system_id,
+                system_id_status=system_id_status,
             ),
             HKVVB3(
-                params.bpd_version,
-                params.upd_version,
-                config.language,
-                config.product_name,
-                config.product_version,
+                bpd_version=params.bpd_version,
+                upd_version=params.upd_version,
+                language=config.language,
+                product_name=config.product_name,
+                product_version=config.product_version,
             ),
         ]
 
@@ -383,7 +391,7 @@ class Dialog:
     def _build_message(self, segments: Sequence) -> "FinTSCustomerMessage":
         """Build a FinTS message from segments."""
         from fints.message import FinTSCustomerMessage
-        from fints.segments.message import HNHBS1
+        from fints.infrastructure.fints.protocol import HNHBS1
 
         # Create message with header
         message = self._create_message_with_header()
@@ -401,7 +409,7 @@ class Dialog:
             auth_mech.sign_commit(message)
 
         # Add trailer
-        message += HNHBS1(self._state.message_number)
+        message += HNHBS1(message_number=self._state.message_number)
 
         # Apply encryption
         if self._enc_mechanism:
@@ -434,7 +442,10 @@ class Dialog:
 
         # Add header
         message += HNHBK3(
-            0, 300, self._state.dialog_id, self._state.message_number
+            message_size=0,  # Will be updated later
+            hbci_version=300,
+            dialog_id=self._state.dialog_id,
+            message_number=self._state.message_number,
         )
 
         return message

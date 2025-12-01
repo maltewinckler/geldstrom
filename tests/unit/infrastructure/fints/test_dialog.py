@@ -12,7 +12,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from fints.constants import SYSTEM_ID_UNASSIGNED
-from fints.formals import Language2
+from fints.infrastructure.fints.protocol import BankIdentifier, Language2
 from fints.infrastructure.fints.dialog import (
     ConnectionConfig,
     Dialog,
@@ -43,9 +43,7 @@ def mock_connection():
 @pytest.fixture
 def dialog_config():
     """Create a basic dialog configuration."""
-    from fints.formals import BankIdentifier
-
-    bank_id = BankIdentifier("280", "12345678")
+    bank_id = BankIdentifier(country_identifier="280", bank_code="12345678")
 
     return DialogConfig(
         bank_identifier=bank_id,
@@ -116,9 +114,7 @@ class TestDialogConfig:
 
     def test_minimal_config(self):
         """DialogConfig should require only essential fields."""
-        from fints.formals import BankIdentifier
-
-        bank_id = BankIdentifier("280", "12345678")
+        bank_id = BankIdentifier(country_identifier="280", bank_code="12345678")
         config = DialogConfig(
             bank_identifier=bank_id,
             user_id="user",

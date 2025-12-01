@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Sequence
 
 from fints.exceptions import FinTSUnsupportedOperation
 from fints.models import SEPAAccount
-from fints.segments.saldo import HISAL5, HISAL6, HISAL7, HKSAL5, HKSAL6, HKSAL7
+from fints.infrastructure.fints.protocol import HISAL5, HISAL6, HISAL7, HKSAL5, HKSAL6, HKSAL7
 
 from .pagination import find_highest_supported_version
 
@@ -116,7 +116,8 @@ class BalanceOperations:
             )
 
         # Build account field based on version
-        account_type = hksal_class._fields["account"].type
+        from .helpers import get_account_type_for_segment
+        account_type = get_account_type_for_segment(hksal_class)
         account_field = account_type.from_sepa_account(account)
 
         # Send HKSAL request
@@ -127,7 +128,9 @@ class BalanceOperations:
         response = self._dialog.send(segment)
 
         # Extract balance from HISAL response
-        return self._extract_balance(response, segment, hksal_class.VERSION)
+        # Get version from either Pydantic or legacy segment class
+        version = getattr(hksal_class, 'SEGMENT_VERSION', None) or getattr(hksal_class, 'VERSION', 0)
+        return self._extract_balance(response, segment, version)
 
     def _extract_balance(
         self,

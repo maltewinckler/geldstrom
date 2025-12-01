@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Sequence
 from fints.application.ports import GatewayCredentials
 from fints.domain import StatementDocument, StatementReference
 from fints.domain.ports.statements import StatementPort
-from fints.formals import StatementFormat
+from fints.infrastructure.fints.protocol import StatementFormat
 from fints.infrastructure.fints.session import FinTSSessionState
 
 from .connection import FinTSConnectionHelper
