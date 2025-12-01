@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Iterable, Sequence
 
 from geldstrom.exceptions import FinTSUnsupportedOperation
 from geldstrom.infrastructure.fints.protocol import SupportedMessageTypes
-from geldstrom.models import SEPAAccount
+from geldstrom.infrastructure.fints.protocol.formals import SEPAAccount
 from geldstrom.infrastructure.fints.protocol import HKCAZ1, HKKAZ5, HKKAZ6, HKKAZ7
 from geldstrom.utils import mt940_to_array
 

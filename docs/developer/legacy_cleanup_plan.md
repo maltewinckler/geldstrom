@@ -226,6 +226,9 @@ geldstrom/segments/         # 12 files - Legacy segments
 | 2.3 Fix FinTSMessage | ✅ Done | 2024-12-01 | Updated to extend Pydantic SegmentSequence with ClassVars |
 | 2.4 Fix recursion bug | ✅ Done | 2024-12-01 | Fixed find_segments to recurse regardless of query match |
 | 2.5 All tests pass | ✅ Done | 2024-12-01 | 408 unit + 27 integration tests pass |
+| 2.6 Migrate SEPAAccount | ✅ Done | 2024-12-01 | Pydantic model in protocol/formals/identifiers.py |
+| 2.7 Migrate Holding | ✅ Done | 2024-12-01 | Pydantic model in protocol/formals/amounts.py |
+| 2.8 Delete models.py | ✅ Done | 2024-12-01 | geldstrom/models.py removed |
 | 3.x Test cleanup | ⬜ Not started | | |
 | 4.x Documentation | ⬜ Not started | | |
 

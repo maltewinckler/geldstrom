@@ -20,7 +20,7 @@ from geldstrom.infrastructure.fints.operations import AccountInfo
 from .connection import FinTSConnectionHelper
 
 if TYPE_CHECKING:
-    from geldstrom.models import SEPAAccount
+    from geldstrom.infrastructure.fints.protocol.formals import SEPAAccount
 
 logger = logging.getLogger(__name__)
 

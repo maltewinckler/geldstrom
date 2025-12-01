@@ -17,7 +17,7 @@ from unittest.mock import MagicMock
 
 from geldstrom.domain import BankRoute
 from geldstrom.infrastructure.gateway import FinTSReadOnlyGateway
-from geldstrom.models import SEPAAccount
+from geldstrom.infrastructure.fints.protocol.formals import SEPAAccount
 
 # --------------------------------------------------------------------------
 # Gateway Tests - verify delegation to adapters works

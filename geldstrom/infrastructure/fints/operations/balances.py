@@ -11,7 +11,7 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Sequence
 
 from geldstrom.exceptions import FinTSUnsupportedOperation
-from geldstrom.models import SEPAAccount
+from geldstrom.infrastructure.fints.protocol.formals import SEPAAccount
 from geldstrom.infrastructure.fints.protocol import HISAL5, HISAL6, HISAL7, HKSAL5, HKSAL6, HKSAL7
 
 from .pagination import find_highest_supported_version

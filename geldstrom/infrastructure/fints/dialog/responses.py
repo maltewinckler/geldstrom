@@ -1,14 +1,22 @@
 """Response processing for FinTS dialog messages."""
+
 from __future__ import annotations
 
 import logging
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Callable, Sequence
+from typing import Callable
 
-from geldstrom.message import FinTSInstituteMessage
-from geldstrom.infrastructure.fints.protocol import HIBPA3, HIUPA4, HIRMG2, HIRMS2, HNHBK3
+from geldstrom.infrastructure.fints.protocol import (
+    HIBPA3,
+    HIRMG2,
+    HIRMS2,
+    HIUPA4,
+    HNHBK3,
+)
 from geldstrom.infrastructure.fints.protocol.base import SegmentSequence
+from geldstrom.message import FinTSInstituteMessage
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +72,9 @@ class ProcessedResponse:
     upd_segments: SegmentSequence | None = None
     bpa: object | None = None  # HIBPA segment
     upa: object | None = None  # HIUPA segment
-    raw_response: "FinTSInstituteMessage | None" = None  # Full response for segment access
+    raw_response: FinTSInstituteMessage | None = (
+        None  # Full response for segment access
+    )
 
     @property
     def has_errors(self) -> bool:
@@ -269,4 +279,3 @@ def log_response(response: DialogResponse, segment: object | None = None) -> Non
             "fints_response_parameters": response.parameters,
         },
     )
-

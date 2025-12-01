@@ -10,41 +10,41 @@ Key features:
 - BPD/UPD parameter management
 - Decoupled TAN handling (app-based approval)
 """
+
 from __future__ import annotations
 
 import logging
 import time
+from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Iterator, Mapping
+from typing import Any
 
 from geldstrom.application.ports import GatewayCredentials
-from geldstrom.constants import SYSTEM_ID_UNASSIGNED
 from geldstrom.infrastructure.fints.auth.standalone_mechanisms import (
     SecurityContext,
     StandaloneAuthenticationMechanism,
     StandaloneEncryptionMechanism,
 )
 from geldstrom.infrastructure.fints.dialog import (
+    SYSTEM_ID_UNASSIGNED,
     ConnectionConfig,
     Dialog,
     DialogConfig,
-    DialogFactory,
     HTTPSDialogConnection,
 )
 from geldstrom.infrastructure.fints.protocol import (
-    BankIdentifier,
-    CUSTOMER_ID_ANONYMOUS,
-    SynchronizationMode,
-    ParameterStore,
+    HISYN4,
+    HKSYN3,
     HKTAN2,
     HKTAN6,
     HKTAN7,
-    HKSYN3,
-    HISYN4,
+    BankIdentifier,
+    ParameterStore,
+    SynchronizationMode,
 )
 from geldstrom.infrastructure.fints.session import FinTSSessionState
-from geldstrom.utils import Password, decompress_datablob, compress_datablob
+from geldstrom.utils import compress_datablob, decompress_datablob
 
 # Magic bytes for the compressed data blob format
 DATA_BLOB_MAGIC = b"python-fints"
@@ -55,9 +55,6 @@ HKTAN_VERSIONS = {
     6: HKTAN6,
     7: HKTAN7,
 }
-
-if TYPE_CHECKING:
-    from geldstrom.infrastructure.fints.operations import AccountOperations
 
 logger = logging.getLogger(__name__)
 
@@ -146,9 +143,7 @@ class FinTSConnectionHelper:
         # Phase 1: If we don't have a system ID, obtain one via sync dialog
         # This also fetches initial BPD so we know which TAN mechanisms exist
         if system_id == SYSTEM_ID_UNASSIGNED:
-            system_id = self._ensure_system_id(
-                connection, bank_id, parameters, creds
-            )
+            system_id = self._ensure_system_id(connection, bank_id, parameters, creds)
             # Close and reopen connection for main dialog
             # (legacy client creates fresh connection for each dialog)
             connection.close()
@@ -269,9 +264,7 @@ class FinTSConnectionHelper:
             if hasattr(status_hktan, "further_tan_follows"):
                 status_hktan.further_tan_follows = False
 
-            logger.debug(
-                "Poll attempt %d: sending HKTAN status query", attempts
-            )
+            logger.debug("Poll attempt %d: sending HKTAN status query", attempts)
 
             # Send status query (bypass HKTAN injection)
             # Use internal method to avoid auto-HKTAN injection
@@ -349,7 +342,8 @@ class FinTSConnectionHelper:
             security_function = creds.tan_method
             logger.info(
                 "Using two-step TAN: security_function=%s, tan_medium=%s",
-                security_function, creds.tan_medium
+                security_function,
+                creds.tan_medium,
             )
 
             # Build HKTAN segment for dialog init
@@ -416,7 +410,9 @@ class FinTSConnectionHelper:
         hktan_version = hitans.header.version
         hktan_class = HKTAN_VERSIONS.get(hktan_version)
         if not hktan_class:
-            logger.warning("HKTAN version %d not directly supported, trying lower", hktan_version)
+            logger.warning(
+                "HKTAN version %d not directly supported, trying lower", hktan_version
+            )
             # Try to find a supported version
             for v in sorted(HKTAN_VERSIONS.keys(), reverse=True):
                 if v <= hktan_version:
@@ -489,7 +485,8 @@ class FinTSConnectionHelper:
         # The actual TAN method is only used in the main dialog
         security_function = "999"
         enc_mechanism = StandaloneEncryptionMechanism(
-            security_context, security_method_version=1  # One-step for sync
+            security_context,
+            security_method_version=1,  # One-step for sync
         )
         auth_mechanism = StandaloneAuthenticationMechanism(
             context=security_context,
@@ -510,7 +507,9 @@ class FinTSConnectionHelper:
         try:
             # Initialize with HKSYN3 to request system ID
             response = sync_dialog.initialize(
-                extra_segments=[HKSYN3(synchronization_mode=SynchronizationMode.NEW_SYSTEM_ID)]
+                extra_segments=[
+                    HKSYN3(synchronization_mode=SynchronizationMode.NEW_SYSTEM_ID)
+                ]
             )
 
             # Extract system ID from HISYN4 response
@@ -553,6 +552,7 @@ class FinTSConnectionHelper:
                     return ParameterStore.from_dict(data)
             except Exception as e:
                 import traceback
+
                 logger.warning(
                     "Failed to restore parameters from state: %s\n%s",
                     e,

@@ -1,29 +1,37 @@
 """Dialog factory for creating and managing FinTS dialogs."""
+
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
-from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Iterator, Sequence
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any
 
-from geldstrom.constants import SYSTEM_ID_UNASSIGNED
-from geldstrom.exceptions import FinTSDialogError, FinTSDialogInitError, FinTSDialogStateError
+from geldstrom.exceptions import (
+    FinTSDialogError,
+    FinTSDialogInitError,
+    FinTSDialogStateError,
+)
 from geldstrom.infrastructure.fints.protocol import (
     CUSTOMER_ID_ANONYMOUS,
-    Language2,
-    SystemIDStatus,
+    HKEND1,
     HKIDN2,
-    HKVVB3,
     HKTAN2,
     HKTAN6,
     HKTAN7,
-    HKEND1,
+    HKVVB3,
     HNHBK3,
+    Language2,
+    SystemIDStatus,
 )
 
 from .connection import ConnectionConfig, HTTPSDialogConnection
 from .responses import ProcessedResponse, ResponseProcessor
-from .transport import DIALOG_ID_UNASSIGNED
+
+# FinTS protocol markers for uninitialized state
+DIALOG_ID_UNASSIGNED = "0"
+SYSTEM_ID_UNASSIGNED = "0"
 
 # HKTAN version map
 HKTAN_VERSIONS = {2: HKTAN2, 6: HKTAN6, 7: HKTAN7}
@@ -35,8 +43,12 @@ HKTAN_VERSIONS = {2: HKTAN2, 6: HKTAN6, 7: HKTAN7}
 DIALOG_SEGMENTS = {"HKIDN", "HKVVB", "HKEND", "HKSYN", "HKTAN"}
 
 if TYPE_CHECKING:
+    from geldstrom.infrastructure.fints.auth import (
+        StandaloneAuthenticationMechanism,
+        StandaloneEncryptionMechanism,
+    )
     from geldstrom.infrastructure.fints.protocol import ParameterStore
-    from geldstrom.security import AuthenticationMechanism, EncryptionMechanism
+    from geldstrom.message import FinTSCustomerMessage
 
 logger = logging.getLogger(__name__)
 
@@ -79,9 +91,9 @@ class Dialog:
         self,
         connection: HTTPSDialogConnection,
         config: DialogConfig,
-        parameters: "ParameterStore",
-        enc_mechanism: "EncryptionMechanism | None" = None,
-        auth_mechanisms: "Sequence[AuthenticationMechanism] | None" = None,
+        parameters: ParameterStore,
+        enc_mechanism: StandaloneEncryptionMechanism | None = None,
+        auth_mechanisms: Sequence[StandaloneAuthenticationMechanism] | None = None,
         response_processor: ResponseProcessor | None = None,
         security_function: str = "999",
     ) -> None:
@@ -122,7 +134,7 @@ class Dialog:
         return self._state.is_open
 
     @property
-    def parameters(self) -> "ParameterStore":
+    def parameters(self) -> ParameterStore:
         """Return the parameter store."""
         return self._parameters
 
@@ -162,9 +174,7 @@ class Dialog:
             self._state.is_open = False
             if isinstance(e, (FinTSDialogError,)):
                 raise
-            raise FinTSDialogInitError(
-                "Couldn't establish dialog with bank"
-            ) from e
+            raise FinTSDialogInitError("Couldn't establish dialog with bank") from e
 
     def send(
         self,
@@ -205,7 +215,9 @@ class Dialog:
 
         # Handle decoupled TAN if required (code 3955 = app approval needed)
         if response.get_response_by_code("3955"):
-            logger.info("Decoupled TAN required for operation - waiting for app approval...")
+            logger.info(
+                "Decoupled TAN required for operation - waiting for app approval..."
+            )
             # The final approval response contains the business data
             final_response = self._handle_decoupled_tan(
                 response, decoupled_timeout, decoupled_poll_interval
@@ -234,7 +246,9 @@ class Dialog:
             result.append(seg)
 
             # Check if this is a business segment that needs HKTAN
-            seg_type = getattr(seg.header, "type", None) if hasattr(seg, "header") else None
+            seg_type = (
+                getattr(seg.header, "type", None) if hasattr(seg, "header") else None
+            )
             if seg_type and seg_type not in DIALOG_SEGMENTS:
                 # Check HIPINS to see if this operation actually requires TAN
                 if self._segment_requires_tan(seg_type):
@@ -268,7 +282,9 @@ class Dialog:
             return True
 
         # Check if this transaction requires TAN
-        if hasattr(hipins, "parameter") and hasattr(hipins.parameter, "transaction_tans_required"):
+        if hasattr(hipins, "parameter") and hasattr(
+            hipins.parameter, "transaction_tans_required"
+        ):
             for req in hipins.parameter.transaction_tans_required:
                 if req.transaction == segment_type:
                     return req.tan_required
@@ -416,9 +432,7 @@ class Dialog:
             if hasattr(status_hktan, "further_tan_follows"):
                 status_hktan.further_tan_follows = False
 
-            logger.debug(
-                "Poll attempt %d: sending HKTAN status query", attempts
-            )
+            logger.debug("Poll attempt %d: sending HKTAN status query", attempts)
 
             # Send status query (bypass HKTAN injection)
             response = self._send_segments([status_hktan], internal=True)
@@ -438,7 +452,10 @@ class Dialog:
                 err_text = error_resp.text if error_resp else "Unknown error"
                 logger.error("Decoupled TAN polling failed: %s", err_text)
                 # Common error: "Die Nachricht enthält Fehler" means bank timeout
-                if "Nachricht enthält Fehler" in err_text or "message" in err_text.lower():
+                if (
+                    "Nachricht enthält Fehler" in err_text
+                    or "message" in err_text.lower()
+                ):
                     raise TimeoutError(
                         "The bank's TAN request expired. Please try again and approve "
                         "the request in your banking app before it times out."
@@ -465,7 +482,9 @@ class Dialog:
             return
 
         try:
-            self._send_segments([HKEND1(dialog_id=self._state.dialog_id)], internal=True)
+            self._send_segments(
+                [HKEND1(dialog_id=self._state.dialog_id)], internal=True
+            )
         finally:
             self._state.is_open = False
 
@@ -509,7 +528,6 @@ class Dialog:
         Returns:
             Processed response
         """
-        from geldstrom.message import FinTSCustomerMessage, MessageDirection
 
         # Build message
         message = self._build_message(segments)
@@ -539,9 +557,8 @@ class Dialog:
 
         return processed
 
-    def _build_message(self, segments: Sequence) -> "FinTSCustomerMessage":
+    def _build_message(self, segments: Sequence) -> FinTSCustomerMessage:
         """Build a FinTS message from segments."""
-        from geldstrom.message import FinTSCustomerMessage
         from geldstrom.infrastructure.fints.protocol import HNHBS1
 
         # Create message with header
@@ -571,7 +588,7 @@ class Dialog:
 
         return message
 
-    def _create_message_with_header(self) -> "FinTSCustomerMessage":
+    def _create_message_with_header(self) -> FinTSCustomerMessage:
         """Create a new message with header initialized."""
         from geldstrom.message import FinTSCustomerMessage
 
@@ -616,7 +633,7 @@ class DialogFactory:
         self,
         connection_config: ConnectionConfig | str,
         dialog_config: DialogConfig,
-        parameters: "ParameterStore",
+        parameters: ParameterStore,
         enc_mechanism_factory=None,
         auth_mechanism_factory=None,
     ) -> None:
@@ -705,4 +722,3 @@ class DialogFactory:
             enc_mechanism=enc_mech,
             auth_mechanisms=auth_mechs,
         )
-

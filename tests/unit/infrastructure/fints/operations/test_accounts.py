@@ -9,7 +9,7 @@ from geldstrom.infrastructure.fints.operations.accounts import (
     AccountInfo,
     AccountOperations,
 )
-from geldstrom.models import SEPAAccount
+from geldstrom.infrastructure.fints.protocol.formals import SEPAAccount
 
 
 class TestAccountInfo:

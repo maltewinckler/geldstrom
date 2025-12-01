@@ -1,10 +1,12 @@
 """FinTS-specific session state with protocol details."""
+
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, Mapping
+from typing import Any
 
 from geldstrom.domain.model.bank import BankRoute
 
@@ -40,13 +42,13 @@ class FinTSSessionState:
         return json.dumps(self.to_dict()).encode("utf-8")
 
     @classmethod
-    def deserialize(cls, data: bytes) -> "FinTSSessionState":
+    def deserialize(cls, data: bytes) -> FinTSSessionState:
         """Restore session state from serialized JSON bytes."""
         return cls.from_dict(json.loads(data.decode("utf-8")))
 
     # --- FinTS-specific methods ---
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "version": self.version,
             "route": {
@@ -62,7 +64,7 @@ class FinTSSessionState:
         }
 
     @classmethod
-    def from_dict(cls, data: Mapping[str, Any]) -> "FinTSSessionState":
+    def from_dict(cls, data: Mapping[str, Any]) -> FinTSSessionState:
         route = BankRoute(
             country_code=data["route"]["country_code"],
             bank_code=data["route"]["bank_code"],
@@ -87,7 +89,7 @@ class FinTSSessionState:
             version=str(data.get("version", "1")),
         )
 
-    def mask(self) -> Dict[str, Any]:
+    def mask(self) -> dict[str, Any]:
         """Return a representation safe for logging (client_blob redacted)."""
         masked = self.to_dict()
         masked["client_blob"] = f"<{len(self.client_blob)} bytes>"

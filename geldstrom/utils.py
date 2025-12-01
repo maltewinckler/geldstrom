@@ -12,7 +12,7 @@ except ImportError:
 
 import mt940
 
-from .models import Holding
+from .infrastructure.fints.protocol.formals import Holding
 
 
 def mt940_to_array(data):

@@ -9,7 +9,7 @@ import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Sequence
 
-from geldstrom.models import SEPAAccount
+from geldstrom.infrastructure.fints.protocol.formals import SEPAAccount
 from geldstrom.infrastructure.fints.protocol import HISPA1, HKSPA1
 
 if TYPE_CHECKING:

@@ -6,10 +6,32 @@ from __future__ import annotations
 
 from typing import ClassVar
 
-from pydantic import Field, model_validator
+from pydantic import BaseModel, Field, model_validator
 
 from ..base import FinTSDataElementGroup
 from ..types import FinTSAlphanumeric, FinTSCountry, FinTSID, FinTSBool
+
+
+# =============================================================================
+# Simple Account Models (for internal use)
+# =============================================================================
+
+
+class SEPAAccount(BaseModel, frozen=True):
+    """Simple SEPA account representation for internal data transfer.
+
+    This is a lightweight Pydantic model used to pass account information
+    between infrastructure layers. It replaces the legacy namedtuple.
+
+    For wire format representation, use AccountInternationalSEPA.
+    For domain representation, use domain.model.Account.
+    """
+
+    iban: str
+    bic: str | None = None
+    accountnumber: str
+    subaccount: str = ""
+    blz: str | None = None
 
 # Country code mappings (ISO 3166-1 alpha-2 <-> ISO 3166-1 numeric)
 # Source: FinTS 3.0 Kapitel E.4 der SEPA-Geschäftsvorfälle
@@ -205,17 +227,16 @@ class AccountInternationalSEPA(FinTSDataElementGroup):
         description="Kreditinstitutskennung",
     )
 
-    def as_sepa_account(self):
+    def as_sepa_account(self) -> SEPAAccount | None:
         """Convert to SEPAAccount model."""
-        from geldstrom.models import SEPAAccount
         if not self.is_sepa:
             return None
         return SEPAAccount(
-            self.iban,
-            self.bic,
-            self.account_number,
-            self.subaccount_number,
-            self.bank_identifier.bank_code,
+            iban=self.iban,
+            bic=self.bic,
+            accountnumber=self.account_number,
+            subaccount=self.subaccount_number,
+            blz=self.bank_identifier.bank_code,
         )
 
     @classmethod
@@ -243,5 +264,6 @@ __all__ = [
     "AccountIdentifier",
     "AccountInternational",
     "AccountInternationalSEPA",
+    "SEPAAccount",
 ]
 

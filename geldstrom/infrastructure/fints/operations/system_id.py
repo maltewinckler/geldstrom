@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from geldstrom.constants import SYSTEM_ID_UNASSIGNED
+from geldstrom.infrastructure.fints.dialog import SYSTEM_ID_UNASSIGNED
 from geldstrom.infrastructure.fints.protocol import (
     CUSTOMER_ID_ANONYMOUS,
     HKSYN3,

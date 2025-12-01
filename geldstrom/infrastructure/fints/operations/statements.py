@@ -21,7 +21,7 @@ from geldstrom.infrastructure.fints.protocol import (
     HKEKA4,
     HKEKA5,
 )
-from geldstrom.models import SEPAAccount
+from geldstrom.infrastructure.fints.protocol.formals import SEPAAccount
 
 from .pagination import TouchdownPaginator, find_highest_supported_version
 

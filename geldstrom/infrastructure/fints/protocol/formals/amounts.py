@@ -162,10 +162,33 @@ class Timestamp(FinTSDataElementGroup):
     )
 
 
+# =============================================================================
+# Simple Value Models (for internal use)
+# =============================================================================
+
+
+class Holding(FinTSDataElementGroup):
+    """Securities holding representation.
+
+    Represents a single holding in a depot/securities account.
+    Used for parsing depot information from MT535 messages.
+    """
+
+    ISIN: str = Field(description="ISIN code")
+    name: str = Field(description="Security name")
+    market_value: Decimal | None = Field(default=None, description="Market value per unit")
+    value_symbol: str | None = Field(default=None, description="Currency/symbol for market value")
+    valuation_date: date | None = Field(default=None, description="Date of valuation")
+    pieces: Decimal | None = Field(default=None, description="Number of pieces/units held")
+    total_value: Decimal | None = Field(default=None, description="Total value of holding")
+    acquisitionprice: Decimal | None = Field(default=None, description="Acquisition price per unit")
+
+
 __all__ = [
     "Amount",
     "Balance",
     "BalanceSimple",
     "Timestamp",
+    "Holding",
 ]
 

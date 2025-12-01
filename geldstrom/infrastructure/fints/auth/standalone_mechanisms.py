@@ -2,6 +2,7 @@
 
 These mechanisms work directly with the Dialog/connection infrastructure.
 """
+
 from __future__ import annotations
 
 import datetime
@@ -10,6 +11,10 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from geldstrom.infrastructure.fints.protocol import (
+    HNSHA2,
+    HNSHK4,
+    HNVSD1,
+    HNVSK3,
     AlgorithmParameterIVName,
     AlgorithmParameterName,
     BankIdentifier,
@@ -31,12 +36,7 @@ from geldstrom.infrastructure.fints.protocol import (
     SignatureAlgorithm,
     UsageEncryption,
     UserDefinedSignature,
-    HNSHA2,
-    HNSHK4,
-    HNVSD1,
-    HNVSK3,
 )
-from geldstrom.infrastructure.fints.protocol.base import SegmentSequence
 
 if TYPE_CHECKING:
     from geldstrom.message import FinTSMessage
@@ -50,6 +50,7 @@ class SecurityContext:
     This provides all the information needed for security mechanisms
     without requiring a legacy client reference.
     """
+
     bank_identifier: BankIdentifier
     user_id: str
     system_id: str
@@ -66,11 +67,13 @@ class StandaloneEncryptionMechanism:
         security_method_version: 1 for one-step auth, 2 for two-step auth
     """
 
-    def __init__(self, context: SecurityContext, security_method_version: int = 1) -> None:
+    def __init__(
+        self, context: SecurityContext, security_method_version: int = 1
+    ) -> None:
         self._context = context
         self.security_method_version = security_method_version
 
-    def encrypt(self, message: "FinTSMessage") -> None:
+    def encrypt(self, message: FinTSMessage) -> None:
         """Wrap message in encryption envelope."""
         assert message.segments[0].header.type == "HNHBK"
         assert message.segments[-1].header.type == "HNHBS"
@@ -122,6 +125,7 @@ class StandaloneEncryptionMechanism:
 
         # Insert encrypted data container - serialize to bytes
         from geldstrom.infrastructure.fints.protocol.parser import FinTSSerializer
+
         serializer = FinTSSerializer()
         data_bytes = serializer.serialize_message(plain_segments)
         message.segments.insert(
@@ -130,7 +134,7 @@ class StandaloneEncryptionMechanism:
         )
         message.segments[2].header.number = 999
 
-    def decrypt(self, message: "FinTSMessage") -> None:
+    def decrypt(self, message: FinTSMessage) -> None:
         """No-op for PIN/TAN - messages are not actually encrypted."""
         pass
 
@@ -165,7 +169,7 @@ class StandaloneAuthenticationMechanism:
         self._tan_provider = tan_provider
         self._pending_signature = None
 
-    def sign_prepare(self, message: "FinTSMessage") -> None:
+    def sign_prepare(self, message: FinTSMessage) -> None:
         """Add signature header to message."""
         _now = datetime.datetime.now()
         rand = random.SystemRandom()
@@ -210,7 +214,7 @@ class StandaloneAuthenticationMechanism:
 
         message += self._pending_signature
 
-    def sign_commit(self, message: "FinTSMessage") -> None:
+    def sign_commit(self, message: FinTSMessage) -> None:
         """Complete signature with PIN and optional TAN."""
         if not self._pending_signature:
             raise RuntimeError("No signature is pending")
@@ -234,7 +238,7 @@ class StandaloneAuthenticationMechanism:
         self._pending_signature = None
         message += signature
 
-    def verify(self, message: "FinTSMessage") -> None:
+    def verify(self, message: FinTSMessage) -> None:
         """No-op - response verification not implemented."""
         pass
 
@@ -244,4 +248,3 @@ __all__ = [
     "StandaloneEncryptionMechanism",
     "StandaloneAuthenticationMechanism",
 ]
-

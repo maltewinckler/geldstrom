@@ -17,15 +17,17 @@ Usage:
 
     print(debugger.report())
 """
+
 from __future__ import annotations
 
 import json
 import logging
 import warnings
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any
 
 from geldstrom.infrastructure.fints.protocol.parser import (
     FinTSParser,
@@ -201,7 +203,9 @@ class ParserDebugger:
                 # Analyze each segment
                 for segment in result.segments:
                     header = segment.header
-                    is_recognized = self.registry.get(header.type, header.version) is not None
+                    is_recognized = (
+                        self.registry.get(header.type, header.version) is not None
+                    )
                     report.add_segment(header.type, header.version, is_recognized)
 
             except Exception as e:
@@ -337,8 +341,7 @@ def capture_bank_response(
                 if "accounts" in operations:
                     accounts = account_ops.fetch_sepa_accounts()
                     summary["accounts"] = [
-                        {"iban": a.iban, "number": a.accountnumber}
-                        for a in accounts
+                        {"iban": a.iban, "number": a.accountnumber} for a in accounts
                     ]
 
     # Save summary
@@ -360,4 +363,3 @@ __all__ = [
     "analyze_segments",
     "capture_bank_response",
 ]
-

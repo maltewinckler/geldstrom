@@ -104,7 +104,7 @@ class TestBalanceOperations:
     def test_raises_if_unsupported(self, mock_dialog, mock_parameters):
         """fetch_balance should raise if bank doesn't support HKSAL."""
         from geldstrom.exceptions import FinTSUnsupportedOperation
-        from geldstrom.models import SEPAAccount
+        from geldstrom.infrastructure.fints.protocol.formals import SEPAAccount
 
         # Mock BPD that doesn't support HKSAL
         mock_parameters.bpd.segments.find_segment_highest_version.return_value = None

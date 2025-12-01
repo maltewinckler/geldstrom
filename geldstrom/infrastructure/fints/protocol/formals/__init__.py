@@ -73,11 +73,13 @@ from .identifiers import (
     AccountInternationalSEPA,
     COUNTRY_ALPHA_TO_NUMERIC,
     COUNTRY_NUMERIC_TO_ALPHA,
+    SEPAAccount,
 )
 from .amounts import (
     Amount,
     Balance,
     BalanceSimple,
+    Holding,
     Timestamp,
 )
 from .security import (
@@ -183,10 +185,12 @@ __all__ = [
     "AccountInternationalSEPA",
     "COUNTRY_ALPHA_TO_NUMERIC",
     "COUNTRY_NUMERIC_TO_ALPHA",
+    "SEPAAccount",
     # Amounts
     "Amount",
     "Balance",
     "BalanceSimple",
+    "Holding",
     "Timestamp",
     # Security
     "SecurityProfile",

@@ -1,17 +1,18 @@
 """HTTP/HTTPS connection handling for FinTS dialogs."""
+
 from __future__ import annotations
 
 import base64
 import io
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Protocol
 
 import requests
 
 from geldstrom.exceptions import FinTSConnectionError
-from geldstrom.message import FinTSInstituteMessage, FinTSMessage
 from geldstrom.infrastructure.fints.protocol.base import SegmentSequence
+from geldstrom.message import FinTSInstituteMessage, FinTSMessage
 from geldstrom.utils import Password, log_configuration
 
 logger = logging.getLogger(__name__)
@@ -54,19 +55,18 @@ class DialogConnection(Protocol):
 def _reduce_message_for_log(msg: FinTSMessage) -> FinTSMessage | SegmentSequence:
     """Reduce message content for logging when configured."""
     log_msg = msg
-    if log_configuration.reduced:
-        # Try to find a single inner message
+    if (
+        log_configuration.reduced
+        and len(log_msg.segments) == 4
+        and log_msg.segments[2].header.type == "HNVSD"
+    ):
+        log_msg = log_msg.segments[2]
         if (
-            len(log_msg.segments) == 4
-            and log_msg.segments[2].header.type == "HNVSD"
+            len(log_msg.data.segments) > 2
+            and log_msg.data.segments[0].header.type == "HNSHK"
+            and log_msg.data.segments[-1].header.type == "HNSHA"
         ):
-            log_msg = log_msg.segments[2]
-            if (
-                len(log_msg.data.segments) > 2
-                and log_msg.data.segments[0].header.type == "HNSHK"
-                and log_msg.data.segments[-1].header.type == "HNSHA"
-            ):
-                log_msg = SegmentSequence(segments=log_msg.data.segments[1:-1])
+            log_msg = SegmentSequence(segments=log_msg.data.segments[1:-1])
     return log_msg
 
 
@@ -172,13 +172,8 @@ class HTTPSDialogConnection:
         """Close the session and release resources."""
         self._session.close()
 
-    def __enter__(self) -> "HTTPSDialogConnection":
+    def __enter__(self) -> HTTPSDialogConnection:
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         self.close()
-
-
-# Keep backward compatibility with the original class name
-FinTSHTTPSConnection = HTTPSDialogConnection
-

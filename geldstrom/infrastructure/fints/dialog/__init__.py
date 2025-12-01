@@ -2,10 +2,11 @@
 from .connection import (
     ConnectionConfig,
     DialogConnection,
-    FinTSHTTPSConnection,
     HTTPSDialogConnection,
 )
 from .factory import (
+    DIALOG_ID_UNASSIGNED,
+    SYSTEM_ID_UNASSIGNED,
     Dialog,
     DialogConfig,
     DialogFactory,
@@ -18,11 +19,6 @@ from .responses import (
     ResponseProcessor,
     log_response,
 )
-from .transport import (
-    DIALOG_ID_UNASSIGNED,
-    FinTSMessageTransport,
-    MessageTransport,
-)
 
 __all__ = [
     "ConnectionConfig",
@@ -33,13 +29,10 @@ __all__ = [
     "DialogResponse",
     "DialogState",
     "DIALOG_ID_UNASSIGNED",
-    "FinTSHTTPSConnection",
-    "FinTSMessageTransport",
     "HTTPSDialogConnection",
     "log_response",
-    "MessageTransport",
     "ProcessedResponse",
     "ResponseLevel",
     "ResponseProcessor",
+    "SYSTEM_ID_UNASSIGNED",
 ]
-

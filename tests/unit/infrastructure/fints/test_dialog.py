@@ -11,7 +11,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from geldstrom.constants import SYSTEM_ID_UNASSIGNED
 from geldstrom.infrastructure.fints.protocol import BankIdentifier, Language2
 from geldstrom.infrastructure.fints.dialog import (
     ConnectionConfig,
@@ -19,6 +18,7 @@ from geldstrom.infrastructure.fints.dialog import (
     DialogConfig,
     DialogFactory,
     DialogState,
+    SYSTEM_ID_UNASSIGNED,
     DIALOG_ID_UNASSIGNED,
     HTTPSDialogConnection,
     ProcessedResponse,
