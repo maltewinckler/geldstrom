@@ -29,7 +29,7 @@ requires-python = ">=3.9"
 # =============================================================================
 
 [tool.poetry]
-version = "0.0.0"  # Placeholder - actual version from geldstrom/__init__.py
+version = "0.0.1"
 packages = [{ include = "geldstrom" }]
 
 [tool.poetry.dependencies]
@@ -40,6 +40,7 @@ pydantic = "^2.0"
 requests = "^2.25"
 sepaxml = "~2.1"
 enum-tools = "~0.12"
+dotenv = "^0.9.9"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.0"
