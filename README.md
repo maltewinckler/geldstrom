@@ -166,6 +166,172 @@ A single transaction.
 | `counterpart_name` | `str` | Name of counterparty |
 | `counterpart_iban` | `str` | IBAN of counterparty |
 
+## Examples
+
+### List All Accounts
+
+Connect to your bank and enumerate all available accounts:
+
+```python
+from geldstrom import FinTS3Client
+
+with FinTS3Client(
+    bank_code="12345678",
+    server_url="https://banking.example.com/fints",
+    user_id="your_username",
+    pin="your_pin",
+    product_id="YOUR_PRODUCT_ID",
+) as client:
+    for account in client.list_accounts():
+        print(f"ID:       {account.account_id}")
+        print(f"IBAN:     {account.iban}")
+        print(f"BIC:      {account.bic}")
+        print(f"Currency: {account.currency}")
+        print(f"Owner:    {account.owner.name}")
+        print()
+```
+
+### Get a Specific Account
+
+Retrieve an account by its ID (format: `account_number:subaccount`):
+
+```python
+with FinTS3Client(...) as client:
+    # Get by account ID
+    account = client.get_account("1234567890:0")
+
+    # Check what operations are supported
+    print(f"Can fetch balance: {account.capabilities.can_fetch_balance}")
+    print(f"Can list transactions: {account.capabilities.can_list_transactions}")
+```
+
+### Fetch Balance for One Account
+
+```python
+with FinTS3Client(...) as client:
+    account = client.get_account("1234567890:0")
+    balance = client.get_balance(account)
+
+    print(f"Booked:    {balance.booked.amount:,.2f} {balance.booked.currency}")
+    if balance.available:
+        print(f"Available: {balance.available.amount:,.2f} {balance.available.currency}")
+    print(f"As of:     {balance.as_of}")
+```
+
+### Fetch Balances for All Accounts
+
+Use `get_balances()` to efficiently fetch balances for multiple accounts:
+
+```python
+with FinTS3Client(...) as client:
+    balances = client.get_balances()  # All accounts
+
+    total = sum(float(b.booked.amount) for b in balances)
+
+    for balance in balances:
+        print(f"{balance.account_id}: {balance.booked.amount:,.2f} EUR")
+
+    print(f"Total: {total:,.2f} EUR")
+```
+
+### Fetch Transaction History
+
+Retrieve transactions with optional date filtering:
+
+```python
+from datetime import date, timedelta
+
+with FinTS3Client(...) as client:
+    account = client.list_accounts()[0]
+
+    # Last 30 days
+    feed = client.get_transactions(
+        account,
+        start_date=date.today() - timedelta(days=30),
+        end_date=date.today(),
+    )
+
+    print(f"Found {len(feed.entries)} transactions")
+
+    for tx in feed.entries:
+        sign = "+" if tx.amount >= 0 else ""
+        print(f"{tx.booking_date} | {sign}{tx.amount:,.2f} {tx.currency}")
+        print(f"  {tx.counterpart_name or 'Unknown'}")
+        print(f"  {tx.purpose[:60]}...")
+```
+
+### Calculate Income and Expenses
+
+```python
+from datetime import date, timedelta
+
+with FinTS3Client(...) as client:
+    feed = client.get_transactions(
+        client.list_accounts()[0],
+        start_date=date.today() - timedelta(days=30),
+    )
+
+    income = sum(float(tx.amount) for tx in feed.entries if tx.amount > 0)
+    expenses = sum(float(tx.amount) for tx in feed.entries if tx.amount < 0)
+
+    print(f"Income:   +{income:,.2f} EUR")
+    print(f"Expenses: {expenses:,.2f} EUR")
+    print(f"Net:      {income + expenses:,.2f} EUR")
+```
+
+### Session Persistence
+
+Save and restore session state to speed up subsequent connections:
+
+```python
+import json
+from pathlib import Path
+from geldstrom import FinTS3Client
+from geldstrom.infrastructure.fints import FinTSSessionState
+
+SESSION_FILE = Path(".session_state.json")
+
+def load_session() -> FinTSSessionState | None:
+    if not SESSION_FILE.exists():
+        return None
+    return FinTSSessionState.from_dict(json.loads(SESSION_FILE.read_text()))
+
+def save_session(state):
+    if isinstance(state, FinTSSessionState):
+        SESSION_FILE.write_text(json.dumps(state.to_dict(), indent=2))
+
+# First connection - fresh
+with FinTS3Client(...) as client:
+    accounts = client.list_accounts()
+    save_session(client.session_state)
+
+# Later connections - faster (skips parameter sync)
+with FinTS3Client(..., session_state=load_session()) as client:
+    balance = client.get_balance(client.list_accounts()[0])
+```
+
+> **Note:** Session persistence speeds up connection by caching bank parameters (BPD/UPD) and system ID. It does **not** bypass 2FA/TAN authentication—German banks require fresh authentication for each session.
+
+### Using Environment Variables
+
+For cleaner code, load credentials from environment variables:
+
+```python
+import os
+from geldstrom import FinTS3Client
+
+client = FinTS3Client(
+    bank_code=os.environ["FINTS_BLZ"],
+    server_url=os.environ["FINTS_SERVER"],
+    user_id=os.environ["FINTS_USER"],
+    pin=os.environ["FINTS_PIN"],
+    product_id=os.environ["FINTS_PRODUCT_ID"],
+    tan_medium=os.environ.get("FINTS_TAN_MEDIUM"),  # Optional
+)
+```
+
+See the `examples/` directory for complete, runnable scripts.
+
 ## TAN Handling
 
 Geldstrom supports decoupled TAN methods (SecureGo, pushTAN). When a TAN is required:

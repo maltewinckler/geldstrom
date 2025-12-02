@@ -24,5 +24,8 @@
         "tests",
         "-v",
         "--tb=short"
+    ],
+    "cursorpyright.analysis.extraPaths": [
+        "${workspaceFolder}"
     ]
 }
