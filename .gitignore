@@ -5,6 +5,8 @@ dist/
 env
 .idea/
 *.pyc
+.ruff_cache/
+.pytest_cache/
 
 .env
 .venv/
