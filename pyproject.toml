@@ -94,3 +94,7 @@ filterwarnings = [
     "ignore::DeprecationWarning",
     "ignore::PendingDeprecationWarning",
 ]
+markers = [
+    "integration: marks tests as integration tests (require bank credentials)",
+    "slow: marks tests as slow running",
+]
