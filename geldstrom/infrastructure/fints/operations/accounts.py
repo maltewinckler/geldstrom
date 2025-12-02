@@ -11,12 +11,16 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from geldstrom.infrastructure.fints.exceptions import FinTSSCARequiredError
 from geldstrom.infrastructure.fints.protocol import HISPA1, HKSPA1
 from geldstrom.infrastructure.fints.protocol.formals import SEPAAccount
 
 if TYPE_CHECKING:
     from geldstrom.infrastructure.fints.dialog import Dialog
     from geldstrom.infrastructure.fints.protocol import ParameterStore
+
+# Error code for "Starke Kundenauthentifizierung notwendig" (SCA required)
+ERROR_CODE_SCA_REQUIRED = "9075"
 
 logger = logging.getLogger(__name__)
 
@@ -82,12 +86,27 @@ class AccountOperations:
 
         Returns:
             List of SEPAAccount objects
+
+        Raises:
+            FinTSSCARequiredError: If the bank requires strong customer
+                authentication (TAN) but tan_method was not configured.
         """
         logger.info("Fetching SEPA accounts via HKSPA")
 
         # Send HKSPA request
         segment = HKSPA1()
         response = self._dialog.send(segment)
+
+        # Check for SCA required error (9075)
+        # This happens when tan_method is not configured but the bank requires it
+        sca_error = response.get_response_by_code(ERROR_CODE_SCA_REQUIRED)
+        if sca_error:
+            raise FinTSSCARequiredError(
+                f"Strong customer authentication required: {sca_error.text}. "
+                "Please configure 'tan_method' (and optionally 'tan_medium') "
+                "when creating the FinTS3Client. Your bank requires 2FA even "
+                "for basic operations like listing accounts."
+            )
 
         # Extract SEPA accounts from HISPA response
         accounts: list[SEPAAccount] = []

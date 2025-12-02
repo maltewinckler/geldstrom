@@ -5,6 +5,7 @@ This client provides a clean interface for FinTS banking operations.
 
 from __future__ import annotations
 
+import warnings
 from collections.abc import Sequence
 from datetime import date
 
@@ -160,6 +161,17 @@ class FinTS3Client(BankClient):
         self._accounts: Sequence[Account] = ()
         self._capabilities: BankCapabilities | None = None
         self._connected = False
+
+        # Warn if tan_method is not configured (most German banks require it)
+        if not self._credentials.credentials.two_factor_method:
+            warnings.warn(
+                "No 'tan_method' configured. Most German banks require TAN "
+                "authentication (2FA) even for basic operations like listing "
+                "accounts. If you encounter errors, set 'tan_method' to your "
+                "bank's TAN method (e.g., '946' for SecureGo+/Decoupled TAN).",
+                UserWarning,
+                stacklevel=3,
+            )
 
     # --- Context manager ---
 

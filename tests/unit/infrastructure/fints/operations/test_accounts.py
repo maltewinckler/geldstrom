@@ -5,6 +5,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from geldstrom.infrastructure.fints.exceptions import FinTSSCARequiredError
 from geldstrom.infrastructure.fints.operations.accounts import (
     AccountInfo,
     AccountOperations,
@@ -58,6 +59,8 @@ class TestAccountOperations:
         mock_response = MagicMock()
         mock_response.raw_response = MagicMock()
         mock_response.raw_response.find_segments.return_value = []
+        # No SCA error
+        mock_response.get_response_by_code.return_value = None
         mock_dialog.send.return_value = mock_response
 
         ops = AccountOperations(mock_dialog, mock_parameters)
@@ -90,6 +93,8 @@ class TestAccountOperations:
         mock_response = MagicMock()
         mock_response.raw_response = MagicMock()
         mock_response.raw_response.find_segments.return_value = [mock_hispa]
+        # No SCA error
+        mock_response.get_response_by_code.return_value = None
         mock_dialog.send.return_value = mock_response
 
         ops = AccountOperations(mock_dialog, mock_parameters)
@@ -153,4 +158,25 @@ class TestAccountOperations:
 
         assert len(result) == 1
         assert result[0].bic == "COBADEFFXXX"
+
+    def test_fetch_sepa_accounts_raises_sca_error(self, mock_dialog, mock_parameters):
+        """fetch_sepa_accounts should raise FinTSSCARequiredError on error 9075."""
+        # Setup mock response with SCA error
+        mock_response = MagicMock()
+        mock_response.raw_response = MagicMock()
+        mock_response.raw_response.find_segments.return_value = []
+
+        # Simulate SCA required error (9075)
+        sca_error = MagicMock()
+        sca_error.text = "Starke Kundenauthentifizierung notwendig."
+        mock_response.get_response_by_code.return_value = sca_error
+        mock_dialog.send.return_value = mock_response
+
+        ops = AccountOperations(mock_dialog, mock_parameters)
+
+        with pytest.raises(FinTSSCARequiredError) as exc_info:
+            ops.fetch_sepa_accounts()
+
+        assert "tan_method" in str(exc_info.value)
+        assert "2FA" in str(exc_info.value)
 
