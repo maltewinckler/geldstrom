@@ -3,9 +3,8 @@
 These DEGs handle security-related information in FinTS messages,
 including encryption, signatures, and authentication.
 """
-from __future__ import annotations
 
-from datetime import date, time
+from __future__ import annotations
 
 from pydantic import Field
 
@@ -22,7 +21,6 @@ from ..types import (
 from .enums import (
     AlgorithmParameterIVName,
     AlgorithmParameterName,
-    CompressionFunction,
     DateTimeType,
     EncryptionAlgorithmCoded,
     IdentifiedRole,
@@ -62,6 +60,9 @@ class SecurityIdentificationDetails(FinTSDataElementGroup):
     Identifies the party providing security for the message.
 
     Source: FinTS 3.0 Formals
+
+    Note: identifier may be omitted in bank responses when the message
+    is not signed (e.g., some banks like DKB).
     """
 
     identified_role: IdentifiedRole = Field(
@@ -72,8 +73,9 @@ class SecurityIdentificationDetails(FinTSDataElementGroup):
         max_length=256,
         description="CID (Certificate Identifier)",
     )
-    identifier: FinTSID = Field(
-        description="Identifizierer",
+    identifier: FinTSID | None = Field(
+        default=None,
+        description="Identifizierer (may be omitted in unsigned bank responses)",
     )
 
 
@@ -257,4 +259,3 @@ __all__ = [
     "Certificate",
     "UserDefinedSignature",
 ]
-

@@ -3,11 +3,13 @@
 FinTS uses "touchdown" pagination where responses include a 3040 code
 with a pointer to continue fetching more results.
 """
+
 from __future__ import annotations
 
 import logging
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Callable, Generic, Sequence, TypeVar
+from typing import TYPE_CHECKING, Any, Callable, Generic, TypeVar
 
 if TYPE_CHECKING:
     from geldstrom.infrastructure.fints.dialog import Dialog, ProcessedResponse
@@ -41,7 +43,7 @@ class TouchdownPaginator:
 
     CONTINUE_CODE = "3040"  # "More data available" response code
 
-    def __init__(self, dialog: "Dialog", max_pages: int = 100) -> None:
+    def __init__(self, dialog: Dialog, max_pages: int = 100) -> None:
         """
         Initialize paginator.
 
@@ -108,7 +110,7 @@ class TouchdownPaginator:
 
     def _extract_from_response(
         self,
-        response: "ProcessedResponse",
+        response: ProcessedResponse,
         request_segment: Any,
         response_type: str,
         extract_items: Callable[[Any], T] | None,
@@ -120,7 +122,9 @@ class TouchdownPaginator:
             return items
 
         # Find response segments that reference our request
-        for seg in response.raw_response.response_segments(request_segment, response_type):
+        for seg in response.raw_response.response_segments(
+            request_segment, response_type
+        ):
             if extract_items:
                 item = extract_items(seg)
                 if item is not None:
@@ -131,13 +135,15 @@ class TouchdownPaginator:
         return items
 
     def _get_touchdown_point(
-        self, response: "ProcessedResponse", request_segment: Any
+        self, response: ProcessedResponse, request_segment: Any
     ) -> str | None:
         """Extract touchdown point from 3040 response if present."""
         if response.raw_response is None:
             return None
 
-        for resp in response.raw_response.responses(request_segment, self.CONTINUE_CODE):
+        for resp in response.raw_response.responses(
+            request_segment, self.CONTINUE_CODE
+        ):
             if resp.parameters:
                 return resp.parameters[0]
 
@@ -158,15 +164,16 @@ def find_highest_supported_version(
     Returns:
         Highest supported segment class, or None if not supported
     """
+
     def get_version(cls) -> int:
         """Get version from either legacy or Pydantic segment class."""
-        if hasattr(cls, 'SEGMENT_VERSION'):
+        if hasattr(cls, "SEGMENT_VERSION"):
             return cls.SEGMENT_VERSION
         return cls.VERSION
 
     def get_type(cls) -> str:
         """Get type from either legacy or Pydantic segment class."""
-        if hasattr(cls, 'SEGMENT_TYPE'):
+        if hasattr(cls, "SEGMENT_TYPE"):
             return cls.SEGMENT_TYPE
         return cls.TYPE
 
@@ -177,10 +184,14 @@ def find_highest_supported_version(
     first_class = segment_classes[0]
     param_name = f"HI{get_type(first_class)[2:]}S"
 
-    # Find highest version in BPD
-    max_version = bpd_segments.find_segment_highest_version(param_name, version_map.keys())
-    if not max_version:
+    # Find highest version in BPD that we also support
+    highest = None
+    for seg in bpd_segments.find_segments(param_name):
+        if seg.header.version in version_map:
+            if highest is None or seg.header.version > highest.header.version:
+                highest = seg
+
+    if not highest:
         return None
 
-    return version_map.get(max_version.header.version)
-
+    return version_map.get(highest.header.version)

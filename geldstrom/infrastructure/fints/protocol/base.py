@@ -13,11 +13,13 @@ These base classes provide:
 3. Wire format serialization via to_wire_list()
 4. Segment discovery via find_segments()
 """
+
 from __future__ import annotations
 
 import logging
 import types
-from typing import Any, ClassVar, Iterator, TypeVar, Union
+from collections.abc import Callable, Iterator
+from typing import Any, ClassVar, TypeVar, Union
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -42,6 +44,115 @@ def _is_string_type(annotation: Any) -> bool:
     # Check if it's a NewType or Annotated wrapping str
     if hasattr(annotation, "__supertype__"):
         return annotation.__supertype__ is str
+    return False
+
+
+def _unwrap_optional(annotation: Any) -> tuple[Any, Any]:
+    """Unwrap Optional[X] or X | None to get the actual type.
+
+    Returns:
+        (actual_type, origin) where origin is the __origin__ of actual_type
+    """
+    origin = getattr(annotation, "__origin__", None)
+    if origin is Union or isinstance(annotation, types.UnionType):
+        for arg in getattr(annotation, "__args__", ()):
+            if arg is not type(None):
+                return arg, getattr(arg, "__origin__", None)
+    return annotation, origin
+
+
+def _get_list_inner_type(annotation: Any) -> Any | None:
+    """Extract the inner type from a list annotation.
+
+    Handles list[X], list[Optional[X]], etc.
+    Returns None if not a valid list type.
+    """
+    args = getattr(annotation, "__args__", ())
+    if not args:
+        return None
+
+    inner_type = args[0]
+
+    # Handle Optional inner type: list[Optional[X]] -> X
+    if getattr(inner_type, "__origin__", None) is type(None):
+        return None  # Optional list with None
+
+    inner_args = getattr(inner_type, "__args__", ())
+    if inner_args and type(None) in inner_args:
+        for arg in inner_args:
+            if arg is not type(None):
+                return arg
+    return inner_type
+
+
+def _parse_list_of_degs(
+    inner_type: type,
+    data: list[Any],
+    data_index: int,
+    cls_name: str,
+    field_name: str,
+) -> tuple[list[Any], int]:
+    """Parse a list of DEGs from wire data.
+
+    Returns:
+        (parsed_items, new_data_index)
+    """
+    inner_field_count = _count_model_fields(inner_type)
+    list_values = []
+    remaining_data = data[data_index:]
+
+    chunk_start = 0
+    while chunk_start < len(remaining_data):
+        chunk = remaining_data[chunk_start : chunk_start + inner_field_count]
+        if len(chunk) == 0:
+            break
+        try:
+            item = inner_type.from_wire_list(chunk)
+            list_values.append(item)
+            chunk_start += inner_field_count
+        except Exception as exc:
+            logger.warning(
+                "Failed to parse list field %s.%s chunk %s: %s",
+                cls_name,
+                field_name,
+                chunk,
+                exc,
+            )
+            break
+
+    return list_values, len(data)
+
+
+def _parse_nested_model(
+    model_type: type,
+    value: Any,
+    data: list[Any],
+    data_index: int,
+) -> tuple[Any, int]:
+    """Parse a nested FinTSModel from wire data.
+
+    Handles both structured (value is list) and flat data.
+
+    Returns:
+        (parsed_value, new_data_index)
+    """
+    if isinstance(value, list):
+        # Already structured - use as-is
+        return model_type.from_wire_list(value), data_index + 1
+
+    # Flat data - consume multiple elements
+    nested_field_count = _count_model_fields(model_type)
+    nested_data = data[data_index : data_index + nested_field_count]
+    return model_type.from_wire_list(nested_data), data_index + nested_field_count
+
+
+def _is_optional_type(annotation: Any) -> bool:
+    """Check if annotation is Optional[X] or X | None."""
+    origin = getattr(annotation, "__origin__", None)
+    if origin is type(None):
+        return True
+    if origin is Union or isinstance(annotation, types.UnionType):
+        return type(None) in getattr(annotation, "__args__", ())
     return False
 
 
@@ -106,89 +217,40 @@ class FinTSModel(BaseModel):
             bank = BankId.from_wire_list(["280", "12345678"])
             assert bank.country == "280"
             assert bank.bank_code == "12345678"
-        """
+        """  # NOQA: E501
         if data is None:
             data = []
 
-        field_names = list(cls.model_fields.keys())
         kwargs: dict[str, Any] = {}
-
         data_index = 0
 
-        for field_name in field_names:
+        for field_name, field_info in cls.model_fields.items():
             if data_index >= len(data):
                 break
 
-            field_info = cls.model_fields[field_name]
             annotation = field_info.annotation
-            origin = getattr(annotation, "__origin__", None)
+            actual_annotation, origin = _unwrap_optional(annotation)
 
-            # Unwrap Union/Optional to find the actual type
-            actual_annotation = annotation
-            if origin is Union or isinstance(annotation, types.UnionType):
-                args = getattr(annotation, "__args__", ())
-                for arg in args:
-                    if arg is not type(None):
-                        actual_annotation = arg
-                        origin = getattr(actual_annotation, "__origin__", None)
-                        break
-
-            # Handle list fields
+            # Handle list fields (consume all remaining data)
             if origin is list:
-                args = getattr(actual_annotation, "__args__", ())
-                if args:
-                    inner_type = args[0]
-                    # Strip Optional wrapper if present on inner type
-                    if getattr(inner_type, "__origin__", None) is type(None):
-                        continue  # Optional list with None
-                    # Get the actual type from Union if Optional
-                    inner_args = getattr(inner_type, "__args__", ())
-                    if inner_args and type(None) in inner_args:
-                        # Find the non-None type
-                        for arg in inner_args:
-                            if arg is not type(None):
-                                inner_type = arg
-                                break
+                inner_type = _get_list_inner_type(actual_annotation)
+                if inner_type is None:
+                    continue
 
-                    if hasattr(inner_type, "from_wire_list"):
-                        # This is a list[DEG] field - consume all remaining data
-                        inner_field_count = _count_model_fields(inner_type)
-                        list_values = []
-                        remaining_data = data[data_index:]
-
-                        # Parse data in chunks of inner_field_count
-                        chunk_start = 0
-                        while chunk_start < len(remaining_data):
-                            chunk = remaining_data[chunk_start:chunk_start + inner_field_count]
-                            if len(chunk) == 0:
-                                break
-                            try:
-                                item = inner_type.from_wire_list(chunk)
-                                list_values.append(item)
-                                chunk_start += inner_field_count
-                            except Exception as exc:
-                                logger.warning(
-                                    "Failed to parse list field %s.%s chunk %s: %s",
-                                    cls.__name__,
-                                    field_name,
-                                    chunk,
-                                    exc,
-                                )
-                                # If parsing fails, stop
-                                break
-
-                        if list_values:
-                            kwargs[field_name] = list_values
-                        # Consume all remaining data for this list field
-                        data_index = len(data)
-                        continue
-                    else:
-                        # This is a list[primitive] field - collect remaining data as list
-                        remaining_data = data[data_index:]
-                        if remaining_data:
-                            kwargs[field_name] = list(remaining_data)
-                        data_index = len(data)
-                        continue
+                if hasattr(inner_type, "from_wire_list"):
+                    # list[DEG] - parse in chunks
+                    list_values, data_index = _parse_list_of_degs(
+                        inner_type, data, data_index, cls.__name__, field_name
+                    )
+                    if list_values:
+                        kwargs[field_name] = list_values
+                else:
+                    # list[primitive] - collect remaining
+                    remaining = data[data_index:]
+                    if remaining:
+                        kwargs[field_name] = list(remaining)
+                    data_index = len(data)
+                continue
 
             value = data[data_index]
 
@@ -196,16 +258,9 @@ class FinTSModel(BaseModel):
             if _is_fints_model_type(annotation):
                 model_type = _extract_model_type(annotation)
                 if model_type is not None:
-                    if isinstance(value, list):
-                        # Already structured - use as-is
-                        value = model_type.from_wire_list(value)
-                        data_index += 1
-                    else:
-                        # Flat data - consume multiple elements for nested model
-                        nested_field_count = _count_model_fields(model_type)
-                        nested_data = data[data_index:data_index + nested_field_count]
-                        value = model_type.from_wire_list(nested_data)
-                        data_index += nested_field_count
+                    value, data_index = _parse_nested_model(
+                        model_type, value, data, data_index
+                    )
                 else:
                     data_index += 1
             else:
@@ -213,17 +268,10 @@ class FinTSModel(BaseModel):
 
             # Handle None values based on field type
             if value is None:
-                # Check if field is optional
-                if origin is type(None):
-                    # Explicitly optional field - use None
-                    kwargs[field_name] = None
-                elif hasattr(annotation, "__args__") and type(None) in getattr(annotation, "__args__", ()):
-                    # Optional[X] or X | None - use None for missing
+                if _is_optional_type(annotation):
                     continue  # Let defaults handle it
-                elif _is_string_type(annotation):
-                    # Required string field - None means empty string
-                    kwargs[field_name] = ""
-                # For other types, skip and let defaults/validation handle it
+                if _is_string_type(annotation):
+                    kwargs[field_name] = ""  # Required string → empty
             else:
                 kwargs[field_name] = value
 
@@ -245,7 +293,7 @@ class FinTSModel(BaseModel):
         """
         result: list[Any] = []
 
-        for name in self.__class__.model_fields.keys():
+        for name in self.__class__.model_fields:
             value = getattr(self, name)
 
             # Handle nested FinTSModel
@@ -269,16 +317,6 @@ class FinTSModel(BaseModel):
 
         return result
 
-    def to_wire_dict(self) -> dict[str, Any]:
-        """Export model as dictionary with wire format serialization.
-
-        Uses Pydantic's model_dump with custom serializers.
-
-        Returns:
-            Dictionary with serialized values
-        """
-        return self.model_dump(mode="json")
-
 
 class FinTSDataElementGroup(FinTSModel):
     """Base class for FinTS Data Element Groups (DEGs).
@@ -294,6 +332,7 @@ class FinTSDataElementGroup(FinTSModel):
             country_identifier: FinTSCountry
             bank_code: FinTSAlphanumeric
     """
+
     pass
 
 
@@ -362,11 +401,43 @@ class FinTSSegment(FinTSModel):
             system_id_status=SystemIDStatus.ID_NECESSARY,
         )
         # seg.header is auto-generated with type="HKIDN", version=2, number=0
+
+    Auto-Registration:
+        Segment classes are automatically registered when defined.
+        Use FinTSSegment.get_segment_class(type, version) to look up.
     """
 
     # Class-level metadata (override in subclasses)
     SEGMENT_TYPE: ClassVar[str] = ""
     SEGMENT_VERSION: ClassVar[int] = 0
+
+    # Auto-registration registry: (type, version) -> class
+    _segment_registry: ClassVar[dict[tuple[str, int], type[FinTSSegment]]] = {}
+
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        """Auto-register segment subclasses."""
+        super().__init_subclass__(**kwargs)
+        # Only register if both type and version are set (not base classes)
+        if cls.SEGMENT_TYPE and cls.SEGMENT_VERSION:
+            key = (cls.SEGMENT_TYPE, cls.SEGMENT_VERSION)
+            FinTSSegment._segment_registry[key] = cls
+
+    @classmethod
+    def get_segment_class(
+        cls, segment_type: str, version: int
+    ) -> type[FinTSSegment] | None:
+        """Look up a segment class by type and version."""
+        return cls._segment_registry.get((segment_type, version))
+
+    @classmethod
+    def get_registered_types(cls) -> set[str]:
+        """Get all registered segment types."""
+        return {t for t, _ in cls._segment_registry}
+
+    @classmethod
+    def get_versions(cls, segment_type: str) -> list[int]:
+        """Get all registered versions for a segment type."""
+        return sorted(v for t, v in cls._segment_registry if t == segment_type)
 
     # Segment header (always present as first element)
     header: SegmentHeader = Field(description="Segment header")
@@ -382,19 +453,18 @@ class FinTSSegment(FinTSModel):
         Instead of requiring explicit header:
             HKIDN2(header=SegmentHeader(...), bank_identifier=..., ...)
         """
-        if isinstance(data, dict):
-            if "header" not in data or data["header"] is None:
-                # Get segment type/version from class
-                segment_type = getattr(cls, "SEGMENT_TYPE", "")
-                segment_version = getattr(cls, "SEGMENT_VERSION", 0)
+        if isinstance(data, dict) and ("header" not in data or data["header"] is None):
+            # Get segment type/version from class
+            segment_type = getattr(cls, "SEGMENT_TYPE", "")
+            segment_version = getattr(cls, "SEGMENT_VERSION", 0)
 
-                if segment_type and segment_version:
-                    data["header"] = SegmentHeader(
-                        type=segment_type,
-                        number=0,  # Will be set by message builder
-                        version=segment_version,
-                        reference=None,
-                    )
+            if segment_type and segment_version:
+                data["header"] = SegmentHeader(
+                    type=segment_type,
+                    number=0,  # Will be set by message builder
+                    version=segment_version,
+                    reference=None,
+                )
         return data
 
     @classmethod
@@ -459,7 +529,9 @@ class FinTSSegment(FinTSModel):
                     else:
                         # Flat data - consume multiple elements for nested model
                         nested_field_count = _count_model_fields(model_type)
-                        nested_data = remaining_data[data_index:data_index + nested_field_count]
+                        nested_data = remaining_data[
+                            data_index : data_index + nested_field_count
+                        ]
                         value = model_type.from_wire_list(nested_data)
                         data_index += nested_field_count
                 else:
@@ -499,19 +571,16 @@ class SegmentSequence(FinTSModel):
 
     def find_segments(
         self,
-        query: str | type[FinTSSegment] | list[str | type[FinTSSegment]] | None = None,
-        version: int | list[int] | None = None,
-        callback: callable | None = None,
+        query: str | type[FinTSSegment] | None = None,
+        callback: Callable[[FinTSSegment], bool] | None = None,
         recurse: bool = True,
     ) -> Iterator[FinTSSegment]:
         """Find segments matching the given criteria.
 
         Args:
-            query: Segment type(s) to match. Can be:
+            query: Segment type to match. Can be:
                    - String: matches SEGMENT_TYPE (e.g., "HISAL")
                    - Type: matches by isinstance
-                   - List of strings/types: matches any
-            version: Segment version(s) to match
             callback: Custom filter function(segment) -> bool
             recurse: Whether to recurse into nested segments
 
@@ -523,50 +592,24 @@ class SegmentSequence(FinTSModel):
             for seg in seq.find_segments(query="HISAL"):
                 print(seg)
 
-            # Find HISAL version 6 or 7
-            for seg in seq.find_segments(query="HISAL", version=[6, 7]):
-                print(seg)
-
             # Custom filter
             for seg in seq.find_segments(callback=lambda s: s.header.number > 5):
                 print(seg)
         """
-        # Normalize query to list
-        if query is None:
-            queries: list[str | type] = []
-        elif isinstance(query, (str, type)):
-            queries = [query]
-        else:
-            queries = list(query)
-
-        # Normalize version to list
-        if version is None:
-            versions: list[int] = []
-        elif isinstance(version, int):
-            versions = [version]
-        else:
-            versions = list(version)
-
         for segment in self.segments:
             # Check if this segment matches the criteria
             matches = True
 
             # Check type match
-            if queries:
-                type_match = any(
-                    (isinstance(segment, q) if isinstance(q, type) else segment.SEGMENT_TYPE == q)
-                    for q in queries
-                )
-                if not type_match:
-                    matches = False
-
-            # Check version match
-            if matches and versions and segment.SEGMENT_VERSION not in versions:
-                matches = False
+            if query is not None:
+                if isinstance(query, type):
+                    matches = isinstance(segment, query)
+                else:
+                    matches = query == segment.SEGMENT_TYPE
 
             # Check callback
-            if matches and callback is not None and not callback(segment):
-                matches = False
+            if matches and callback is not None:
+                matches = callback(segment)
 
             # Yield the segment if it matches
             if matches:
@@ -576,32 +619,32 @@ class SegmentSequence(FinTSModel):
             # (we need to find nested segments that match even if the container doesn't)
             if recurse:
                 # Check model fields for nested SegmentSequence
-                for field_name in segment.__class__.model_fields.keys():
+                for field_name in segment.__class__.model_fields:
                     field_value = getattr(segment, field_name, None)
                     if isinstance(field_value, SegmentSequence):
                         yield from field_value.find_segments(
                             query=query,
-                            version=version,
                             callback=callback,
                             recurse=recurse,
                         )
 
                 # Also check for 'segments' property (used by HNVSD1 for encrypted data)
-                if hasattr(segment, "segments") and "segments" not in segment.__class__.model_fields:
+                if (
+                    hasattr(segment, "segments")
+                    and "segments" not in segment.__class__.model_fields
+                ):
                     nested = getattr(segment, "segments", None)
                     if isinstance(nested, SegmentSequence):
                         yield from nested.find_segments(
                             query=query,
-                            version=version,
                             callback=callback,
                             recurse=recurse,
                         )
 
     def find_segment_first(
         self,
-        query: str | type[FinTSSegment] | list[str | type[FinTSSegment]] | None = None,
-        version: int | list[int] | None = None,
-        callback: callable | None = None,
+        query: str | type[FinTSSegment] | None = None,
+        callback: Callable[[FinTSSegment], bool] | None = None,
         recurse: bool = True,
     ) -> FinTSSegment | None:
         """Find the first segment matching the criteria.
@@ -614,7 +657,6 @@ class SegmentSequence(FinTSModel):
         """
         for segment in self.find_segments(
             query=query,
-            version=version,
             callback=callback,
             recurse=recurse,
         ):
@@ -623,17 +665,15 @@ class SegmentSequence(FinTSModel):
 
     def find_segment_highest_version(
         self,
-        query: str | type[FinTSSegment] | list[str | type[FinTSSegment]] | None = None,
-        version: int | list[int] | None = None,
-        callback: callable | None = None,
+        query: str | type[FinTSSegment] | None = None,
+        callback: Callable[[FinTSSegment], bool] | None = None,
         recurse: bool = True,
         default: FinTSSegment | None = None,
     ) -> FinTSSegment | None:
         """Find the segment with the highest version matching criteria.
 
         Args:
-            query: Segment type(s) to match
-            version: Version(s) to filter by
+            query: Segment type to match
             callback: Custom filter function
             recurse: Whether to recurse into nested segments
             default: Value to return if no match found
@@ -645,7 +685,6 @@ class SegmentSequence(FinTSModel):
 
         for segment in self.find_segments(
             query=query,
-            version=version,
             callback=callback,
             recurse=recurse,
         ):
@@ -713,9 +752,7 @@ class SegmentSequence(FinTSModel):
                 )
             else:
                 # Fallback for segments without print_nested
-                stream.write(
-                    f"{prefix}{(level + 1) * indent}{segment!r},{docstring}\n"
-                )
+                stream.write(f"{prefix}{(level + 1) * indent}{segment!r},{docstring}\n")
         stream.write(f"{prefix}{level * indent}]){trailer}\n")
 
     # =========================================================================
@@ -737,8 +774,7 @@ class SegmentSequence(FinTSModel):
 
         serializer = FinTSSerializer()
         serialized_segments = [
-            serializer.serialize_segment(segment)
-            for segment in self.segments
+            serializer.serialize_segment(segment) for segment in self.segments
         ]
         return serializer.implode_segments(serialized_segments)
 
@@ -747,7 +783,7 @@ class SegmentSequence(FinTSModel):
         cls,
         data: bytes,
         robust_mode: bool = True,
-    ) -> "SegmentSequence":
+    ) -> SegmentSequence:
         """Parse a FinTS message from raw bytes.
 
         Args:
@@ -868,4 +904,3 @@ __all__ = [
     "SegmentHeader",
     "SegmentSequence",
 ]
-

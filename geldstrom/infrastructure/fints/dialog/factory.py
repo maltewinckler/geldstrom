@@ -138,12 +138,22 @@ class Dialog:
         """Return the parameter store."""
         return self._parameters
 
-    def initialize(self, extra_segments: Sequence = ()) -> ProcessedResponse:
+    def initialize(
+        self,
+        extra_segments: Sequence = (),
+        decoupled_timeout: float = 120.0,
+        decoupled_poll_interval: float = 2.0,
+    ) -> ProcessedResponse:
         """
         Initialize the dialog with the bank.
 
+        For banks requiring TAN authentication during initialization (like DKB),
+        this method will automatically handle decoupled TAN polling.
+
         Args:
             extra_segments: Additional segments to include in init message
+            decoupled_timeout: Maximum wait time for decoupled TAN approval
+            decoupled_poll_interval: Time between poll attempts
 
         Returns:
             Processed response from the bank
@@ -151,6 +161,7 @@ class Dialog:
         Raises:
             FinTSDialogStateError: If dialog is already open
             FinTSDialogInitError: If initialization fails
+            TimeoutError: If decoupled TAN not approved within timeout
         """
         if self._state.is_open:
             raise FinTSDialogStateError("Dialog is already open")
@@ -168,11 +179,24 @@ class Dialog:
             if self._state.dialog_id == DIALOG_ID_UNASSIGNED:
                 self._state.dialog_id = response.dialog_id
 
+            # Handle decoupled TAN if required (code 3955 = app approval needed)
+            # Some banks like DKB require TAN even for dialog initialization
+            if response.get_response_by_code("3955"):
+                logger.info(
+                    "Decoupled TAN required for dialog initialization - "
+                    "waiting for app approval..."
+                )
+                final_response = self._handle_decoupled_tan(
+                    response, decoupled_timeout, decoupled_poll_interval
+                )
+                if final_response is not None:
+                    return final_response
+
             return response
 
         except Exception as e:
             self._state.is_open = False
-            if isinstance(e, (FinTSDialogError,)):
+            if isinstance(e, (FinTSDialogError, TimeoutError, ValueError)):
                 raise
             raise FinTSDialogInitError("Couldn't establish dialog with bank") from e
 
@@ -660,6 +684,8 @@ class DialogFactory:
         self,
         lazy_init: bool = False,
         extra_init_segments: Sequence = (),
+        decoupled_timeout: float = 120.0,
+        decoupled_poll_interval: float = 2.0,
     ) -> Iterator[Dialog]:
         """
         Open a dialog as a context manager.
@@ -667,6 +693,8 @@ class DialogFactory:
         Args:
             lazy_init: If True, defer initialization until first send
             extra_init_segments: Additional segments for init message
+            decoupled_timeout: Maximum wait time for decoupled TAN approval
+            decoupled_poll_interval: Time between poll attempts
 
         Yields:
             Initialized dialog
@@ -691,7 +719,11 @@ class DialogFactory:
 
         try:
             if not lazy_init:
-                dialog.initialize(extra_init_segments)
+                dialog.initialize(
+                    extra_init_segments,
+                    decoupled_timeout=decoupled_timeout,
+                    decoupled_poll_interval=decoupled_poll_interval,
+                )
             yield dialog
         finally:
             if dialog.is_open:

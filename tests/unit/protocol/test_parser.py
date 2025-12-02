@@ -7,27 +7,22 @@ Tests cover:
 - Parser with real segment classes
 - Serializer round-trip
 """
+
 from __future__ import annotations
 
 import pytest
 
+from geldstrom.infrastructure.fints.protocol.base import FinTSSegment
 from geldstrom.infrastructure.fints.protocol.parser import (
     FinTSParser,
     FinTSParserError,
-    FinTSParserWarning,
     FinTSSerializer,
-    ParserState,
-    SegmentRegistry,
-    Token,
-    get_default_registry,
 )
 from geldstrom.infrastructure.fints.protocol.segments import (
-    HKSAL6,
-    HKSAL7,
     HISAL6,
-    HIKAZ6,
+    HKSAL7,
 )
-
+from geldstrom.infrastructure.fints.protocol.tokenizer import ParserState, Token
 
 # =============================================================================
 # Tokenizer Tests
@@ -163,70 +158,42 @@ class TestExplodeSegments:
 # =============================================================================
 
 
-class TestSegmentRegistry:
-    """Tests for segment registry."""
+class TestSegmentAutoRegistration:
+    """Tests for segment auto-registration."""
 
-    def test_default_registry_has_segments(self):
-        """Default registry has auto-registered segments."""
-        registry = get_default_registry()
-
-        assert len(registry) > 0
-        assert ("HISAL", 6) in registry
-        assert ("HKSAL", 7) in registry
-        assert ("HIKAZ", 6) in registry
+    def test_segments_are_registered(self):
+        """Auto-registered segments are accessible."""
+        assert len(FinTSSegment._segment_registry) > 0
+        assert FinTSSegment.get_segment_class("HISAL", 6) is not None
+        assert FinTSSegment.get_segment_class("HKSAL", 7) is not None
+        assert FinTSSegment.get_segment_class("HIKAZ", 6) is not None
 
     def test_get_segment_class(self):
         """Get segment class by type and version."""
-        registry = SegmentRegistry()
-
-        cls = registry.get("HISAL", 6)
+        cls = FinTSSegment.get_segment_class("HISAL", 6)
         assert cls == HISAL6
 
-        cls = registry.get("HKSAL", 7)
+        cls = FinTSSegment.get_segment_class("HKSAL", 7)
         assert cls == HKSAL7
 
     def test_get_unknown_segment(self):
         """Get returns None for unknown segments."""
-        registry = SegmentRegistry()
-
-        assert registry.get("UNKNOWN", 1) is None
-        assert registry.get("HISAL", 999) is None
+        assert FinTSSegment.get_segment_class("UNKNOWN", 1) is None
+        assert FinTSSegment.get_segment_class("HISAL", 999) is None
 
     def test_get_versions(self):
         """Get all versions for a segment type."""
-        registry = SegmentRegistry()
-
-        versions = registry.get_versions("HKSAL")
+        versions = FinTSSegment.get_versions("HKSAL")
         assert 5 in versions
         assert 6 in versions
         assert 7 in versions
 
-    def test_get_highest_version(self):
-        """Get highest version segment class."""
-        registry = SegmentRegistry()
-
-        cls = registry.get_highest_version("HKSAL")
-        assert cls == HKSAL7
-
-    def test_registered_types(self):
+    def test_get_registered_types(self):
         """Get all registered segment types."""
-        registry = SegmentRegistry()
-
-        types = registry.registered_types
+        types = FinTSSegment.get_registered_types()
         assert "HISAL" in types
         assert "HKSAL" in types
         assert "HIKAZ" in types
-
-    def test_register_custom_segment(self):
-        """Register a custom segment class."""
-        registry = SegmentRegistry(auto_register=False)
-
-        assert len(registry) == 0
-
-        registry.register(HISAL6)
-
-        assert len(registry) == 1
-        assert registry.get("HISAL", 6) == HISAL6
 
 
 # =============================================================================
@@ -238,25 +205,35 @@ class TestFinTSParser:
     """Tests for the FinTS parser."""
 
     def test_parse_simple_segment(self):
-        """Parse a simple segment with header only."""
-        # Minimal valid segment
-        data = b"HKSAL:3:6+280:12345678+1234567890::280:12345678+N'"
+        """Parse a simple segment with proper wire format."""
+        # Valid HKSAL6 segment:
+        # - Header: HKSAL:3:6
+        # - AccountIdentifier: account_number:subaccount_number:country:bank_code
+        # - all_accounts: N
+        data = b"HKSAL:3:6+1234567890::280:12345678+N'"
         parser = FinTSParser()
 
         segments = parser.parse_message(data)
 
-        # Should parse (or warn in robust mode if not all fields match)
-        assert len(segments.segments) >= 0  # May be 0 if parsing fails
+        # Should parse successfully
+        assert len(segments.segments) == 1
+        seg = segments.segments[0]
+        assert seg.header.type == "HKSAL"
+        assert seg.header.version == 6
+        assert seg.account.account_number == "1234567890"
+        assert seg.account.bank_identifier.bank_code == "12345678"
 
-    def test_robust_mode_warns_on_error(self):
-        """Robust mode emits warning instead of raising."""
+    def test_robust_mode_logs_warning(self, caplog):
+        """Robust mode logs warning instead of raising."""
         # Invalid segment data
         data = b"INVALID:1:1+garbage'"
         parser = FinTSParser(robust_mode=True)
 
-        with pytest.warns(FinTSParserWarning):
+        with caplog.at_level("WARNING"):
             segments = parser.parse_message(data)
 
+        # Warning should be logged
+        assert "Could not parse segment header" in caplog.text
         # No segments parsed
         assert len(segments.segments) == 0
 
@@ -268,15 +245,26 @@ class TestFinTSParser:
         with pytest.raises(FinTSParserError):
             parser.parse_message(data)
 
-    def test_parse_unknown_segment_type(self):
-        """Unknown segment type emits warning in robust mode."""
-        data = b"UNKNOWN:1:99+data'"
+    def test_parse_unknown_segment_type(self, caplog):
+        """Unknown segment type logs debug message in robust mode."""
+        from geldstrom.infrastructure.fints.protocol.parser import (
+            reset_unknown_segment_warnings,
+        )
+
+        # Reset cache to ensure warning is logged
+        reset_unknown_segment_warnings()
+
+        # Use a valid 6-char header that's unknown (not registered)
+        data = b"HIXXXX:1:99+data'"
         parser = FinTSParser(robust_mode=True)
 
-        with pytest.warns(FinTSParserWarning):
+        with caplog.at_level("DEBUG"):
             segments = parser.parse_message(data)
 
-        assert len(segments.segments) == 0
+        # Debug message should be logged
+        assert "Unknown segment type" in caplog.text
+        # Unknown segment becomes GenericSegment
+        assert len(segments.segments) == 1
 
 
 # =============================================================================
@@ -309,9 +297,7 @@ class TestFinTSSerializer:
 
     def test_implode_simple_segment(self):
         """Implode a simple segment."""
-        segment_data = [
-            [["HNHBS", "5", "1"], "2"]
-        ]
+        segment_data = [[["HNHBS", "5", "1"], "2"]]
 
         result = FinTSSerializer.implode_segments(segment_data)
 
@@ -368,4 +354,3 @@ class TestRoundTrip:
         # Note: implode will re-add the length prefix
         imploded = FinTSSerializer.implode_segments(exploded)
         assert imploded == original
-

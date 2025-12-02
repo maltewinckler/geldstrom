@@ -2,15 +2,15 @@
 
 These DEGs identify banks and accounts in FinTS messages.
 """
+
 from __future__ import annotations
 
 from typing import ClassVar
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator
 
 from ..base import FinTSDataElementGroup
-from ..types import FinTSAlphanumeric, FinTSCountry, FinTSID, FinTSBool
-
+from ..types import FinTSAlphanumeric, FinTSBool, FinTSCountry, FinTSID
 
 # =============================================================================
 # Simple Account Models (for internal use)
@@ -32,6 +32,13 @@ class SEPAAccount(BaseModel, frozen=True):
     accountnumber: str
     subaccount: str = ""
     blz: str | None = None
+
+    @field_validator("subaccount", mode="before")
+    @classmethod
+    def _coerce_subaccount(cls, v: str | None) -> str:
+        """Coerce None to empty string for subaccount."""
+        return v or ""
+
 
 # Country code mappings (ISO 3166-1 alpha-2 <-> ISO 3166-1 numeric)
 # Source: FinTS 3.0 Kapitel E.4 der SEPA-Geschäftsvorfälle
@@ -144,15 +151,15 @@ class AccountIdentifier(FinTSDataElementGroup):
     )
 
     @classmethod
-    def from_sepa_account(cls, account) -> "AccountIdentifier":
+    def from_sepa_account(cls, account) -> AccountIdentifier:
         """Create from SEPAAccount model."""
         return cls(
             account_number=account.accountnumber,
             subaccount_number=account.subaccount or "",
             bank_identifier=BankIdentifier(
-                country_identifier=COUNTRY_ALPHA_TO_NUMERIC.get(
-                    account.bic[4:6], "280"
-                ) if account.bic else "280",
+                country_identifier=COUNTRY_ALPHA_TO_NUMERIC.get(account.bic[4:6], "280")
+                if account.bic
+                else "280",
                 bank_code=account.blz,
             ),
         )
@@ -190,7 +197,7 @@ class AccountInternational(FinTSDataElementGroup):
     )
 
     @classmethod
-    def from_sepa_account(cls, account) -> "AccountInternational":
+    def from_sepa_account(cls, account) -> AccountInternational:
         """Create from SEPAAccount model."""
         return cls(
             iban=account.iban,
@@ -235,12 +242,12 @@ class AccountInternationalSEPA(FinTSDataElementGroup):
             iban=self.iban,
             bic=self.bic,
             accountnumber=self.account_number,
-            subaccount=self.subaccount_number,
+            subaccount=self.subaccount_number or "",
             blz=self.bank_identifier.bank_code,
         )
 
     @classmethod
-    def from_sepa_account(cls, account) -> "AccountInternationalSEPA":
+    def from_sepa_account(cls, account) -> AccountInternationalSEPA:
         """Create from SEPAAccount model."""
         return cls(
             is_sepa=True,
@@ -266,4 +273,3 @@ __all__ = [
     "AccountInternationalSEPA",
     "SEPAAccount",
 ]
-

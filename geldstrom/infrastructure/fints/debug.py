@@ -29,12 +29,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from geldstrom.infrastructure.fints.protocol.parser import (
-    FinTSParser,
-    FinTSParserWarning,
-    SegmentRegistry,
-    get_default_registry,
-)
+from geldstrom.infrastructure.fints.protocol.base import FinTSSegment
+from geldstrom.infrastructure.fints.protocol.parser import FinTSParser
 
 logger = logging.getLogger(__name__)
 
@@ -164,8 +160,7 @@ class ParserDebugger:
         debugger.save_report("debug_report.json")
     """
 
-    def __init__(self, registry: SegmentRegistry | None = None):
-        self.registry = registry or get_default_registry()
+    def __init__(self):
         self.report = ParserReport()
         self._warning_context = None
         self._captured_warnings: list[warnings.WarningMessage] = []
@@ -191,11 +186,18 @@ class ParserDebugger:
         """
         report = ParserReport()
 
-        # Capture warnings during parsing
-        with warnings.catch_warnings(record=True) as caught:
-            warnings.simplefilter("always", FinTSParserWarning)
+        # Capture log records during parsing
+        log_records: list[logging.LogRecord] = []
+        handler = _LogCaptureHandler(log_records)
+        parser_logger = logging.getLogger(
+            "geldstrom.infrastructure.fints.protocol.parser"
+        )
+        parser_logger.addHandler(handler)
+        old_level = parser_logger.level
+        parser_logger.setLevel(logging.WARNING)
 
-            parser = FinTSParser(registry=self.registry, robust_mode=True)
+        try:
+            parser = FinTSParser(robust_mode=True)
 
             try:
                 result = parser.parse_message(data)
@@ -204,25 +206,22 @@ class ParserDebugger:
                 for segment in result.segments:
                     header = segment.header
                     is_recognized = (
-                        self.registry.get(header.type, header.version) is not None
+                        FinTSSegment.get_segment_class(header.type, header.version)
+                        is not None
                     )
                     report.add_segment(header.type, header.version, is_recognized)
 
             except Exception as e:
                 report.add_warning(f"Fatal parse error: {e}")
 
-        # Process captured warnings
-        for w in caught:
-            if issubclass(w.category, FinTSParserWarning):
-                msg = str(w.message)
-                report.add_warning(msg)
+            # Process captured log records
+            for record in log_records:
+                if record.levelno >= logging.WARNING:
+                    report.add_warning(record.getMessage())
 
-                # Try to extract segment info from warning
-                if "Unknown segment type" in msg:
-                    # Extract type and version from warning
-                    pass
-                elif "Error parsing" in msg:
-                    pass
+        finally:
+            parser_logger.removeHandler(handler)
+            parser_logger.setLevel(old_level)
 
         return report
 
@@ -237,46 +236,63 @@ class ParserDebugger:
         logger.info("Saved debug report to %s", path)
 
 
+class _LogCaptureHandler(logging.Handler):
+    """Handler that captures log records into a list."""
+
+    def __init__(self, records: list[logging.LogRecord]):
+        super().__init__()
+        self.records = records
+
+    def emit(self, record: logging.LogRecord):
+        self.records.append(record)
+
+
 class _CaptureContext:
-    """Context manager for capturing parser warnings."""
+    """Context manager for capturing parser log messages."""
 
     def __init__(self, debugger: ParserDebugger):
         self._debugger = debugger
-        self._context = None
+        self._records: list[logging.LogRecord] = []
+        self._handler: _LogCaptureHandler | None = None
+        self._logger: logging.Logger | None = None
+        self._old_level: int = logging.NOTSET
 
     def __enter__(self):
-        self._context = warnings.catch_warnings(record=True)
-        self._debugger._captured_warnings = self._context.__enter__()
-        warnings.simplefilter("always", FinTSParserWarning)
+        self._records = []
+        self._handler = _LogCaptureHandler(self._records)
+        self._logger = logging.getLogger(
+            "geldstrom.infrastructure.fints.protocol.parser"
+        )
+        self._logger.addHandler(self._handler)
+        self._old_level = self._logger.level
+        self._logger.setLevel(logging.WARNING)
         return self
 
     def __exit__(self, *args):
-        result = self._context.__exit__(*args)
+        if self._logger and self._handler:
+            self._logger.removeHandler(self._handler)
+            self._logger.setLevel(self._old_level)
 
-        # Process captured warnings into report
-        for w in self._debugger._captured_warnings:
-            if issubclass(w.category, FinTSParserWarning):
-                self._debugger.report.add_warning(str(w.message))
+        # Process captured log records into report
+        for record in self._records:
+            if record.levelno >= logging.WARNING:
+                self._debugger.report.add_warning(record.getMessage())
 
-        return result
+        return False
 
 
-def analyze_segments(
-    data: bytes,
-    registry: SegmentRegistry | None = None,
-) -> ParserReport:
+def analyze_segments(data: bytes) -> ParserReport:
     """Analyze raw FinTS data for segment recognition.
 
     This is a convenience function for quick analysis.
 
     Args:
         data: Raw FinTS wire format bytes
-        registry: Optional custom registry (uses default if None)
 
     Returns:
         ParserReport with analysis results
     """
-    debugger = ParserDebugger(registry)
+    debugger = ParserDebugger()
     return debugger.analyze_bytes(data)
 
 
@@ -313,36 +329,35 @@ def capture_bank_response(
 
     debugger = ParserDebugger()
 
-    with debugger.capture():
-        with helper.connect(None) as ctx:
-            # Save BPD
-            bpd_data = ctx.parameters.bpd.serialize()
-            (output_dir / "bpd.bin").write_bytes(bpd_data)
-            summary["files"].append("bpd.bin")
-            summary["bpd_version"] = ctx.parameters.bpd_version
+    with debugger.capture(), helper.connect(None) as ctx:
+        # Save BPD
+        bpd_data = ctx.parameters.bpd.serialize()
+        (output_dir / "bpd.bin").write_bytes(bpd_data)
+        summary["files"].append("bpd.bin")
+        summary["bpd_version"] = ctx.parameters.bpd_version
 
-            # Save UPD
-            upd_data = ctx.parameters.upd.serialize()
-            (output_dir / "upd.bin").write_bytes(upd_data)
-            summary["files"].append("upd.bin")
-            summary["upd_version"] = ctx.parameters.upd_version
+        # Save UPD
+        upd_data = ctx.parameters.upd.serialize()
+        (output_dir / "upd.bin").write_bytes(upd_data)
+        summary["files"].append("upd.bin")
+        summary["upd_version"] = ctx.parameters.upd_version
 
-            # Analyze segments
-            bpd_report = debugger.analyze_bytes(bpd_data, "BPD")
-            upd_report = debugger.analyze_bytes(upd_data, "UPD")
+        # Analyze segments
+        bpd_report = debugger.analyze_bytes(bpd_data, "BPD")
+        upd_report = debugger.analyze_bytes(upd_data, "UPD")
 
-            summary["bpd_segments"] = bpd_report.to_dict()
-            summary["upd_segments"] = upd_report.to_dict()
+        summary["bpd_segments"] = bpd_report.to_dict()
+        summary["upd_segments"] = upd_report.to_dict()
 
-            # Perform requested operations
-            if operations:
-                account_ops = AccountOperations(ctx.dialog, ctx.parameters)
+        # Perform requested operations
+        if operations:
+            account_ops = AccountOperations(ctx.dialog, ctx.parameters)
 
-                if "accounts" in operations:
-                    accounts = account_ops.fetch_sepa_accounts()
-                    summary["accounts"] = [
-                        {"iban": a.iban, "number": a.accountnumber} for a in accounts
-                    ]
+            if "accounts" in operations:
+                accounts = account_ops.fetch_sepa_accounts()
+                summary["accounts"] = [
+                    {"iban": a.iban, "number": a.accountnumber} for a in accounts
+                ]
 
     # Save summary
     (output_dir / "summary.json").write_text(json.dumps(summary, indent=2))

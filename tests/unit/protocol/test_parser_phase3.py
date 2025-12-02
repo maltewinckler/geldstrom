@@ -5,34 +5,10 @@ Tests cover:
 - Parsing of dialog/message/auth segments
 - Round-trip tests (serialize -> parse)
 """
+
 from __future__ import annotations
 
-import pytest
-
-from geldstrom.infrastructure.fints.protocol.parser import (
-    FinTSParser,
-    FinTSSerializer,
-    SegmentRegistry,
-    get_default_registry,
-)
-from geldstrom.infrastructure.fints.protocol.base import SegmentHeader
-from geldstrom.infrastructure.fints.protocol.segments import (
-    # Dialog
-    HNHBK3, HNHBS1, HIRMG2, HIRMS2, HKSYN3, HISYN4, HKEND1,
-    # Response DEG testing
-    # Message
-    HNVSK3, HNVSD1, HNSHK4, HNSHA2,
-    # Auth
-    HKIDN2, HKVVB3, HKTAN6, HITAN6,
-    # Bank
-    HIBPA3, HIUPA4,
-    # PIN/TAN
-    HIPINS1, HITANS6,
-    # Balance
-    HKSAL6, HISAL6,
-    # Transfer
-    HKCCS1,
-)
+from geldstrom.infrastructure.fints.protocol.base import FinTSSegment, SegmentHeader
 from geldstrom.infrastructure.fints.protocol.formals import (
     BankIdentifier,
     Language,
@@ -41,90 +17,118 @@ from geldstrom.infrastructure.fints.protocol.formals import (
     SystemIDStatus,
     UPDUsage,
 )
-
+from geldstrom.infrastructure.fints.protocol.parser import (
+    FinTSParser,
+    FinTSSerializer,
+)
+from geldstrom.infrastructure.fints.protocol.segments import (
+    # Bank
+    HIBPA3,
+    # PIN/TAN
+    HIPINS1,
+    HIRMG2,
+    HIRMS2,
+    HISYN4,
+    HITAN6,
+    HITANS6,
+    HIUPA4,
+    # Transfer
+    HKEND1,
+    # Auth
+    HKIDN2,
+    # Balance
+    HKSYN3,
+    HKTAN6,
+    HKVVB3,
+    # Dialog
+    HNHBK3,
+    HNHBS1,
+    HNSHA2,
+    HNSHK4,
+    HNVSD1,
+    # Response DEG testing
+    # Message
+    HNVSK3,
+)
 
 # =============================================================================
 # Registry Tests
 # =============================================================================
 
 
-class TestSegmentRegistry:
-    """Tests for segment registry with all segments."""
+class TestSegmentAutoRegistration:
+    """Tests for segment auto-registration with all segments."""
 
     def test_registry_has_all_segment_types(self):
         """Verify all segment types are registered."""
-        registry = SegmentRegistry()
+        get = FinTSSegment.get_segment_class
 
         # Check dialog segments
-        assert registry.get("HNHBK", 3) == HNHBK3
-        assert registry.get("HNHBS", 1) == HNHBS1
-        assert registry.get("HIRMG", 2) == HIRMG2
-        assert registry.get("HIRMS", 2) == HIRMS2
-        assert registry.get("HKSYN", 3) == HKSYN3
-        assert registry.get("HISYN", 4) == HISYN4
-        assert registry.get("HKEND", 1) == HKEND1
+        assert get("HNHBK", 3) == HNHBK3
+        assert get("HNHBS", 1) == HNHBS1
+        assert get("HIRMG", 2) == HIRMG2
+        assert get("HIRMS", 2) == HIRMS2
+        assert get("HKSYN", 3) == HKSYN3
+        assert get("HISYN", 4) == HISYN4
+        assert get("HKEND", 1) == HKEND1
 
     def test_registry_has_message_segments(self):
         """Verify message security segments are registered."""
-        registry = SegmentRegistry()
+        get = FinTSSegment.get_segment_class
 
-        assert registry.get("HNVSK", 3) == HNVSK3
-        assert registry.get("HNVSD", 1) == HNVSD1
-        assert registry.get("HNSHK", 4) == HNSHK4
-        assert registry.get("HNSHA", 2) == HNSHA2
+        assert get("HNVSK", 3) == HNVSK3
+        assert get("HNVSD", 1) == HNVSD1
+        assert get("HNSHK", 4) == HNSHK4
+        assert get("HNSHA", 2) == HNSHA2
 
     def test_registry_has_auth_segments(self):
         """Verify auth segments are registered."""
-        registry = SegmentRegistry()
+        get = FinTSSegment.get_segment_class
 
-        assert registry.get("HKIDN", 2) == HKIDN2
-        assert registry.get("HKVVB", 3) == HKVVB3
-        assert registry.get("HKTAN", 6) == HKTAN6
-        assert registry.get("HITAN", 6) == HITAN6
+        assert get("HKIDN", 2) == HKIDN2
+        assert get("HKVVB", 3) == HKVVB3
+        assert get("HKTAN", 6) == HKTAN6
+        assert get("HITAN", 6) == HITAN6
 
     def test_registry_has_bank_segments(self):
         """Verify bank parameter segments are registered."""
-        registry = SegmentRegistry()
+        get = FinTSSegment.get_segment_class
 
-        assert registry.get("HIBPA", 3) == HIBPA3
-        assert registry.get("HIUPA", 4) == HIUPA4
+        assert get("HIBPA", 3) == HIBPA3
+        assert get("HIUPA", 4) == HIUPA4
 
     def test_registry_has_pintan_segments(self):
         """Verify PIN/TAN segments are registered."""
-        registry = SegmentRegistry()
+        get = FinTSSegment.get_segment_class
 
-        assert registry.get("HIPINS", 1) == HIPINS1
-        assert registry.get("HITANS", 6) == HITANS6
+        assert get("HIPINS", 1) == HIPINS1
+        assert get("HITANS", 6) == HITANS6
 
     def test_registry_count(self):
         """Verify total number of registered segments."""
-        registry = SegmentRegistry()
-
         # We should have at least 70 segments
-        assert len(registry._registry) >= 70
+        assert len(FinTSSegment._segment_registry) >= 70
 
         # We should have at least 45 segment types
-        assert len(registry.registered_types) >= 45
+        assert len(FinTSSegment.get_registered_types()) >= 45
 
     def test_get_versions(self):
         """Test getting all versions of a segment type."""
-        registry = SegmentRegistry()
-
         # HKSAL has versions 5, 6, 7
-        versions = registry.get_versions("HKSAL")
+        versions = FinTSSegment.get_versions("HKSAL")
         assert versions == [5, 6, 7]
 
         # HKTAN has versions 2, 6, 7
-        versions = registry.get_versions("HKTAN")
+        versions = FinTSSegment.get_versions("HKTAN")
         assert versions == [2, 6, 7]
 
     def test_get_highest_version(self):
         """Test getting highest version of a segment type."""
-        registry = SegmentRegistry()
-
         # HKSAL highest is 7
-        highest = registry.get_highest_version("HKSAL")
         from geldstrom.infrastructure.fints.protocol.segments import HKSAL7
+
+        versions = FinTSSegment.get_versions("HKSAL")
+        highest = FinTSSegment.get_segment_class("HKSAL", max(versions))
         assert highest == HKSAL7
 
 
@@ -175,7 +179,9 @@ class TestParserRoundTrip:
     def test_roundtrip_hirmg2(self):
         """Round-trip test for global response."""
         responses = [
-            Response(code="0010", reference_element="", text="Nachricht entgegengenommen"),
+            Response(
+                code="0010", reference_element="", text="Nachricht entgegengenommen"
+            ),
         ]
         seg = HIRMG2(
             header=SegmentHeader(type="HIRMG", version=2, number=2),
@@ -309,12 +315,11 @@ class TestParserEdgeCases:
         # Create a wire format for an unknown segment
         wire = b"UNKN:1:1+data'"
 
-        # Unknown segments return None in robust mode
-        parsed = parser.parse_segment(wire)
+        # Unknown segments return GenericSegment in robust mode
+        _ = parser.parse_segment(wire)
 
-        # Unknown segment types aren't in registry
-        registry = parser.registry
-        assert registry.get("UNKN", 1) is None
+        # Unknown segment types aren't in the auto-registry
+        assert FinTSSegment.get_segment_class("UNKN", 1) is None
 
     def test_parse_multiple_responses(self):
         """Test parsing segment with multiple responses."""
@@ -340,4 +345,3 @@ class TestParserEdgeCases:
         assert parsed.responses[0].code == "0010"
         assert parsed.responses[1].code == "0020"
         assert parsed.responses[2].code == "3040"
-

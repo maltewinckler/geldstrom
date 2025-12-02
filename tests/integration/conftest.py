@@ -6,11 +6,11 @@ This module provides:
 - Debug output options
 - Strict parsing mode for migration validation
 """
+
 from __future__ import annotations
 
 import logging
 import os
-import warnings
 from pathlib import Path
 
 import pytest
@@ -58,14 +58,17 @@ def pytest_configure(config: pytest.Config) -> None:
     # Enable strict parsing if requested
     if config.getoption("--fints-strict", default=False):
         import geldstrom.types
+
         geldstrom.types.STRICT_PARSING = True
         os.environ["FINTS_STRICT_PARSING"] = "1"
 
     # Enable debug logging if requested
     if config.getoption("--fints-debug", default=False):
         logging.getLogger("geldstrom").setLevel(logging.DEBUG)
-        logging.getLogger("geldstrom.infrastructure.fints.dialog").setLevel(logging.DEBUG)
-        logging.getLogger("geldstrom.infrastructure.fints.protocol").setLevel(logging.DEBUG)
+        fints_dialog = "geldstrom.infrastructure.fints.dialog"
+        fints_proto = "geldstrom.infrastructure.fints.protocol"
+        logging.getLogger(fints_dialog).setLevel(logging.DEBUG)
+        logging.getLogger(fints_proto).setLevel(logging.DEBUG)
 
 
 def pytest_collection_modifyitems(config: pytest.Config, items):
@@ -80,13 +83,24 @@ def pytest_collection_modifyitems(config: pytest.Config, items):
 
 
 # ---------------------------------------------------------------------------
-# Parser Warning Capture
+# Parser Log Capture
 # ---------------------------------------------------------------------------
+
+
+class _LogCaptureHandler(logging.Handler):
+    """Handler that captures log records into a list."""
+
+    def __init__(self, records: list[logging.LogRecord]):
+        super().__init__()
+        self.records = records
+
+    def emit(self, record: logging.LogRecord):
+        self.records.append(record)
 
 
 @pytest.fixture
 def capture_parser_warnings():
-    """Fixture that captures FinTS parser warnings.
+    """Fixture that captures FinTS parser log warnings.
 
     Usage:
         def test_something(capture_parser_warnings):
@@ -94,57 +108,63 @@ def capture_parser_warnings():
                 # ... code that might produce parser warnings ...
 
             # Check warnings
-            assert len(collector.warnings) == 0
+            assert len(collector.warning_messages) == 0
             # Or get a report
             print(collector.report())
     """
-    from geldstrom.infrastructure.fints.protocol.parser import FinTSParserWarning
 
-    class WarningCollector:
+    class LogCollector:
         def __init__(self):
-            self.warnings: list[warnings.WarningMessage] = []
-            self._context = None
+            self.log_records: list[logging.LogRecord] = []
+            self._handler: _LogCaptureHandler | None = None
+            self._logger: logging.Logger | None = None
+            self._old_level: int = logging.NOTSET
 
         def __enter__(self):
-            self._context = warnings.catch_warnings(record=True)
-            self.warnings = self._context.__enter__()
-            warnings.simplefilter("always", FinTSParserWarning)
+            self.log_records = []
+            self._handler = _LogCaptureHandler(self.log_records)
+            self._logger = logging.getLogger(
+                "geldstrom.infrastructure.fints.protocol.parser"
+            )
+            self._logger.addHandler(self._handler)
+            self._old_level = self._logger.level
+            self._logger.setLevel(logging.WARNING)
             return self
 
         def __exit__(self, *args):
-            return self._context.__exit__(*args)
+            if self._logger and self._handler:
+                self._logger.removeHandler(self._handler)
+                self._logger.setLevel(self._old_level)
 
         @property
-        def parser_warnings(self) -> list[warnings.WarningMessage]:
-            return [w for w in self.warnings if issubclass(w.category, FinTSParserWarning)]
+        def warning_messages(self) -> list[str]:
+            return [
+                r.getMessage() for r in self.log_records if r.levelno >= logging.WARNING
+            ]
 
         @property
         def unknown_segments(self) -> list[str]:
             return [
-                str(w.message) for w in self.parser_warnings
-                if "Unknown segment type" in str(w.message)
+                msg for msg in self.warning_messages if "Unknown segment type" in msg
             ]
 
         @property
         def parse_errors(self) -> list[str]:
-            return [
-                str(w.message) for w in self.parser_warnings
-                if "Error parsing" in str(w.message)
-            ]
+            return [msg for msg in self.warning_messages if "Error parsing" in msg]
 
         def report(self) -> str:
-            if not self.parser_warnings:
+            if not self.warning_messages:
                 return "No parser warnings"
-            lines = [f"Parser Warnings ({len(self.parser_warnings)}):"]
-            for w in self.parser_warnings:
-                lines.append(f"  - {w.message}")
+            lines = [f"Parser Warnings ({len(self.warning_messages)}):"]
+            for msg in self.warning_messages:
+                lines.append(f"  - {msg}")
             return "\n".join(lines)
 
         def assert_no_warnings(self, msg: str = ""):
-            if self.parser_warnings:
+            if self.warning_messages:
                 pytest.fail(f"{msg}\n{self.report()}")
 
-    return WarningCollector()
+    return LogCollector()
 
 
 # ---------------------------------------------------------------------------
@@ -176,6 +196,7 @@ def save_raw_response(fints_debug_dir: Path):
                 save_raw_response("bpd", ctx.parameters.bpd.serialize())
                 save_raw_response("upd", ctx.parameters.upd.serialize())
     """
+
     def _save(name: str, data: bytes, extension: str = "bin"):
         if fints_debug_dir:
             path = fints_debug_dir / f"{name}.{extension}"

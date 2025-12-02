@@ -3,17 +3,24 @@
 This module handles HKKAZ (MT940) and HKCAZ (CAMT) segment exchanges
 for fetching account transaction history with pagination support.
 """
+
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from datetime import date
-from typing import TYPE_CHECKING, Iterable, Sequence
+from typing import TYPE_CHECKING
 
 from geldstrom.exceptions import FinTSUnsupportedOperation
-from geldstrom.infrastructure.fints.protocol import SupportedMessageTypes
+from geldstrom.infrastructure.fints.protocol import (
+    HKCAZ1,
+    HKKAZ5,
+    HKKAZ6,
+    HKKAZ7,
+    SupportedMessageTypes,
+)
 from geldstrom.infrastructure.fints.protocol.formals import SEPAAccount
-from geldstrom.infrastructure.fints.protocol import HKCAZ1, HKKAZ5, HKKAZ6, HKKAZ7
 from geldstrom.utils import mt940_to_array
 
 from .pagination import TouchdownPaginator, find_highest_supported_version
@@ -64,8 +71,8 @@ class TransactionOperations:
 
     def __init__(
         self,
-        dialog: "Dialog",
-        parameters: "ParameterStore",
+        dialog: Dialog,
+        parameters: ParameterStore,
         max_pages: int = 100,
     ) -> None:
         """
@@ -122,6 +129,7 @@ class TransactionOperations:
 
         # Build account field
         from .helpers import get_account_type_for_segment
+
         account_type = get_account_type_for_segment(hkkaz_class)
         account_field = account_type.from_sepa_account(account)
 
@@ -219,6 +227,7 @@ class TransactionOperations:
 
         # Build account field
         from .helpers import get_account_type_for_segment
+
         account_type = get_account_type_for_segment(hkcaz_class)
         account_field = account_type.from_sepa_account(account)
 
@@ -335,4 +344,3 @@ class TransactionOperations:
         additional = getattr(node, "_additional_data", None)
         if additional:
             self._collect_camt_identifiers(additional, bucket)
-

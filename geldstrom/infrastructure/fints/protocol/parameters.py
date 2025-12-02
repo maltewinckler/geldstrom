@@ -1,9 +1,11 @@
 """Bank and user parameter data management for FinTS dialogs."""
+
 from __future__ import annotations
 
 import logging
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Any, Iterable, Mapping, Sequence
+from typing import Any
 
 from .base import SegmentSequence
 from .parser import FinTSSerializer
@@ -26,54 +28,17 @@ class BankParameters:
     segments: SegmentSequence = field(default_factory=SegmentSequence)
     bpa: Any = None  # HIBPA segment
 
-    def find_segment(self, segment_type: str, version: int | None = None) -> Any:
+    def find_segment(self, segment_type: str) -> Any:
         """
-        Find a segment in BPD by type and optionally version.
+        Find a segment in BPD by type.
 
         Args:
             segment_type: Segment type code (e.g., 'HISALS')
-            version: Optional specific version to match
 
         Returns:
             The matching segment or None
         """
-        for seg in self.segments.find_segments(segment_type):
-            if version is None or seg.header.version == version:
-                return seg
-        return None
-
-    def find_segment_highest_version(
-        self, segment_type: str, supported_versions: Iterable[int]
-    ) -> Any:
-        """
-        Find the highest version of a segment supported by both bank and client.
-
-        Args:
-            segment_type: Segment type code
-            supported_versions: Versions the client supports
-
-        Returns:
-            The matching segment with highest version, or None
-        """
-        return self.segments.find_segment_highest_version(
-            segment_type, supported_versions
-        )
-
-    def supports_operation(self, segment_type: str) -> bool:
-        """
-        Check if the bank supports a specific operation.
-
-        Args:
-            segment_type: The HKXXX segment type
-
-        Returns:
-            True if the bank's BPD indicates support
-        """
-        # Convert HKXXX to HIXXX+S parameter segment
-        if segment_type.startswith("HK"):
-            param_type = f"HI{segment_type[2:]}S"
-            return self.find_segment(param_type) is not None
-        return False
+        return self.segments.find_segment_first(segment_type)
 
     def get_supported_operations(self) -> Mapping[str, bool]:
         """
@@ -97,7 +62,7 @@ class BankParameters:
         return self.segments.render_bytes()
 
     @classmethod
-    def from_bytes(cls, data: bytes, bpa_data: bytes | None = None) -> "BankParameters":
+    def from_bytes(cls, data: bytes, bpa_data: bytes | None = None) -> BankParameters:
         """
         Restore BPD from serialized bytes.
 
@@ -165,23 +130,15 @@ class UserParameters:
             acc_info = getattr(upd, "account_information", None)
             acc = {
                 "iban": getattr(upd, "iban", None),
-                "account_number": (
-                    acc_info.account_number if acc_info else None
-                ),
-                "subaccount_number": (
-                    acc_info.subaccount_number if acc_info else None
-                ),
-                "bank_identifier": (
-                    acc_info.bank_identifier if acc_info else None
-                ),
+                "account_number": (acc_info.account_number if acc_info else None),
+                "subaccount_number": (acc_info.subaccount_number if acc_info else None),
+                "bank_identifier": (acc_info.bank_identifier if acc_info else None),
                 "customer_id": getattr(upd, "customer_id", None),
                 "type": getattr(upd, "account_type", None),
                 "currency": getattr(upd, "account_currency", None),
                 "owner_name": [],
                 "product_name": getattr(upd, "account_product_name", None),
-                "allowed_transactions": getattr(
-                    upd, "allowed_transactions", []
-                ),
+                "allowed_transactions": getattr(upd, "allowed_transactions", []),
             }
             owner_1 = getattr(upd, "name_account_owner_1", None)
             owner_2 = getattr(upd, "name_account_owner_2", None)
@@ -190,45 +147,17 @@ class UserParameters:
             if owner_2:
                 acc["owner_name"].append(owner_2)
             accounts.append(acc)
-        logger.warning("UserParameters.get_accounts found %d HIUPD segments", count_segments)
+        logger.debug(
+            "UserParameters.get_accounts found %d HIUPD segments", count_segments
+        )
         return accounts
-
-    def get_account_capabilities(
-        self, account_number: str, subaccount: str | None = None
-    ) -> Mapping[str, bool]:
-        """
-        Get capabilities for a specific account.
-
-        Args:
-            account_number: Account number
-            subaccount: Optional subaccount number
-
-        Returns:
-            Dict mapping operation names to boolean support
-        """
-        from geldstrom.infrastructure.fints import FinTSOperations
-
-        for upd in self.segments.find_segments("HIUPD"):
-            if upd.account_information.account_number != account_number:
-                continue
-            if subaccount and upd.account_information.subaccount_number != subaccount:
-                continue
-
-            return {
-                op.name: any(
-                    allowed.transaction in op.value
-                    for allowed in upd.allowed_transactions
-                )
-                for op in FinTSOperations
-            }
-        return {}
 
     def serialize(self) -> bytes:
         """Serialize UPD for storage."""
         return self.segments.render_bytes()
 
     @classmethod
-    def from_bytes(cls, data: bytes, upa_data: bytes | None = None) -> "UserParameters":
+    def from_bytes(cls, data: bytes, upa_data: bytes | None = None) -> UserParameters:
         """
         Restore UPD from serialized bytes.
 
@@ -331,7 +260,11 @@ class ParameterStore:
         """
         # Update BPD if newer
         # Note: Use 'is not None' because empty SegmentSequence is falsy
-        if bpd_version is not None and bpd_version >= self._bpd.version and bpd_segments is not None:
+        if (
+            bpd_version is not None
+            and bpd_version >= self._bpd.version
+            and bpd_segments is not None
+        ):
             bank_name = bpa.bank_name if bpa and hasattr(bpa, "bank_name") else None
             self._bpd = BankParameters(
                 version=bpd_version,
@@ -343,8 +276,12 @@ class ParameterStore:
 
         # Update UPD if newer
         # Note: Use 'is not None' because empty SegmentSequence is falsy
-        if upd_version is not None and upd_version >= self._upd.version and upd_segments is not None:
-            logger.warning(
+        if (
+            upd_version is not None
+            and upd_version >= self._upd.version
+            and upd_segments is not None
+        ):
+            logger.debug(
                 "Updating UPD to version %d with %d segments",
                 upd_version,
                 len(upd_segments.segments),
@@ -357,15 +294,12 @@ class ParameterStore:
             logger.debug("Updated UPD to version %d", upd_version)
 
     def to_dict(self) -> Mapping[str, Any]:
-        """Serialize parameter store to a dictionary.
+        """Serialize parameter store to a dictionary."""
+        serializer = FinTSSerializer()
 
-        Handles both Pydantic and legacy segments.
-        """
-        def serialize_segment(segment):
-            """Serialize a single segment using the Pydantic serializer."""
+        def serialize_segment(segment: Any) -> bytes | None:
             if segment is None:
                 return None
-            serializer = FinTSSerializer()
             return serializer.serialize_message(segment)
 
         return {
@@ -378,7 +312,7 @@ class ParameterStore:
         }
 
     @classmethod
-    def from_dict(cls, data: Mapping[str, Any]) -> "ParameterStore":
+    def from_dict(cls, data: Mapping[str, Any]) -> ParameterStore:
         """Restore parameter store from a dictionary."""
         bpd = BankParameters.from_bytes(
             data.get("bpd_bin", b""),
@@ -393,4 +327,3 @@ class ParameterStore:
         upd.version = data.get("upd_version", 0)
 
         return cls(bpd=bpd, upd=upd)
-

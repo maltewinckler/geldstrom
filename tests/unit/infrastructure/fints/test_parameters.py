@@ -94,7 +94,12 @@ def bpd_with_segments():
             return [hikazi]
         return []
 
+    def find_segment_first(type_name, callback=None):
+        segments = find_segments(type_name)
+        return segments[0] if segments else None
+
     seq.find_segments = find_segments
+    seq.find_segment_first = find_segment_first
     seq.find_segment_highest_version.return_value = hisals
     seq.render_bytes.return_value = b"test-bpd-data"
 
@@ -159,22 +164,6 @@ class TestBankParameters:
         """find_segment should return None if not found."""
         seg = bpd_with_segments.find_segment("NONEXISTENT")
         assert seg is None
-
-    def test_find_segment_with_version(self, bpd_with_segments):
-        """find_segment should filter by version."""
-        seg = bpd_with_segments.find_segment("HISALS", version=7)
-        assert seg is not None
-
-        seg = bpd_with_segments.find_segment("HISALS", version=99)
-        assert seg is None
-
-    def test_supports_operation(self, bpd_with_segments):
-        """supports_operation should check for parameter segments."""
-        # HKSAL -> HISALS should exist
-        assert bpd_with_segments.supports_operation("HKSAL") is True
-
-        # HKNONEXISTENT -> HINONEXISTENTS should not exist
-        assert bpd_with_segments.supports_operation("HKNONEXISTENT") is False
 
     def test_serialize(self, bpd_with_segments):
         """serialize should return bytes."""

@@ -27,6 +27,7 @@ Wire Format Reference (FinTS 3.0):
 - Numeric: No leading zeros except for "0"
 - Digits: String of digits only
 """
+
 from __future__ import annotations
 
 from datetime import date, time
@@ -39,8 +40,6 @@ from pydantic import BeforeValidator, Field, PlainSerializer
 # =============================================================================
 # Validators (Parse wire format → Python)
 # =============================================================================
-
-
 def parse_fints_date(value: Any) -> date:
     """Parse FinTS date format (YYYYMMDD) to Python date.
 
@@ -177,7 +176,9 @@ def parse_fints_bool(value: Any) -> bool:
             return True
         if value == "N":
             return False
-    raise ValueError(f"Cannot parse FinTS boolean from: {value!r} (expected 'J' or 'N')")
+    raise ValueError(
+        f"Cannot parse FinTS boolean from: {value!r} (expected 'J' or 'N')"
+    )
 
 
 def parse_fints_numeric(value: Any) -> int:
@@ -316,8 +317,6 @@ def parse_fints_code(value: Any) -> str:
 # =============================================================================
 # Serializers (Python → wire format)
 # =============================================================================
-
-
 def serialize_fints_date(value: date) -> str:
     """Serialize Python date to FinTS format (YYYYMMDD).
 
@@ -377,8 +376,6 @@ def serialize_fints_numeric(value: int) -> str:
 # =============================================================================
 # Annotated Types (use these in models)
 # =============================================================================
-
-
 FinTSDate = Annotated[
     date,
     BeforeValidator(parse_fints_date),
@@ -533,4 +530,3 @@ __all__ = [
     "FinTSText",
     "FinTSTime",
 ]
-

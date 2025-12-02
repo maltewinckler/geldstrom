@@ -7,6 +7,7 @@ Tests cover:
 - FinTSSegment
 - SegmentSequence with query methods
 """
+
 from __future__ import annotations
 
 from datetime import date
@@ -14,7 +15,6 @@ from decimal import Decimal
 from typing import ClassVar
 
 import pytest
-from pydantic import Field
 
 from geldstrom.infrastructure.fints.protocol.base import (
     FinTSDataElementGroup,
@@ -30,7 +30,6 @@ from geldstrom.infrastructure.fints.protocol.types import (
     FinTSDate,
     FinTSNumeric,
 )
-
 
 # =============================================================================
 # Test Models (reusable fixtures)
@@ -148,13 +147,6 @@ class TestFinTSModel:
         model = OptionalModel(required_field="required_value")
         wire = model.to_wire_list()
         assert wire == ["required_value", None]
-
-    def test_to_wire_dict(self):
-        """Export model to dictionary with serialization."""
-        model = SimpleModel(name="test", value=123)
-        d = model.to_wire_dict()
-        assert d["name"] == "test"
-        assert d["value"] == "123"  # Serialized as string
 
     def test_extra_fields_ignored(self):
         """Unknown fields are ignored (from bank responses)."""
@@ -386,37 +378,17 @@ class TestSegmentSequence:
             assert isinstance(seg, SampleSegment)
             assert not isinstance(seg, SampleSegmentV2)
 
-    def test_find_segments_by_multiple_types(self, sequence):
-        """find_segments with multiple type queries."""
-        found = list(sequence.find_segments(query=["SAMPLE", "OTHER"]))
-        assert len(found) == 4
-
-    def test_find_segments_by_version(self, sequence):
-        """find_segments by version."""
-        found = list(sequence.find_segments(query="SAMPLE", version=1))
-        assert len(found) == 2
-        for seg in found:
-            assert seg.SEGMENT_VERSION == 1
-
-    def test_find_segments_by_multiple_versions(self, sequence):
-        """find_segments with multiple versions."""
-        found = list(sequence.find_segments(query="SAMPLE", version=[1, 2]))
-        assert len(found) == 3
-
     def test_find_segments_with_callback(self, sequence):
         """find_segments with callback filter."""
-        found = list(
-            sequence.find_segments(callback=lambda s: s.header.number > 2)
-        )
+        found = list(sequence.find_segments(callback=lambda s: s.header.number > 2))
         assert len(found) == 2
 
     def test_find_segments_combined_filters(self, sequence):
-        """find_segments with multiple filters combined."""
+        """find_segments with query and callback combined."""
         found = list(
             sequence.find_segments(
                 query="SAMPLE",
-                version=1,
-                callback=lambda s: s.header.number > 1,
+                callback=lambda s: s.header.number > 1 and s.SEGMENT_VERSION == 1,
             )
         )
         assert len(found) == 1
@@ -468,16 +440,16 @@ class TestIntegration:
 
     def test_full_segment_workflow(self):
         """Test complete segment parse/query/export workflow."""
-        # Create segment from wire data
-        wire_data = [["HISAL", "5", "6"], "Account Product"]
+        # Create segment from wire data (using test-specific type to avoid registry conflicts)
+        wire_data = [["TSAL", "5", "6"], "Account Product"]
 
-        class HISAL6(FinTSSegment):
-            SEGMENT_TYPE: ClassVar[str] = "HISAL"
+        class TestSAL6(FinTSSegment):
+            SEGMENT_TYPE: ClassVar[str] = "TSAL"
             SEGMENT_VERSION: ClassVar[int] = 6
             account_product: FinTSAlphanumeric
 
-        segment = HISAL6.from_wire_list(wire_data)
-        assert segment.header.type == "HISAL"
+        segment = TestSAL6.from_wire_list(wire_data)
+        assert segment.header.type == "TSAL"
         assert segment.header.version == 6
         assert segment.account_product == "Account Product"
 
@@ -485,12 +457,12 @@ class TestIntegration:
         seq = SegmentSequence(segments=[segment])
 
         # Query
-        found = seq.find_segment_first(query="HISAL")
+        found = seq.find_segment_first(query="TSAL")
         assert found is segment
 
         # Export
         exported = segment.to_wire_list()
-        assert exported[0] == ["HISAL", 5, 6, None]  # Header
+        assert exported[0] == ["TSAL", 5, 6, None]  # Header
         assert exported[1] == "Account Product"
 
     def test_complex_nested_structure(self):
@@ -527,7 +499,6 @@ class TestSerializationRoundTrip:
 
     def test_segment_to_wire_and_back(self):
         """Create segment, serialize to wire, parse back."""
-        from geldstrom.infrastructure.fints.protocol.parser import FinTSSerializer
 
         # Create a segment
         header = SegmentHeader(type="SAMPLE", number=1, version=1)
@@ -728,4 +699,3 @@ class TestSegmentSequencePhase1Prep:
         assert len(collected) == 3
         assert collected[0].data == "segment 0"
         assert collected[2].data == "segment 2"
-

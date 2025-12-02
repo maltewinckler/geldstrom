@@ -3,17 +3,19 @@
 This module handles HKSPA/HISPA segment exchanges for discovering
 SEPA-enabled accounts from the bank.
 """
+
 from __future__ import annotations
 
 import logging
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Sequence
+from typing import TYPE_CHECKING
 
-from geldstrom.infrastructure.fints.protocol.formals import SEPAAccount
 from geldstrom.infrastructure.fints.protocol import HISPA1, HKSPA1
+from geldstrom.infrastructure.fints.protocol.formals import SEPAAccount
 
 if TYPE_CHECKING:
-    from geldstrom.infrastructure.fints.dialog import Dialog, ProcessedResponse
+    from geldstrom.infrastructure.fints.dialog import Dialog
     from geldstrom.infrastructure.fints.protocol import ParameterStore
 
 logger = logging.getLogger(__name__)
@@ -55,8 +57,8 @@ class AccountOperations:
 
     def __init__(
         self,
-        dialog: "Dialog",
-        parameters: "ParameterStore",
+        dialog: Dialog,
+        parameters: ParameterStore,
     ) -> None:
         """
         Initialize account operations.
@@ -114,7 +116,7 @@ class AccountOperations:
                             iban=iban,
                             bic=None,  # BIC not available in UPD
                             accountnumber=acc.get("account_number") or "",
-                            subaccount=acc.get("subaccount_number"),
+                            subaccount=acc.get("subaccount_number") or "",
                             blz=None,  # Will be extracted from bank_identifier
                         )
                     )
@@ -210,4 +212,3 @@ class AccountOperations:
             )
 
         return merged
-

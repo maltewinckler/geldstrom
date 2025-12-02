@@ -22,14 +22,8 @@ Example:
     # Parses FinTS wire format automatically
     model = MyModel(date="20231225", amount="1234,56")
 """
-from __future__ import annotations
 
-# Parameter management
-from .parameters import (
-    BankParameters,
-    ParameterStore,
-    UserParameters,
-)
+from __future__ import annotations
 
 # Base models
 from .base import (
@@ -39,6 +33,253 @@ from .base import (
     SegmentHeader,
     SegmentSequence,
 )
+
+# Formals (DEGs, enums, constants)
+from .formals import (
+    COUNTRY_ALPHA_TO_NUMERIC,
+    COUNTRY_NUMERIC_TO_ALPHA,
+    # Constants
+    CUSTOMER_ID_ANONYMOUS,
+    AccountIdentifier,
+    AccountInformation,
+    AccountInternational,
+    AccountInternationalSEPA,
+    AccountLimit,
+    AlgorithmParameterIVName,
+    AlgorithmParameterName,
+    AllowedFormat,
+    AllowedTransaction,
+    # Amounts
+    Amount,
+    Balance,
+    BalanceSimple,
+    # Identifiers
+    BankIdentifier,
+    BatchTransferParameter,
+    BookedCamtStatements,
+    Certificate,
+    ChallengeValidUntil,
+    CommunicationAccess,
+    CommunicationParameter,
+    CompressionFunction,
+    Confirmation,
+    # Enums - Balance/Amount
+    CreditDebit,
+    DateTimeType,
+    EncryptionAlgorithm,
+    EncryptionAlgorithmCoded,
+    # Base enum classes
+    FinTSEnum,
+    FinTSIntEnum,
+    GetSEPAAccountParameter,
+    HashAlgorithm,
+    IdentifiedRole,
+    KeyName,
+    KeyType,
+    Language,
+    # Enums - Versioned aliases
+    Language2,
+    OperationMode,
+    ParameterChallengeClass,
+    QueryScheduledDebitParameter1,
+    QueryScheduledDebitParameter2,
+    ReferenceMessage,
+    # Responses
+    Response,
+    ResponseHHDUC,
+    ScheduledBatchDebitParameter1,
+    ScheduledBatchDebitParameter2,
+    ScheduledDebitParameter1,
+    ScheduledDebitParameter2,
+    SecurityApplicationArea,
+    SecurityDateTime,
+    SecurityIdentificationDetails,
+    # Enums - Security
+    SecurityMethod,
+    # Security
+    SecurityProfile,
+    SecurityRole,
+    ServiceType,
+    SignatureAlgorithm,
+    # Enums - Statement
+    StatementFormat,
+    SupportedHBCIVersions,
+    # Parameters
+    SupportedLanguages,
+    # Transactions
+    SupportedMessageTypes,
+    SupportedSEPAPainMessages,
+    # Enums - System
+    SynchronizationMode,
+    SystemIDStatus,
+    TANMedia4,
+    TANMedia5,
+    # TAN
+    TANMediaBase,
+    TANMediaClass,
+    TANMediaClass3,
+    TANMediaClass4,
+    # Enums - TAN
+    TANMediaType,
+    TANMediaType2,
+    TANMediumStatus,
+    TANTimeDialogAssociation,
+    TANUsageOption,
+    Timestamp,
+    TwoStepTANSubmission,
+    UPDUsage,
+    # Enums - Encryption
+    UsageEncryption,
+    UserDefinedSignature,
+)
+
+# Parameter management
+from .parameters import (
+    BankParameters,
+    ParameterStore,
+    UserParameters,
+)
+
+# Parser
+from .parser import (
+    FinTSParser,
+    FinTSParserError,
+    FinTSSerializer,
+)
+
+
+# Segment class lookup (use FinTSSegment.get_segment_class() directly)
+def get_segment_class(segment_type: str, version: int):
+    """Get segment class by type and version (convenience wrapper)."""
+    return FinTSSegment.get_segment_class(segment_type, version)
+
+
+# Segments - All
+# Segments - Business operations
+from .segments import (
+    # Bank - BPD
+    HIBPA3,
+    HIBPA_VERSIONS,
+    HICAZ1,
+    HICAZ_VERSIONS,
+    HIEKA3,
+    HIEKA4,
+    HIEKA5,
+    HIEKA_VERSIONS,
+    HIKAU1,
+    HIKAU2,
+    HIKAU_VERSIONS,
+    HIKAZ5,
+    HIKAZ6,
+    HIKAZ7,
+    HIKAZ_VERSIONS,
+    HIKOM4,
+    HIKOM_VERSIONS,
+    HIPINS1,
+    HIPINS_VERSIONS,
+    # Dialog - Responses
+    HIRMG2,
+    HIRMG_VERSIONS,
+    HIRMS2,
+    HIRMS_VERSIONS,
+    HISAL5,
+    HISAL6,
+    HISAL7,
+    HISAL_VERSIONS,
+    HISPA1,
+    HISYN4,
+    HISYN_VERSIONS,
+    HITAB4,
+    HITAB5,
+    HITAB_VERSIONS,
+    HITAN6,
+    HITAN7,
+    HITAN_VERSIONS,
+    HITANS6,
+    HITANS7,
+    HITANS_VERSIONS,
+    # Bank - UPD
+    HIUPA4,
+    HIUPA_VERSIONS,
+    HIUPD6,
+    HIUPD_VERSIONS,
+    HKCAZ1,
+    HKCAZ_VERSIONS,
+    HKEKA3,
+    HKEKA4,
+    HKEKA5,
+    HKEKA_VERSIONS,
+    # Dialog - End
+    HKEND1,
+    HKEND_VERSIONS,
+    # Auth - Identification
+    HKIDN2,
+    HKIDN_VERSIONS,
+    HKKAU1,
+    HKKAU2,
+    HKKAU_VERSIONS,
+    # Transaction segments
+    HKKAZ5,
+    HKKAZ6,
+    HKKAZ7,
+    HKKAZ_VERSIONS,
+    # Bank - Communication
+    HKKOM4,
+    HKKOM_VERSIONS,
+    # Balance segments
+    HKSAL5,
+    HKSAL6,
+    HKSAL7,
+    HKSAL_VERSIONS,
+    # Account segments
+    HKSPA1,
+    # Dialog - Synchronization
+    HKSYN3,
+    HKSYN_VERSIONS,
+    # Auth - TAN Media
+    HKTAB4,
+    HKTAB5,
+    HKTAB_VERSIONS,
+    HKTAN2,
+    HKTAN6,
+    HKTAN7,
+    HKTAN_VERSIONS,
+    # Auth - Processing
+    HKVVB3,
+    HKVVB_VERSIONS,
+    # Dialog - Message header/trailer
+    HNHBK3,
+    HNHBK_VERSIONS,
+    HNHBS1,
+    HNHBS_VERSIONS,
+    HNSHA2,
+    HNSHA_VERSIONS,
+    # Message - Signature
+    HNSHK4,
+    HNSHK_VERSIONS,
+    HNVSD1,
+    HNVSD_VERSIONS,
+    # Message - Encryption
+    HNVSK3,
+    HNVSK_VERSIONS,
+    # Auth - TAN Response
+    HITANBase,
+    # Auth - TAN Request
+    HKTANBase,
+    ParameterPinTan,
+    ParameterSegmentBase,
+    ParameterTwostepTAN6,
+    ParameterTwostepTAN7,
+    # Statement segments
+    ReportPeriod,
+    # PIN/TAN
+    TransactionTANRequired,
+    TwoStepParameters6,
+    TwoStepParameters7,
+)
+
+# Tokenizer (low-level)
+from .tokenizer import ParserState, Token
 
 # Types
 from .types import (
@@ -71,199 +312,6 @@ from .types import (
     serialize_fints_date,
     serialize_fints_numeric,
     serialize_fints_time,
-)
-
-# Parser
-from .parser import (
-    FinTSParser,
-    FinTSParserError,
-    FinTSParserWarning,
-    FinTSSerializer,
-    SegmentRegistry,
-    get_default_registry,
-)
-
-# Formals (DEGs, enums, constants)
-from .formals import (
-    # Base enum classes
-    FinTSEnum,
-    FinTSIntEnum,
-    # Constants
-    CUSTOMER_ID_ANONYMOUS,
-    # Enums - Security
-    SecurityMethod,
-    IdentifiedRole,
-    DateTimeType,
-    SecurityRole,
-    SecurityApplicationArea,
-    CompressionFunction,
-    KeyType,
-    # Enums - Encryption
-    UsageEncryption,
-    OperationMode,
-    EncryptionAlgorithmCoded,
-    AlgorithmParameterName,
-    AlgorithmParameterIVName,
-    # Enums - Balance/Amount
-    CreditDebit,
-    # Enums - System
-    SynchronizationMode,
-    SystemIDStatus,
-    UPDUsage,
-    Language,
-    ServiceType,
-    # Enums - TAN
-    TANMediaType,
-    TANMediaClass,
-    TANMediumStatus,
-    TANTimeDialogAssociation,
-    AllowedFormat,
-    TANUsageOption,
-    # Enums - Versioned aliases
-    Language2,
-    TANMediaType2,
-    TANMediaClass3,
-    TANMediaClass4,
-    # Enums - Statement
-    StatementFormat,
-    Confirmation,
-    # Identifiers
-    BankIdentifier,
-    AccountIdentifier,
-    AccountInternational,
-    AccountInternationalSEPA,
-    COUNTRY_ALPHA_TO_NUMERIC,
-    COUNTRY_NUMERIC_TO_ALPHA,
-    # Amounts
-    Amount,
-    Balance,
-    BalanceSimple,
-    Timestamp,
-    # Security
-    SecurityProfile,
-    SecurityIdentificationDetails,
-    SecurityDateTime,
-    EncryptionAlgorithm,
-    HashAlgorithm,
-    SignatureAlgorithm,
-    KeyName,
-    Certificate,
-    UserDefinedSignature,
-    # Responses
-    Response,
-    ReferenceMessage,
-    # TAN
-    TANMediaBase,
-    TANMedia4,
-    TANMedia5,
-    ChallengeValidUntil,
-    ParameterChallengeClass,
-    ResponseHHDUC,
-    TwoStepTANSubmission,
-    # Transactions
-    SupportedMessageTypes,
-    BookedCamtStatements,
-    SupportedSEPAPainMessages,
-    BatchTransferParameter,
-    ScheduledDebitParameter1,
-    ScheduledDebitParameter2,
-    ScheduledBatchDebitParameter1,
-    ScheduledBatchDebitParameter2,
-    QueryScheduledDebitParameter1,
-    QueryScheduledDebitParameter2,
-    # Parameters
-    SupportedLanguages,
-    SupportedHBCIVersions,
-    CommunicationParameter,
-    CommunicationAccess,
-    AccountLimit,
-    AllowedTransaction,
-    AccountInformation,
-    GetSEPAAccountParameter,
-)
-
-# Segments - All
-from .segments import (
-    # Dialog - Message header/trailer
-    HNHBK3, HNHBS1, HNHBK_VERSIONS, HNHBS_VERSIONS,
-    # Dialog - Responses
-    HIRMG2, HIRMS2, HIRMG_VERSIONS, HIRMS_VERSIONS,
-    # Dialog - Synchronization
-    HKSYN3, HISYN4, HKSYN_VERSIONS, HISYN_VERSIONS,
-    # Dialog - End
-    HKEND1, HKEND_VERSIONS,
-    # Message - Encryption
-    HNVSK3, HNVSD1, HNVSK_VERSIONS, HNVSD_VERSIONS,
-    # Message - Signature
-    HNSHK4, HNSHA2, HNSHK_VERSIONS, HNSHA_VERSIONS,
-    # Auth - Identification
-    HKIDN2, HKIDN_VERSIONS,
-    # Auth - Processing
-    HKVVB3, HKVVB_VERSIONS,
-    # Auth - TAN Request
-    HKTANBase, HKTAN2, HKTAN6, HKTAN7, HKTAN_VERSIONS,
-    # Auth - TAN Response
-    HITANBase, HITAN6, HITAN7, HITAN_VERSIONS,
-    # Auth - TAN Media
-    HKTAB4, HKTAB5, HITAB4, HITAB5, HKTAB_VERSIONS, HITAB_VERSIONS,
-    # Bank - BPD
-    HIBPA3, HIBPA_VERSIONS,
-    # Bank - UPD
-    HIUPA4, HIUPD6, HIUPA_VERSIONS, HIUPD_VERSIONS,
-    # Bank - Communication
-    HKKOM4, HIKOM4, HKKOM_VERSIONS, HIKOM_VERSIONS,
-    # PIN/TAN
-    TransactionTANRequired, ParameterPinTan,
-    TwoStepParameters6, TwoStepParameters7,
-    ParameterTwostepTAN6, ParameterTwostepTAN7,
-    ParameterSegmentBase,
-    HIPINS1, HITANS6, HITANS7,
-    HIPINS_VERSIONS, HITANS_VERSIONS,
-)
-
-# Segments - Business operations
-from .segments import (
-    # Balance segments
-    HKSAL5,
-    HKSAL6,
-    HKSAL7,
-    HKSAL_VERSIONS,
-    HISAL5,
-    HISAL6,
-    HISAL7,
-    HISAL_VERSIONS,
-    # Account segments
-    HKSPA1,
-    HISPA1,
-    # Transaction segments
-    HKKAZ5,
-    HKKAZ6,
-    HKKAZ7,
-    HKKAZ_VERSIONS,
-    HIKAZ5,
-    HIKAZ6,
-    HIKAZ7,
-    HIKAZ_VERSIONS,
-    HKCAZ1,
-    HKCAZ_VERSIONS,
-    HICAZ1,
-    HICAZ_VERSIONS,
-    # Statement segments
-    ReportPeriod,
-    HKEKA3,
-    HKEKA4,
-    HKEKA5,
-    HKEKA_VERSIONS,
-    HIEKA3,
-    HIEKA4,
-    HIEKA5,
-    HIEKA_VERSIONS,
-    HKKAU1,
-    HKKAU2,
-    HKKAU_VERSIONS,
-    HIKAU1,
-    HIKAU2,
-    HIKAU_VERSIONS,
 )
 
 __all__ = [
@@ -310,10 +358,12 @@ __all__ = [
     # Parser
     "FinTSParser",
     "FinTSParserError",
-    "FinTSParserWarning",
     "FinTSSerializer",
-    "SegmentRegistry",
-    "get_default_registry",
+    # Tokenizer
+    "ParserState",
+    "Token",
+    # Segment lookup
+    "get_segment_class",
     # Formals - Base enum classes
     "FinTSEnum",
     "FinTSIntEnum",
@@ -404,44 +454,112 @@ __all__ = [
     "AccountInformation",
     "GetSEPAAccountParameter",
     # Segments - Dialog
-    "HNHBK3", "HNHBS1", "HNHBK_VERSIONS", "HNHBS_VERSIONS",
-    "HIRMG2", "HIRMS2", "HIRMG_VERSIONS", "HIRMS_VERSIONS",
-    "HKSYN3", "HISYN4", "HKSYN_VERSIONS", "HISYN_VERSIONS",
-    "HKEND1", "HKEND_VERSIONS",
+    "HNHBK3",
+    "HNHBS1",
+    "HNHBK_VERSIONS",
+    "HNHBS_VERSIONS",
+    "HIRMG2",
+    "HIRMS2",
+    "HIRMG_VERSIONS",
+    "HIRMS_VERSIONS",
+    "HKSYN3",
+    "HISYN4",
+    "HKSYN_VERSIONS",
+    "HISYN_VERSIONS",
+    "HKEND1",
+    "HKEND_VERSIONS",
     # Segments - Message Security
-    "HNVSK3", "HNVSD1", "HNVSK_VERSIONS", "HNVSD_VERSIONS",
-    "HNSHK4", "HNSHA2", "HNSHK_VERSIONS", "HNSHA_VERSIONS",
+    "HNVSK3",
+    "HNVSD1",
+    "HNVSK_VERSIONS",
+    "HNVSD_VERSIONS",
+    "HNSHK4",
+    "HNSHA2",
+    "HNSHK_VERSIONS",
+    "HNSHA_VERSIONS",
     # Segments - Auth
-    "HKIDN2", "HKIDN_VERSIONS",
-    "HKVVB3", "HKVVB_VERSIONS",
-    "HKTANBase", "HKTAN2", "HKTAN6", "HKTAN7", "HKTAN_VERSIONS",
-    "HITANBase", "HITAN6", "HITAN7", "HITAN_VERSIONS",
-    "HKTAB4", "HKTAB5", "HITAB4", "HITAB5", "HKTAB_VERSIONS", "HITAB_VERSIONS",
+    "HKIDN2",
+    "HKIDN_VERSIONS",
+    "HKVVB3",
+    "HKVVB_VERSIONS",
+    "HKTANBase",
+    "HKTAN2",
+    "HKTAN6",
+    "HKTAN7",
+    "HKTAN_VERSIONS",
+    "HITANBase",
+    "HITAN6",
+    "HITAN7",
+    "HITAN_VERSIONS",
+    "HKTAB4",
+    "HKTAB5",
+    "HITAB4",
+    "HITAB5",
+    "HKTAB_VERSIONS",
+    "HITAB_VERSIONS",
     # Segments - Bank
-    "HIBPA3", "HIBPA_VERSIONS",
-    "HIUPA4", "HIUPD6", "HIUPA_VERSIONS", "HIUPD_VERSIONS",
-    "HKKOM4", "HIKOM4", "HKKOM_VERSIONS", "HIKOM_VERSIONS",
+    "HIBPA3",
+    "HIBPA_VERSIONS",
+    "HIUPA4",
+    "HIUPD6",
+    "HIUPA_VERSIONS",
+    "HIUPD_VERSIONS",
+    "HKKOM4",
+    "HIKOM4",
+    "HKKOM_VERSIONS",
+    "HIKOM_VERSIONS",
     # Segments - PIN/TAN
-    "TransactionTANRequired", "ParameterPinTan",
-    "TwoStepParameters6", "TwoStepParameters7",
-    "ParameterTwostepTAN6", "ParameterTwostepTAN7",
+    "TransactionTANRequired",
+    "ParameterPinTan",
+    "TwoStepParameters6",
+    "TwoStepParameters7",
+    "ParameterTwostepTAN6",
+    "ParameterTwostepTAN7",
     "ParameterSegmentBase",
-    "HIPINS1", "HITANS6", "HITANS7",
-    "HIPINS_VERSIONS", "HITANS_VERSIONS",
+    "HIPINS1",
+    "HITANS6",
+    "HITANS7",
+    "HIPINS_VERSIONS",
+    "HITANS_VERSIONS",
     # Segments - Balance
-    "HKSAL5", "HKSAL6", "HKSAL7", "HKSAL_VERSIONS",
-    "HISAL5", "HISAL6", "HISAL7", "HISAL_VERSIONS",
+    "HKSAL5",
+    "HKSAL6",
+    "HKSAL7",
+    "HKSAL_VERSIONS",
+    "HISAL5",
+    "HISAL6",
+    "HISAL7",
+    "HISAL_VERSIONS",
     # Segments - Account
-    "HKSPA1", "HISPA1",
+    "HKSPA1",
+    "HISPA1",
     # Segments - Transaction
-    "HKKAZ5", "HKKAZ6", "HKKAZ7", "HKKAZ_VERSIONS",
-    "HIKAZ5", "HIKAZ6", "HIKAZ7", "HIKAZ_VERSIONS",
-    "HKCAZ1", "HKCAZ_VERSIONS",
-    "HICAZ1", "HICAZ_VERSIONS",
+    "HKKAZ5",
+    "HKKAZ6",
+    "HKKAZ7",
+    "HKKAZ_VERSIONS",
+    "HIKAZ5",
+    "HIKAZ6",
+    "HIKAZ7",
+    "HIKAZ_VERSIONS",
+    "HKCAZ1",
+    "HKCAZ_VERSIONS",
+    "HICAZ1",
+    "HICAZ_VERSIONS",
     # Segments - Statement
     "ReportPeriod",
-    "HKEKA3", "HKEKA4", "HKEKA5", "HKEKA_VERSIONS",
-    "HIEKA3", "HIEKA4", "HIEKA5", "HIEKA_VERSIONS",
-    "HKKAU1", "HKKAU2", "HKKAU_VERSIONS",
-    "HIKAU1", "HIKAU2", "HIKAU_VERSIONS",
+    "HKEKA3",
+    "HKEKA4",
+    "HKEKA5",
+    "HKEKA_VERSIONS",
+    "HIEKA3",
+    "HIEKA4",
+    "HIEKA5",
+    "HIEKA_VERSIONS",
+    "HKKAU1",
+    "HKKAU2",
+    "HKKAU_VERSIONS",
+    "HIKAU1",
+    "HIKAU2",
+    "HIKAU_VERSIONS",
 ]

@@ -28,7 +28,6 @@ from geldstrom.application import GatewayCredentials
 from geldstrom.domain import BankCredentials, BankRoute
 from geldstrom.infrastructure.fints.protocol.parser import (
     FinTSParser,
-    FinTSParserWarning,
     FinTSSerializer,
 )
 
@@ -107,52 +106,79 @@ def debug_output_dir(tmp_path_factory) -> Path:
 
 
 # ---------------------------------------------------------------------------
-# Warning Capture Utilities
+# Log Capture Utilities
 # ---------------------------------------------------------------------------
 
 
+class _LogCaptureHandler(logging.Handler):
+    """Handler that captures log records into a list."""
+
+    def __init__(self, records: list[logging.LogRecord]):
+        super().__init__()
+        self.records = records
+
+    def emit(self, record: logging.LogRecord):
+        self.records.append(record)
+
+
 class ParserWarningCollector:
-    """Collects parser warnings for analysis."""
+    """Collects parser log warnings for analysis."""
 
     def __init__(self):
-        self.warnings: list[warnings.WarningMessage] = []
-        self._context = None
+        self.log_records: list[logging.LogRecord] = []
+        self._handler: _LogCaptureHandler | None = None
+        self._logger: logging.Logger | None = None
+        self._old_level: int = logging.NOTSET
 
     def __enter__(self):
-        self._context = warnings.catch_warnings(record=True)
-        self.warnings = self._context.__enter__()
-        warnings.simplefilter("always", FinTSParserWarning)
+        self.log_records = []
+        self._handler = _LogCaptureHandler(self.log_records)
+        self._logger = logging.getLogger(
+            "geldstrom.infrastructure.fints.protocol.parser"
+        )
+        self._logger.addHandler(self._handler)
+        self._old_level = self._logger.level
+        self._logger.setLevel(logging.WARNING)
         return self
 
     def __exit__(self, *args):
-        self._context.__exit__(*args)
+        if self._logger and self._handler:
+            self._logger.removeHandler(self._handler)
+            self._logger.setLevel(self._old_level)
 
     @property
-    def parser_warnings(self) -> list[warnings.WarningMessage]:
-        """Return only FinTSParserWarning instances."""
-        return [w for w in self.warnings if issubclass(w.category, FinTSParserWarning)]
+    def warning_messages(self) -> list[str]:
+        """Return warning messages from parser."""
+        return [
+            r.getMessage()
+            for r in self.log_records
+            if r.levelno >= logging.WARNING
+        ]
 
     @property
     def unknown_segment_warnings(self) -> list[str]:
         """Extract unknown segment type warnings."""
         return [
-            str(w.message) for w in self.parser_warnings
-            if "Unknown segment type" in str(w.message)
+            msg for msg in self.warning_messages
+            if "Unknown segment type" in msg
         ]
 
     @property
     def parse_error_warnings(self) -> list[str]:
         """Extract parse error warnings."""
         return [
-            str(w.message) for w in self.parser_warnings
-            if "Error parsing" in str(w.message) or "Could not parse" in str(w.message)
+            msg for msg in self.warning_messages
+            if "Error parsing" in msg or "Could not parse" in msg
         ]
 
     def assert_no_warnings(self, message: str = ""):
         """Assert no parser warnings were raised."""
-        if self.parser_warnings:
-            details = "\n".join(f"  - {w.message}" for w in self.parser_warnings)
-            pytest.fail(f"{message}\nParser warnings ({len(self.parser_warnings)}):\n{details}")
+        if self.warning_messages:
+            details = "\n".join(f"  - {m}" for m in self.warning_messages)
+            pytest.fail(
+                f"{message}\nParser warnings "
+                f"({len(self.warning_messages)}):\n{details}"
+            )
 
     def assert_no_critical_warnings(self, message: str = ""):
         """Assert no critical parser warnings were raised.
@@ -162,25 +188,27 @@ class ParserWarningCollector:
         """
         critical = self.critical_warnings
         if critical:
-            details = "\n".join(f"  - {w.message}" for w in critical)
-            pytest.fail(f"{message}\nCritical parser warnings ({len(critical)}):\n{details}")
+            details = "\n".join(f"  - {m}" for m in critical)
+            pytest.fail(
+                f"{message}\nCritical parser warnings ({len(critical)}):\n{details}"
+            )
 
     @property
-    def critical_warnings(self) -> list:
+    def critical_warnings(self) -> list[str]:
         """Return only critical warnings (not unknown parameter segments).
 
         Parameter segments (HI*S*) advertise bank-specific capabilities
         and are expected to be unknown - the legacy parser also uses
         generic fallback for these.
         """
+        import re
+
         critical = []
-        for w in self.parser_warnings:
-            msg = str(w.message)
+        for msg in self.warning_messages:
             # Unknown segment type warnings for parameter segments are OK
             if "Unknown segment type" in msg:
                 # Extract segment type to check if it's a parameter segment
                 # Parameter segments end with 'S' (e.g., HIVPAS, HIZDLS)
-                import re
                 match = re.search(r"Unknown segment type (HI[A-Z]+)v", msg)
                 if match:
                     seg_type = match.group(1)
@@ -188,15 +216,15 @@ class ParserWarningCollector:
                     if len(seg_type) >= 5 and seg_type.endswith("S"):
                         # This is a parameter segment - skip it
                         continue
-            critical.append(w)
+            critical.append(msg)
         return critical
 
     def report(self) -> str:
         """Generate a human-readable report."""
-        if not self.parser_warnings:
+        if not self.warning_messages:
             return "No parser warnings."
 
-        lines = [f"Parser Warnings ({len(self.parser_warnings)}):"]
+        lines = [f"Parser Warnings ({len(self.warning_messages)}):"]
 
         unknown = self.unknown_segment_warnings
         if unknown:

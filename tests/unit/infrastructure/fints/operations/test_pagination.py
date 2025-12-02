@@ -1,7 +1,8 @@
 """Tests for the pagination module."""
+
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -138,6 +139,7 @@ class TestFindHighestSupportedVersion:
 
     def test_finds_highest_version(self):
         """Should return highest matching version."""
+
         # Mock segment classes
         class MockV5:
             TYPE = "HKSAL"
@@ -151,11 +153,14 @@ class TestFindHighestSupportedVersion:
             TYPE = "HKSAL"
             VERSION = 7
 
-        # Mock BPD segments that support version 6
+        # Mock BPD segments that support versions 5 and 6
+        mock_seg5 = MagicMock()
+        mock_seg5.header.version = 5
+        mock_seg6 = MagicMock()
+        mock_seg6.header.version = 6
+
         mock_bpd = MagicMock()
-        mock_highest = MagicMock()
-        mock_highest.header.version = 6
-        mock_bpd.find_segment_highest_version.return_value = mock_highest
+        mock_bpd.find_segments.return_value = [mock_seg5, mock_seg6]
 
         result = find_highest_supported_version(mock_bpd, [MockV7, MockV6, MockV5])
 
@@ -163,14 +168,14 @@ class TestFindHighestSupportedVersion:
 
     def test_returns_none_if_not_supported(self):
         """Should return None if bank doesn't support operation."""
+
         class MockV5:
             TYPE = "HKSAL"
             VERSION = 5
 
         mock_bpd = MagicMock()
-        mock_bpd.find_segment_highest_version.return_value = None
+        mock_bpd.find_segments.return_value = []
 
         result = find_highest_supported_version(mock_bpd, [MockV5])
 
         assert result is None
-
