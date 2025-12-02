@@ -344,16 +344,6 @@ class TaskHashAlgorithm(FinTSEnum):
     SHA_1 = "2"      # SHA-1
 
 
-class StatementFormat(FinTSEnum):
-    """Kontoauszugsformat (Statement Format).
-
-    Source: FinTS 3.0 Messages - Multibankfähige Geschäftsvorfälle
-    """
-    MT_940 = "1"   # S.W.I.F.T. MT940
-    ISO_8583 = "2"  # ISO 8583
-    PDF = "3"      # Printable format (e.g., PDF)
-
-
 class Confirmation(FinTSEnum):
     """Quittierung (Confirmation).
 
@@ -413,8 +403,6 @@ __all__ = [
     "TANMediaType2",
     "TANMediaClass3",
     "TANMediaClass4",
-    # Statement
-    "StatementFormat",
     "Confirmation",
 ]
 

@@ -41,7 +41,6 @@ def main() -> None:
                 print(f"\n  Capabilities:")
                 print(f"    Balance:      {account.capabilities.can_fetch_balance}")
                 print(f"    Transactions: {account.capabilities.can_list_transactions}")
-                print(f"    Statements:   {account.capabilities.can_fetch_statements}")
                 print()
             except ValueError as e:
                 print(f"Error: {e}")

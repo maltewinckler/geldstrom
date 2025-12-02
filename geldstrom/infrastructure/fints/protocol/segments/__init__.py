@@ -15,7 +15,6 @@ Organization:
 - saldo: Balance segments (HKSAL, HISAL)
 - accounts: Account segments (HKSPA, HISPA)
 - transactions: Transaction segments (HKKAZ, HIKAZ, HKCAZ, HICAZ)
-- statements: Statement segments (HKEKA, HIEKA, HKKAU, HIKAU)
 - params: Generic parameter segments
 """
 from __future__ import annotations
@@ -98,10 +97,6 @@ from .message import (
     HNVSK_VERSIONS,
 )
 from .params import (
-    HIEKAS3,
-    HIEKAS4,
-    HIEKAS5,
-    HIEKAS_VERSIONS,
     HIKAZS4,
     HIKAZS5,
     HIKAZS6,
@@ -126,8 +121,6 @@ from .params import (
     GenericSegment,
     # SEPA Account Parameters
     GetSEPAAccountParameter,
-    # Statement Parameters
-    StatementParameter,
 )
 from .params import (
     # Transaction Parameters
@@ -180,27 +173,6 @@ from .saldo import (
     HKSAL7,
     # Version registry
     HKSAL_VERSIONS,
-)
-from .statements import (
-    # Statement Response
-    HIEKA3,
-    HIEKA4,
-    HIEKA5,
-    HIEKA_VERSIONS,
-    HIKAU1,
-    HIKAU2,
-    HIKAU_VERSIONS,
-    # Statement Request
-    HKEKA3,
-    HKEKA4,
-    HKEKA5,
-    HKEKA_VERSIONS,
-    # Statement Overview
-    HKKAU1,
-    HKKAU2,
-    HKKAU_VERSIONS,
-    # Supporting DEGs
-    ReportPeriod,
 )
 from .transactions import (
     # CAMT Response
@@ -348,23 +320,6 @@ __all__ = [
     "HKCAZ_VERSIONS",
     "HICAZ1",
     "HICAZ_VERSIONS",
-    # Statement segments
-    "ReportPeriod",
-    "HKEKA3",
-    "HKEKA4",
-    "HKEKA5",
-    "HKEKA_VERSIONS",
-    "HIEKA3",
-    "HIEKA4",
-    "HIEKA5",
-    "HIEKA_VERSIONS",
-    # Statement Overview segments
-    "HKKAU1",
-    "HKKAU2",
-    "HKKAU_VERSIONS",
-    "HIKAU1",
-    "HIKAU2",
-    "HIKAU_VERSIONS",
     # Parameter segments - Base
     "GenericParameter",
     "GenericSegment",
@@ -388,12 +343,6 @@ __all__ = [
     "HIKAZS6",
     "HIKAZS7",
     "HIKAZS_VERSIONS",
-    # Parameter segments - Statements
-    "StatementParameter",
-    "HIEKAS3",
-    "HIEKAS4",
-    "HIEKAS5",
-    "HIEKAS_VERSIONS",
     # Parameter segments - Security
     "HISHV3",
     "HISHV_VERSIONS",

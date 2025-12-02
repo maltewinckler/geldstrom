@@ -1,9 +1,10 @@
 """Transaction feed abstractions."""
+
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from datetime import date
 from decimal import Decimal
-from typing import Mapping, Sequence
 
 from pydantic import BaseModel
 

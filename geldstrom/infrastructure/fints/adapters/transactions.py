@@ -9,9 +9,10 @@ from decimal import Decimal, InvalidOperation
 from typing import TYPE_CHECKING
 from xml.etree import ElementTree as ET
 
-from geldstrom.infrastructure.fints.credentials import GatewayCredentials
 from geldstrom.domain import TransactionEntry, TransactionFeed
+from geldstrom.domain.connection import ChallengeHandler, TANConfig
 from geldstrom.domain.ports.transactions import TransactionHistoryPort
+from geldstrom.infrastructure.fints.credentials import GatewayCredentials
 from geldstrom.infrastructure.fints.exceptions import FinTSUnsupportedOperation
 from geldstrom.infrastructure.fints.session import FinTSSessionState
 
@@ -31,14 +32,24 @@ class FinTSTransactionHistory(TransactionHistoryPort):
     Fetches transaction history via HKKAZ (MT940) or HKCAZ (CAMT) segments.
     """
 
-    def __init__(self, credentials: GatewayCredentials) -> None:
+    def __init__(
+        self,
+        credentials: GatewayCredentials,
+        *,
+        tan_config: TANConfig | None = None,
+        challenge_handler: ChallengeHandler | None = None,
+    ) -> None:
         """
         Initialize with credentials.
 
         Args:
             credentials: Bank connection credentials
+            tan_config: Configuration for TAN handling (polling, timeout)
+            challenge_handler: Handler for presenting 2FA challenges to user
         """
         self._credentials = credentials
+        self._tan_config = tan_config or TANConfig()
+        self._challenge_handler = challenge_handler
 
     def fetch_history(
         self,
@@ -67,7 +78,11 @@ class FinTSTransactionHistory(TransactionHistoryPort):
             TransactionOperations,
         )
 
-        helper = FinTSConnectionHelper(self._credentials)
+        helper = FinTSConnectionHelper(
+            self._credentials,
+            tan_config=self._tan_config,
+            challenge_handler=self._challenge_handler,
+        )
 
         with helper.connect(state) as ctx:
             account_ops = AccountOperations(ctx.dialog, ctx.parameters)
@@ -76,19 +91,69 @@ class FinTSTransactionHistory(TransactionHistoryPort):
             # Find SEPA account
             sepa_account = locate_sepa_account(account_ops, account_id)
 
-            try:
-                # Try MT940 format first (pending not supported in MT940)
-                result = tx_ops.fetch_mt940(sepa_account, start_date, end_date)
-                return self._transactions_from_mt940(account_id, result.transactions)
-
-            except FinTSUnsupportedOperation:
-                # Fall back to CAMT format
-                result = tx_ops.fetch_camt(sepa_account, start_date, end_date)
-                return self._transactions_from_camt(
-                    account_id,
-                    result.booked_documents,
-                    result.pending_documents if include_pending else [],
+            # Format selection strategy:
+            # - If include_pending=True, prefer CAMT (only format that supports pending)
+            # - Otherwise, prefer MT940 (more widely supported, falls back to CAMT)
+            if include_pending:
+                return self._fetch_with_camt_preferred(
+                    tx_ops, sepa_account, account_id, start_date, end_date, include_pending
                 )
+            else:
+                return self._fetch_with_mt940_preferred(
+                    tx_ops, sepa_account, account_id, start_date, end_date
+                )
+
+    def _fetch_with_mt940_preferred(
+        self,
+        tx_ops,
+        sepa_account,
+        account_id: str,
+        start_date: date | None,
+        end_date: date | None,
+    ) -> TransactionFeed:
+        """Fetch transactions preferring MT940, falling back to CAMT."""
+        try:
+            result = tx_ops.fetch_mt940(sepa_account, start_date, end_date)
+            return self._transactions_from_mt940(
+                account_id, result.transactions, has_more=result.has_more
+            )
+        except FinTSUnsupportedOperation:
+            result = tx_ops.fetch_camt(sepa_account, start_date, end_date)
+            return self._transactions_from_camt(
+                account_id,
+                result.booked_documents,
+                pending_streams=[],
+                has_more=result.has_more,
+            )
+
+    def _fetch_with_camt_preferred(
+        self,
+        tx_ops,
+        sepa_account,
+        account_id: str,
+        start_date: date | None,
+        end_date: date | None,
+        include_pending: bool,
+    ) -> TransactionFeed:
+        """Fetch transactions preferring CAMT (for pending support), falling back to MT940."""
+        try:
+            result = tx_ops.fetch_camt(sepa_account, start_date, end_date)
+            return self._transactions_from_camt(
+                account_id,
+                result.booked_documents,
+                result.pending_documents if include_pending else [],
+                has_more=result.has_more,
+            )
+        except FinTSUnsupportedOperation:
+            # CAMT not available; fall back to MT940 (no pending support)
+            logger.warning(
+                "Bank does not support CAMT; falling back to MT940 "
+                "(pending transactions will not be included)"
+            )
+            result = tx_ops.fetch_mt940(sepa_account, start_date, end_date)
+            return self._transactions_from_mt940(
+                account_id, result.transactions, has_more=result.has_more
+            )
 
     # --- MT940 parsing ---
 
@@ -96,13 +161,15 @@ class FinTSTransactionHistory(TransactionHistoryPort):
         self,
         account_id: str,
         transactions: Iterable,
+        *,
+        has_more: bool = False,
     ) -> TransactionFeed:
         """Convert MT940 transactions to TransactionFeed."""
         entries = [
             self._transaction_entry(account_id, idx, tx)
             for idx, tx in enumerate(transactions)
         ]
-        return self._transaction_feed_from_entries(account_id, entries)
+        return self._transaction_feed_from_entries(account_id, entries, has_more=has_more)
 
     def _transaction_entry(
         self,
@@ -144,6 +211,8 @@ class FinTSTransactionHistory(TransactionHistoryPort):
         account_id: str,
         booked_streams: Iterable[bytes],
         pending_streams: Iterable[bytes],
+        *,
+        has_more: bool = False,
     ) -> TransactionFeed:
         """Convert CAMT streams to TransactionFeed."""
         entries: list[TransactionEntry] = []
@@ -155,7 +224,7 @@ class FinTSTransactionHistory(TransactionHistoryPort):
             self._entries_from_camt_streams(account_id, pending_streams, pending=True)
         )
 
-        return self._transaction_feed_from_entries(account_id, entries)
+        return self._transaction_feed_from_entries(account_id, entries, has_more=has_more)
 
     def _entries_from_camt_streams(
         self,
@@ -421,6 +490,8 @@ class FinTSTransactionHistory(TransactionHistoryPort):
         self,
         account_id: str,
         entries: Sequence[TransactionEntry],
+        *,
+        has_more: bool = False,
     ) -> TransactionFeed:
         """Build TransactionFeed from entries."""
         if entries:
@@ -435,6 +506,7 @@ class FinTSTransactionHistory(TransactionHistoryPort):
             entries=tuple(entries),
             start_date=start_date,
             end_date=end_date,
+            has_more=has_more,
         )
 
 

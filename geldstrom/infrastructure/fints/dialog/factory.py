@@ -8,6 +8,8 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
+from geldstrom.domain.connection import ChallengeHandler
+from geldstrom.infrastructure.fints.dialog.challenge import FinTSChallenge
 from geldstrom.infrastructure.fints.exceptions import (
     FinTSDialogError,
     FinTSDialogInitError,
@@ -171,6 +173,7 @@ class Dialog:
         extra_segments: Sequence = (),
         decoupled_timeout: float = 120.0,
         decoupled_poll_interval: float = 2.0,
+        challenge_handler: ChallengeHandler | None = None,
     ) -> ProcessedResponse:
         """
         Initialize the dialog with the bank.
@@ -182,6 +185,7 @@ class Dialog:
             extra_segments: Additional segments to include in init message
             decoupled_timeout: Maximum wait time for decoupled TAN approval
             decoupled_poll_interval: Time between poll attempts
+            challenge_handler: Optional handler to present challenge to user
 
         Returns:
             Processed response from the bank
@@ -215,7 +219,10 @@ class Dialog:
                     "waiting for app approval..."
                 )
                 final_response = self._handle_decoupled_tan(
-                    response, decoupled_timeout, decoupled_poll_interval
+                    response,
+                    decoupled_timeout,
+                    decoupled_poll_interval,
+                    challenge_handler,
                 )
                 if final_response is not None:
                     return final_response
@@ -233,6 +240,7 @@ class Dialog:
         *segments,
         decoupled_timeout: float = 120.0,
         decoupled_poll_interval: float = 2.0,
+        challenge_handler: ChallengeHandler | None = None,
     ) -> ProcessedResponse:
         """
         Send segments to the bank within this dialog.
@@ -247,6 +255,7 @@ class Dialog:
             *segments: Segments to send
             decoupled_timeout: Maximum wait time for decoupled TAN approval
             decoupled_poll_interval: Time between poll attempts
+            challenge_handler: Optional handler to present challenge to user
 
         Returns:
             Processed response from the bank
@@ -272,7 +281,10 @@ class Dialog:
             )
             # The final approval response contains the business data
             final_response = self._handle_decoupled_tan(
-                response, decoupled_timeout, decoupled_poll_interval
+                response,
+                decoupled_timeout,
+                decoupled_poll_interval,
+                challenge_handler,
             )
             if final_response is not None:
                 return final_response
@@ -384,6 +396,7 @@ class Dialog:
         init_response: ProcessedResponse,
         timeout: float = 120.0,
         poll_interval: float = 2.0,
+        challenge_handler: ChallengeHandler | None = None,
     ) -> ProcessedResponse | None:
         """
         Handle decoupled TAN approval (app-based authentication).
@@ -395,6 +408,7 @@ class Dialog:
             init_response: Response that triggered decoupled TAN
             timeout: Maximum wait time in seconds
             poll_interval: Time between poll attempts in seconds
+            challenge_handler: Optional handler to present challenge to user
 
         Returns:
             The final response after approval (contains business data), or None
@@ -416,6 +430,18 @@ class Dialog:
         if not task_ref:
             logger.warning("No task_reference in HITAN, cannot poll for approval")
             return None
+
+        # Present challenge to user via handler (if provided)
+        # This allows CLI/GUI handlers to display instructions before polling
+        if challenge_handler is not None:
+            challenge = FinTSChallenge(hitan)
+            result = challenge_handler.present_challenge(challenge)
+            # For decoupled TAN, we expect needs_polling=True (no direct response)
+            # If user cancelled, abort
+            if result.cancelled:
+                raise ValueError("User cancelled the TAN challenge")
+            if result.error:
+                raise ValueError(f"Challenge handler error: {result.error}")
 
         # Find highest supported HKTAN version
         hitans = _find_highest_hitans(self._parameters.bpd.segments)

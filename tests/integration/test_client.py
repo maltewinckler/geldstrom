@@ -303,7 +303,10 @@ def test_session_state_serialization_roundtrip(credentials: GatewayCredentials):
     restored_state = FinTSSessionState.deserialize(serialized)
 
     # Use restored state
-    client2 = FinTS3Client(credentials, session_state=restored_state)
+    client2 = FinTS3Client.from_gateway_credentials(
+        credentials,
+        session_state=restored_state,
+    )
     with client2:
         accounts2 = client2.list_accounts()
         assert len(accounts2) == len(accounts1)
@@ -452,58 +455,6 @@ def test_get_balances_filtered(client: FinTS3Client):
         returned_ids = {b.account_id for b in balances}
         for aid in account_ids:
             assert aid in returned_ids or len(balances) > 0
-
-
-# ---------------------------------------------------------------------------
-# Statement Tests
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.integration
-def test_list_statements(client: FinTS3Client):
-    """Verify list_statements() returns available statements."""
-    with client:
-        accounts = client.list_accounts()
-        if not accounts:
-            pytest.skip("No accounts available")
-
-        # Try to list statements for first account
-        try:
-            statements = client.list_statements(accounts[0])
-            # May be empty if no statements available
-            assert isinstance(statements, (list, tuple))
-            for stmt in statements:
-                assert stmt.statement_id or stmt.date
-        except Exception as e:
-            # Some banks/accounts don't support statements
-            if "not support" in str(e).lower() or "9010" in str(e):
-                pytest.skip(f"Account does not support statements: {e}")
-            raise
-
-
-@pytest.mark.integration
-def test_get_statement(client: FinTS3Client):
-    """Verify get_statement() downloads a statement."""
-    with client:
-        accounts = client.list_accounts()
-        if not accounts:
-            pytest.skip("No accounts available")
-
-        # First list available statements
-        try:
-            statements = client.list_statements(accounts[0])
-            if not statements:
-                pytest.skip("No statements available for download")
-
-            # Download the first statement
-            document = client.get_statement(statements[0])
-            assert document.content
-            assert document.mime_type or document.format
-
-        except Exception as e:
-            if "not support" in str(e).lower() or "9010" in str(e):
-                pytest.skip(f"Account does not support statements: {e}")
-            raise
 
 
 # ---------------------------------------------------------------------------

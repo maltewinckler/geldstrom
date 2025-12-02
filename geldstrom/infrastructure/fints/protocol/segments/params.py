@@ -339,68 +339,6 @@ class HIKAZS7(ParameterSegmentBase):
 
 
 # =============================================================================
-# Statement Parameters (HIEKAS)
-# =============================================================================
-
-
-class StatementParameter(FinTSDataElementGroup):
-    """Parameter for statement requests.
-
-    Source: FinTS 3.0 Messages
-    """
-
-    format_supported: FinTSAlphanumeric | None = Field(
-        default=None,
-        description="Unterstütztes Format",
-    )
-
-
-class HIEKAS3(ParameterSegmentBase):
-    """Kontoauszug Parameter, version 3.
-
-    Source: FinTS 3.0 Messages
-    """
-
-    SEGMENT_TYPE: ClassVar[str] = "HIEKAS"
-    SEGMENT_VERSION: ClassVar[int] = 3
-
-    parameter: StatementParameter | None = Field(
-        default=None,
-        description="Parameter Kontoauszug",
-    )
-
-
-class HIEKAS4(ParameterSegmentBase):
-    """Kontoauszug Parameter, version 4.
-
-    Source: FinTS 3.0 Messages
-    """
-
-    SEGMENT_TYPE: ClassVar[str] = "HIEKAS"
-    SEGMENT_VERSION: ClassVar[int] = 4
-
-    parameter: StatementParameter | None = Field(
-        default=None,
-        description="Parameter Kontoauszug",
-    )
-
-
-class HIEKAS5(ParameterSegmentBase):
-    """Kontoauszug Parameter, version 5.
-
-    Source: FinTS 3.0 Messages
-    """
-
-    SEGMENT_TYPE: ClassVar[str] = "HIEKAS"
-    SEGMENT_VERSION: ClassVar[int] = 5
-
-    parameter: StatementParameter | None = Field(
-        default=None,
-        description="Parameter Kontoauszug",
-    )
-
-
-# =============================================================================
 # Security Procedure Parameters (HISHV)
 # Note: HISHV has a non-standard structure - NOT a parameter segment!
 # =============================================================================
@@ -449,12 +387,6 @@ HIKAZS_VERSIONS: dict[int, type[FinTSSegment]] = {
     7: HIKAZS7,
 }
 
-HIEKAS_VERSIONS: dict[int, type[FinTSSegment]] = {
-    3: HIEKAS3,
-    4: HIEKAS4,
-    5: HIEKAS5,
-}
-
 HISHV_VERSIONS: dict[int, type[FinTSSegment]] = {
     3: HISHV3,
 }
@@ -485,12 +417,6 @@ __all__ = [
     "HIKAZS6",
     "HIKAZS7",
     "HIKAZS_VERSIONS",
-    # Statements
-    "StatementParameter",
-    "HIEKAS3",
-    "HIEKAS4",
-    "HIEKAS5",
-    "HIEKAS_VERSIONS",
     # Security
     "HISHV3",
     "HISHV_VERSIONS",

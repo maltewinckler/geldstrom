@@ -16,7 +16,6 @@ class AccountOwner(BaseModel, frozen=True):
 class AccountCapabilities(BaseModel, frozen=True):
     can_fetch_balance: bool = False
     can_list_transactions: bool = False
-    can_fetch_statements: bool = False
     can_fetch_holdings: bool = False
     can_fetch_scheduled_debits: bool = False
 
@@ -24,7 +23,6 @@ class AccountCapabilities(BaseModel, frozen=True):
         return {
             "balance": self.can_fetch_balance,
             "transactions": self.can_list_transactions,
-            "statements": self.can_fetch_statements,
             "holdings": self.can_fetch_holdings,
             "scheduled_debits": self.can_fetch_scheduled_debits,
         }
@@ -46,9 +44,6 @@ class Account(BaseModel, frozen=True):
 
     def supports_transactions(self) -> bool:
         return self.capabilities.can_list_transactions
-
-    def supports_statements(self) -> bool:
-        return self.capabilities.can_fetch_statements
 
     def supports_holdings(self) -> bool:
         return self.capabilities.can_fetch_holdings

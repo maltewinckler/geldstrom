@@ -95,8 +95,6 @@ from .formals import (
     SecurityRole,
     ServiceType,
     SignatureAlgorithm,
-    # Enums - Statement
-    StatementFormat,
     SupportedHBCIVersions,
     # Parameters
     SupportedLanguages,
@@ -155,13 +153,6 @@ from .segments import (
     HIBPA_VERSIONS,
     HICAZ1,
     HICAZ_VERSIONS,
-    HIEKA3,
-    HIEKA4,
-    HIEKA5,
-    HIEKA_VERSIONS,
-    HIKAU1,
-    HIKAU2,
-    HIKAU_VERSIONS,
     HIKAZ5,
     HIKAZ6,
     HIKAZ7,
@@ -198,19 +189,12 @@ from .segments import (
     HIUPD_VERSIONS,
     HKCAZ1,
     HKCAZ_VERSIONS,
-    HKEKA3,
-    HKEKA4,
-    HKEKA5,
-    HKEKA_VERSIONS,
     # Dialog - End
     HKEND1,
     HKEND_VERSIONS,
     # Auth - Identification
     HKIDN2,
     HKIDN_VERSIONS,
-    HKKAU1,
-    HKKAU2,
-    HKKAU_VERSIONS,
     # Transaction segments
     HKKAZ5,
     HKKAZ6,
@@ -263,8 +247,6 @@ from .segments import (
     ParameterSegmentBase,
     ParameterTwostepTAN6,
     ParameterTwostepTAN7,
-    # Statement segments
-    ReportPeriod,
     # PIN/TAN
     TransactionTANRequired,
     TwoStepParameters6,
@@ -391,7 +373,6 @@ __all__ = [
     "TANMediaType2",
     "TANMediaClass3",
     "TANMediaClass4",
-    "StatementFormat",
     "Confirmation",
     # Formals - Identifiers
     "BankIdentifier",
@@ -532,20 +513,4 @@ __all__ = [
     "HKCAZ_VERSIONS",
     "HICAZ1",
     "HICAZ_VERSIONS",
-    # Segments - Statement
-    "ReportPeriod",
-    "HKEKA3",
-    "HKEKA4",
-    "HKEKA5",
-    "HKEKA_VERSIONS",
-    "HIEKA3",
-    "HIEKA4",
-    "HIEKA5",
-    "HIEKA_VERSIONS",
-    "HKKAU1",
-    "HKKAU2",
-    "HKKAU_VERSIONS",
-    "HIKAU1",
-    "HIKAU2",
-    "HIKAU_VERSIONS",
 ]

@@ -94,13 +94,12 @@ def test_accounts_adapter_capabilities_from_operations():
     adapter = FinTSAccountDiscovery(creds)
 
     # Test with allowed operations as list of segment type strings
-    allowed_ops = ["HKSAL", "HKKAZ", "HKEKA"]
+    allowed_ops = ["HKSAL", "HKKAZ"]
 
     capabilities = adapter._capabilities_from_operations(allowed_ops)
 
     assert capabilities.can_fetch_balance
     assert capabilities.can_list_transactions
-    assert capabilities.can_fetch_statements
     assert not capabilities.can_fetch_holdings
 
 
@@ -178,6 +177,75 @@ def test_balance_adapter_operations_parsing():
     assert snapshot.as_of.date() == date(2024, 1, 5)
 
 
+def test_balance_adapter_maps_all_optional_fields():
+    """Test that pending, available, and credit_limit are mapped."""
+    from geldstrom.infrastructure.fints.adapters.balances import FinTSBalanceAdapter
+    from geldstrom.infrastructure.fints.operations import BalanceResult, MT940Balance
+
+    creds = MagicMock()
+    adapter = FinTSBalanceAdapter(creds)
+
+    result = BalanceResult(
+        booked=MT940Balance(
+            amount=Decimal("1000.00"),
+            currency="EUR",
+            date=date(2024, 1, 10),
+            status="C",
+        ),
+        pending=MT940Balance(
+            amount=Decimal("50.00"),
+            currency="EUR",
+            date=date(2024, 1, 10),
+            status="D",  # Debit (pending outflow)
+        ),
+        available=Decimal("950.00"),
+        credit_line=Decimal("5000.00"),
+    )
+
+    snapshot = adapter._balance_from_operations("acct", result)
+
+    # Booked balance
+    assert snapshot.booked.amount == Decimal("1000.00")
+    assert snapshot.booked.currency == "EUR"
+
+    # Pending balance (debit should be negative)
+    assert snapshot.pending is not None
+    assert snapshot.pending.amount == Decimal("-50.00")
+    assert snapshot.pending.currency == "EUR"
+
+    # Available balance
+    assert snapshot.available is not None
+    assert snapshot.available.amount == Decimal("950.00")
+    assert snapshot.available.currency == "EUR"
+
+    # Credit limit
+    assert snapshot.credit_limit is not None
+    assert snapshot.credit_limit.amount == Decimal("5000.00")
+    assert snapshot.credit_limit.currency == "EUR"
+
+
+def test_balance_adapter_debit_balance_is_negative():
+    """Test that debit balances are converted to negative amounts."""
+    from geldstrom.infrastructure.fints.adapters.balances import FinTSBalanceAdapter
+    from geldstrom.infrastructure.fints.operations import BalanceResult, MT940Balance
+
+    creds = MagicMock()
+    adapter = FinTSBalanceAdapter(creds)
+
+    result = BalanceResult(
+        booked=MT940Balance(
+            amount=Decimal("100.00"),
+            currency="EUR",
+            date=date(2024, 1, 5),
+            status="D",  # Debit (negative balance)
+        ),
+    )
+
+    snapshot = adapter._balance_from_operations("acct", result)
+
+    assert snapshot.booked.amount == Decimal("-100.00")
+
+
 def test_transactions_adapter_mt940_parsing():
     """Test MT940 transaction parsing through transaction adapter."""
     from geldstrom.infrastructure.fints.adapters.transactions import (
@@ -214,6 +282,61 @@ def test_transactions_adapter_mt940_parsing():
     assert feed.end_date == date(2024, 1, 5)
     assert feed.entries[0].purpose == "Line One"
     assert feed.entries[1].amount == Decimal("-2")
+
+
+def test_transactions_adapter_has_more_propagation_mt940():
+    """Test that has_more flag is propagated from MT940 results."""
+    from geldstrom.infrastructure.fints.adapters.transactions import (
+        FinTSTransactionHistory,
+    )
+
+    creds = MagicMock()
+    adapter = FinTSTransactionHistory(creds)
+
+    txns = [
+        SimpleNamespace(
+            data={
+                "amount": SimpleNamespace(amount=Decimal("1.00"), currency="EUR"),
+                "date": date(2024, 1, 2),
+            }
+        ),
+    ]
+
+    # Test with has_more=False
+    feed = adapter._transactions_from_mt940("acct", txns, has_more=False)
+    assert feed.has_more is False
+
+    # Test with has_more=True
+    feed = adapter._transactions_from_mt940("acct", txns, has_more=True)
+    assert feed.has_more is True
+
+
+def test_transactions_adapter_has_more_propagation_camt():
+    """Test that has_more flag is propagated from CAMT results."""
+    from geldstrom.infrastructure.fints.adapters.transactions import (
+        FinTSTransactionHistory,
+    )
+
+    creds = MagicMock()
+    adapter = FinTSTransactionHistory(creds)
+
+    document = _build_camt_document(
+        amount="100.00",
+        indicator="CRDT",
+        entry_id="TEST",
+        addtl_info="Test",
+        remittance="Test",
+        counterpart_name="Test",
+        counterpart_iban="DE001234",
+    )
+
+    # Test with has_more=False
+    feed = adapter._transactions_from_camt("acct", [document], [], has_more=False)
+    assert feed.has_more is False
+
+    # Test with has_more=True
+    feed = adapter._transactions_from_camt("acct", [document], [], has_more=True)
+    assert feed.has_more is True
 
 
 def test_accounts_adapter_route_from_bank_identifier():

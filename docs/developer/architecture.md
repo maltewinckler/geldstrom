@@ -71,14 +71,12 @@ domain/
 │   ├── accounts.py          # Account, AccountOwner, AccountCapabilities
 │   ├── balances.py          # BalanceSnapshot, BalanceAmount
 │   ├── transactions.py      # TransactionEntry, TransactionFeed
-│   ├── statements.py        # StatementReference, StatementDocument
 │   ├── bank.py              # BankRoute, BankCapabilities
 │   └── payments.py          # Payment (future use)
 ├── ports/                   # Abstract Interfaces
 │   ├── accounts.py          # AccountDiscoveryPort
 │   ├── balances.py          # BalancePort
 │   ├── transactions.py      # TransactionHistoryPort
-│   ├── statements.py        # StatementPort
 │   ├── payments.py          # PaymentPort (future)
 │   └── session.py           # SessionPort
 └── connection/              # Session Abstractions
@@ -153,7 +151,6 @@ adapters/
 ├── accounts.py              # AccountDiscoveryPort → AccountOperations
 ├── balances.py              # BalancePort → BalanceOperations
 ├── transactions.py          # TransactionHistoryPort → TransactionOperations
-├── statements.py            # StatementPort → StatementOperations
 ├── connection.py            # ConnectionHelper (manages Dialog lifecycle)
 ├── session.py               # Session state management
 ├── serialization.py         # State serialization helpers
@@ -224,7 +221,6 @@ operations/
 ├── accounts.py              # HKSPA/HISPA (SEPA account discovery)
 ├── balances.py              # HKSAL/HISAL (balance queries)
 ├── transactions.py          # HKKAZ/HIKAZ, HKCAZ/HICAZ (transactions)
-├── statements.py            # HKEKA/HIEKA (statement downloads)
 ├── mt940.py                 # MT940/MT942 parsing
 ├── pagination.py            # Touch-ahead pagination
 ├── enums.py                 # FinTS operation codes
@@ -406,6 +402,9 @@ German banks require TAN (Transaction Authentication Number) for sensitive opera
       │                   │                   │
       │  HITAN (pending)  │  Push notify      │
       │◀──────────────────│──────────────────▶│
+      │   (code 3955)     │                   │
+      │                   │                   │
+      │  [ChallengeHandler.present_challenge()]
       │                   │                   │
       │  HKTAN (poll)     │                   │
       │──────────────────▶│                   │
@@ -417,11 +416,125 @@ German banks require TAN (Transaction Authentication Number) for sensitive opera
       │◀──────────────────│                   │
 ```
 
-**Implementation:**
+### TAN Architecture Components
 
-1. **ChallengeHandler**: User-provided callback for TAN input
-2. **Decoupled Polling**: Automatic background polling for app-based TAN
-3. **Timeout Handling**: Configurable polling interval and max duration
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         FinTS3Client                             │
+│  tan_config: TANConfig                                          │
+│  challenge_handler: ChallengeHandler                            │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                      FinTSConnectionHelper                       │
+│  Passes tan_config + challenge_handler to Dialog                │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                           Dialog                                 │
+│  _handle_decoupled_tan(response, timeout, interval, handler)    │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                       FinTSChallenge                             │
+│  Wraps HITAN segment data, implements Challenge interface       │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### TANConfig
+
+Configuration for decoupled TAN polling:
+
+```python
+class TANConfig(BaseModel):
+    poll_interval: PositiveFloat = 2.0      # Seconds between polls
+    timeout_seconds: PositiveFloat = 120.0  # Max wait time
+
+    @model_validator(mode="after")
+    def validate_config(self):
+        if self.poll_interval > self.timeout_seconds:
+            raise ValueError("poll_interval cannot exceed timeout_seconds")
+        return self
+```
+
+### ChallengeHandler Protocol
+
+User-provided handler for presenting challenges:
+
+```python
+@runtime_checkable
+class ChallengeHandler(Protocol):
+    def present_challenge(self, challenge: Challenge) -> ChallengeResult:
+        """Present challenge to user, return result."""
+        ...
+```
+
+**Challenge Types:**
+
+| Type | Description | User Action |
+|------|-------------|-------------|
+| `DECOUPLED` | App-based confirmation | Approve in banking app |
+| `PUSH` | Push notification | Approve notification |
+| `TEXT` | Text challenge | Enter TAN from letter |
+| `FLICKER` | Optical flicker code | Use TAN generator |
+| `MATRIX_CODE` | QR code | Scan with app |
+| `PHOTO_TAN` | Photo-based TAN | Scan colored image |
+
+### Decoupled TAN Polling Logic
+
+```python
+def _handle_decoupled_tan(self, init_response, timeout, poll_interval, handler):
+    # 1. Extract HITAN segment with task reference
+    hitan = init_response.find_segment_first("HITAN")
+    task_ref = hitan.task_reference
+
+    # 2. Present challenge to user (if handler provided)
+    if handler:
+        challenge = FinTSChallenge(hitan)
+        result = handler.present_challenge(challenge)
+        if result.cancelled:
+            raise ValueError("User cancelled")
+
+    # 3. Poll for approval
+    max_attempts = int(timeout / poll_interval)
+    for attempt in range(max_attempts):
+        if attempt > 0:
+            time.sleep(poll_interval)
+
+        # Send HKTAN status query
+        response = self._send_status_query(task_ref)
+
+        # Check response codes
+        if response.get_response_by_code("3956"):
+            continue  # Still waiting
+        if response.has_errors:
+            raise ValueError("TAN rejected")
+
+        return response  # Success - contains business data
+
+    raise TimeoutError("TAN not approved in time")
+```
+
+### FinTSChallenge
+
+Wraps HITAN segment data for the domain Challenge interface:
+
+```python
+class FinTSChallenge(Challenge):
+    def __init__(self, hitan):
+        self._hitan = hitan
+        self._task_reference = hitan.task_reference
+        self._challenge_text = hitan.challenge
+        self._challenge_data = self._extract_hhduc(hitan)
+
+    @property
+    def is_decoupled(self) -> bool:
+        # Decoupled if has task_ref but no HHD_UC data
+        return self._task_reference and not self._challenge_data
+```
 
 ## Session Management
 

@@ -12,6 +12,7 @@ from .connection import (
     ResponseStatus,
     SessionHandle,
     SessionToken,
+    TANConfig,
 )
 from .model import (
     Account,
@@ -23,8 +24,6 @@ from .model import (
     BankRoute,
     PaymentConfirmation,
     PaymentInstruction,
-    StatementDocument,
-    StatementReference,
     TransactionEntry,
     TransactionFeed,
 )
@@ -51,8 +50,7 @@ __all__ = [
     "ResponseStatus",
     "SessionHandle",
     "SessionToken",
-    "StatementDocument",
-    "StatementReference",
+    "TANConfig",
     "TransactionEntry",
     "TransactionFeed",
 ]

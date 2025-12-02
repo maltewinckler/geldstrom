@@ -109,8 +109,8 @@ class TestSegmentAutoRegistration:
         # We should have at least 60 segments (reduced after dead code removal)
         assert len(FinTSSegment._segment_registry) >= 60
 
-        # We should have at least 40 segment types (reduced after dead code removal)
-        assert len(FinTSSegment.get_registered_types()) >= 40
+        # We should have at least 39 segment types (post-statement removal)
+        assert len(FinTSSegment.get_registered_types()) >= 39
 
     def test_get_versions(self):
         """Test getting all versions of a segment type."""

@@ -11,7 +11,6 @@ from .connection import ConnectionContext, FinTSConnectionHelper
 from .helpers import account_key, locate_sepa_account
 from .serialization import compress_datablob, decompress_datablob
 from .session import FinTSSessionAdapter
-from .statements import FinTSStatementAdapter
 from .transactions import FinTSTransactionHistory
 
 __all__ = [
@@ -20,7 +19,6 @@ __all__ = [
     "FinTSBalanceAdapter",
     "FinTSConnectionHelper",
     "FinTSSessionAdapter",
-    "FinTSStatementAdapter",
     "FinTSTransactionHistory",
     "account_key",
     "compress_datablob",

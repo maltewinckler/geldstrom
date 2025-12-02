@@ -62,6 +62,8 @@ The main client class for interacting with banks.
 #### Constructor
 
 ```python
+from geldstrom import FinTS3Client, TANConfig
+
 FinTS3Client(
     bank_code: str,           # Bank identifier (BLZ), e.g., "12345678"
     server_url: str,          # FinTS server URL
@@ -73,6 +75,7 @@ FinTS3Client(
     customer_id: str = None,  # Customer ID if different from user_id
     tan_medium: str = None,   # TAN device name (e.g., "SecureGo")
     tan_method: str = None,   # TAN method identifier (usually auto-detected)
+    tan_config: TANConfig = None,  # TAN polling configuration
 )
 ```
 
@@ -87,8 +90,6 @@ FinTS3Client(
 | `get_balance(account)` | Fetch current balance | `BalanceSnapshot` |
 | `get_balances(account_ids)` | Fetch multiple balances | `Sequence[BalanceSnapshot]` |
 | `get_transactions(account, start_date, end_date)` | Fetch transaction history | `TransactionFeed` |
-| `list_statements(account)` | List available statements | `Sequence[StatementReference]` |
-| `get_statement(reference)` | Download a statement | `StatementDocument` |
 
 #### Properties
 
@@ -97,6 +98,7 @@ FinTS3Client(
 | `is_connected` | Connection status | `bool` |
 | `capabilities` | Bank's advertised capabilities | `BankCapabilities` |
 | `session_state` | Current session for persistence | `SessionToken` |
+| `tan_config` | TAN polling configuration | `TANConfig` |
 
 #### Context Manager
 
@@ -131,8 +133,10 @@ Current account balance.
 | Field | Type | Description |
 |-------|------|-------------|
 | `account_id` | `str` | Account identifier |
-| `booked` | `BalanceAmount` | Booked balance |
-| `available` | `BalanceAmount` | Available balance (if provided) |
+| `booked` | `BalanceAmount` | Booked (confirmed) balance |
+| `pending` | `BalanceAmount \| None` | Pending (unconfirmed) balance |
+| `available` | `BalanceAmount \| None` | Available balance (may differ due to holds) |
+| `credit_limit` | `BalanceAmount \| None` | Credit limit on the account |
 | `as_of` | `datetime` | Timestamp of the balance |
 
 #### TransactionFeed
@@ -145,6 +149,7 @@ Collection of transactions.
 | `start_date` | `date` | Start of date range |
 | `end_date` | `date` | End of date range |
 | `entries` | `list[TransactionEntry]` | Transaction entries |
+| `has_more` | `bool` | Whether more transactions are available (pagination) |
 
 #### TransactionEntry
 
@@ -180,7 +185,50 @@ transactions = client.get_transactions(
 )
 ```
 
-The default timeout for TAN approval is 120 seconds.
+### Configuring TAN Polling
+
+You can customize the polling behavior with `TANConfig`:
+
+```python
+from geldstrom import FinTS3Client, TANConfig
+
+# Custom TAN configuration
+tan_config = TANConfig(
+    poll_interval=3.0,      # Poll every 3 seconds (default: 2.0)
+    timeout_seconds=180.0,  # Wait up to 3 minutes (default: 120.0)
+)
+
+client = FinTS3Client(
+    bank_code="12345678",
+    server_url="https://banking.example.com/fints",
+    user_id="your_username",
+    pin="your_pin",
+    product_id="YOUR_PRODUCT_ID",
+    tan_config=tan_config,
+)
+
+# Or update after creation
+client.tan_config = TANConfig(poll_interval=5.0, timeout_seconds=300.0)
+```
+
+### Custom Challenge Handler
+
+For advanced use cases, you can provide a custom challenge handler:
+
+```python
+from geldstrom.domain import ChallengeHandler, Challenge, ChallengeResult
+
+class MyChallengeHandler:
+    def present_challenge(self, challenge: Challenge) -> ChallengeResult:
+        print(f"Please confirm: {challenge.challenge_text}")
+        # For decoupled TAN, return empty result to trigger polling
+        return ChallengeResult()
+
+client = FinTS3Client(
+    ...,
+    challenge_handler=MyChallengeHandler(),
+)
+```
 
 ## Configuration
 
@@ -195,20 +243,6 @@ FINTS_SERVER=https://banking.example.com/fints
 FINTS_PRODUCT_ID=YOUR_PRODUCT_ID
 ```
 
-### Finding Your Bank's FinTS URL
-
-Common patterns:
-
-- **Sparkassen:** `https://banking-[region].s-fints-pt-[region].de/fints30`
-- **Volksbanken:** `https://fints.gad.de/fints`
-- **Deutsche Bank:** `https://fints.deutsche-bank.de/`
-- **DKB:** `https://banking-dkb.s-fints-pt-dkb.de/fints30`
-
-Check your bank's online banking documentation or contact support.
-
-### Product Registration
-
-To use FinTS, you need a registered product ID. Register at [hbci-zka.de](https://www.hbci-zka.de/register/prod_register.htm).
 
 ## Limitations
 
@@ -235,12 +269,6 @@ poetry run pytest tests/integration/ --run-integration
 poetry run ruff check geldstrom/
 poetry run ruff format geldstrom/
 ```
-
-## Security
-
-Report security issues to: security@pretix.eu
-
-Never commit banking credentials to version control.
 
 ## Credits
 

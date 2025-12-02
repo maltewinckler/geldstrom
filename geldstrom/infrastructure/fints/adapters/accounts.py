@@ -6,7 +6,6 @@ import logging
 from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
-from geldstrom.infrastructure.fints.credentials import GatewayCredentials
 from geldstrom.domain import (
     Account,
     AccountCapabilities,
@@ -14,7 +13,9 @@ from geldstrom.domain import (
     BankCapabilities,
     BankRoute,
 )
+from geldstrom.domain.connection import ChallengeHandler, TANConfig
 from geldstrom.domain.ports.accounts import AccountDiscoveryPort
+from geldstrom.infrastructure.fints.credentials import GatewayCredentials
 from geldstrom.infrastructure.fints.operations import AccountInfo
 from geldstrom.infrastructure.fints.protocol import (
     BankIdentifier as FinTSBankIdentifier,
@@ -37,14 +38,24 @@ class FinTSAccountDiscovery(AccountDiscoveryPort):
     Discovers accounts and bank capabilities via FinTS dialogs.
     """
 
-    def __init__(self, credentials: GatewayCredentials) -> None:
+    def __init__(
+        self,
+        credentials: GatewayCredentials,
+        *,
+        tan_config: TANConfig | None = None,
+        challenge_handler: ChallengeHandler | None = None,
+    ) -> None:
         """
         Initialize with credentials for building clients.
 
         Args:
             credentials: Bank connection credentials
+            tan_config: Configuration for TAN handling (polling, timeout)
+            challenge_handler: Handler for presenting 2FA challenges to user
         """
         self._credentials = credentials
+        self._tan_config = tan_config or TANConfig()
+        self._challenge_handler = challenge_handler
 
     def fetch_bank_capabilities(
         self,
@@ -59,7 +70,11 @@ class FinTSAccountDiscovery(AccountDiscoveryPort):
         Returns:
             BankCapabilities with supported operations
         """
-        helper = FinTSConnectionHelper(self._credentials)
+        helper = FinTSConnectionHelper(
+            self._credentials,
+            tan_config=self._tan_config,
+            challenge_handler=self._challenge_handler,
+        )
 
         with helper.connect(state) as ctx:
             # Get supported operations from BPD
@@ -87,7 +102,11 @@ class FinTSAccountDiscovery(AccountDiscoveryPort):
         """
         from geldstrom.infrastructure.fints.operations import AccountOperations
 
-        helper = FinTSConnectionHelper(self._credentials)
+        helper = FinTSConnectionHelper(
+            self._credentials,
+            tan_config=self._tan_config,
+            challenge_handler=self._challenge_handler,
+        )
 
         with helper.connect(state) as ctx:
             ops = AccountOperations(ctx.dialog, ctx.parameters)
@@ -191,7 +210,6 @@ class FinTSAccountDiscovery(AccountDiscoveryPort):
         return AccountCapabilities(
             can_fetch_balance="HKSAL" in ops_set,
             can_list_transactions="HKKAZ" in ops_set or "HKCAZ" in ops_set,
-            can_fetch_statements="HKEKA" in ops_set,
             can_fetch_holdings="HKWPD" in ops_set,
             can_fetch_scheduled_debits="HKDBS" in ops_set or "HKDMB" in ops_set,
         )

@@ -617,7 +617,7 @@ class TestStrictModeParser:
         """Compare robust vs strict parsing of BPD parameter segments.
 
         Note: BankParameters.serialize() only serializes the parameter segments
-        (HISALS, HIEKAS, etc.), not HIBPA itself which is stored separately.
+        (HISALS, HIKAZS, etc.), not HIBPA itself which is stored separately.
 
         Robust mode should parse most segments, though some may be skipped
         if they have validation errors (these are logged as warnings).

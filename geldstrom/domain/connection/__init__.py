@@ -7,6 +7,7 @@ from .challenge import (
     ChallengeType,
     DecoupledPoller,
     InteractiveChallengeHandler,
+    TANConfig,
 )
 from .credentials import BankCredentials
 from .retry import NeedRetryResponse, ResponseStatus
@@ -25,4 +26,5 @@ __all__ = [
     "ResponseStatus",
     "SessionHandle",
     "SessionToken",
+    "TANConfig",
 ]

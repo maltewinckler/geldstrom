@@ -19,6 +19,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any
 
+from geldstrom.domain.connection import ChallengeHandler, TANConfig
 from geldstrom.infrastructure.fints.credentials import GatewayCredentials
 from geldstrom.infrastructure.fints.adapters.serialization import (
     compress_datablob,
@@ -82,14 +83,24 @@ class FinTSConnectionHelper:
             accounts = ops.fetch_sepa_accounts()
     """
 
-    def __init__(self, credentials: GatewayCredentials) -> None:
+    def __init__(
+        self,
+        credentials: GatewayCredentials,
+        *,
+        tan_config: TANConfig | None = None,
+        challenge_handler: ChallengeHandler | None = None,
+    ) -> None:
         """
         Initialize with credentials.
 
         Args:
             credentials: Bank connection credentials
+            tan_config: Configuration for TAN handling (polling, timeout)
+            challenge_handler: Handler for presenting 2FA challenges to user
         """
         self._credentials = credentials
+        self._tan_config = tan_config or TANConfig()
+        self._challenge_handler = challenge_handler
 
     @contextmanager
     def connect(
@@ -149,7 +160,12 @@ class FinTSConnectionHelper:
         try:
             # Initialize dialog - with HKTAN if using two-step auth
             # Note: Dialog.initialize() handles decoupled TAN (3955) internally
-            dialog.initialize(extra_segments=extra_init_segments)
+            dialog.initialize(
+                extra_segments=extra_init_segments,
+                decoupled_timeout=self._tan_config.timeout_seconds,
+                decoupled_poll_interval=self._tan_config.poll_interval,
+                challenge_handler=self._challenge_handler,
+            )
 
             yield ConnectionContext(
                 dialog=dialog,

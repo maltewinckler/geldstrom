@@ -4,7 +4,6 @@ Tests cover:
 - Balance segments (HKSAL, HISAL)
 - Account segments (HKSPA, HISPA)
 - Transaction segments (HKKAZ, HIKAZ, HKCAZ, HICAZ)
-- Statement segments (HKEKA, HIEKA, HKKAU, HIKAU)
 - Segment version registries
 """
 from __future__ import annotations
@@ -26,7 +25,6 @@ from geldstrom.infrastructure.fints.protocol.formals import (
     BookedCamtStatements,
     Confirmation,
     CreditDebit,
-    StatementFormat,
     SupportedMessageTypes,
     Timestamp,
 )
@@ -56,22 +54,6 @@ from geldstrom.infrastructure.fints.protocol.segments import (
     HKCAZ_VERSIONS,
     HICAZ1,
     HICAZ_VERSIONS,
-    # Statement segments
-    HKEKA3,
-    HKEKA4,
-    HKEKA5,
-    HKEKA_VERSIONS,
-    HIEKA3,
-    HIEKA4,
-    HIEKA5,
-    HIEKA_VERSIONS,
-    HKKAU1,
-    HKKAU2,
-    HKKAU_VERSIONS,
-    HIKAU1,
-    HIKAU2,
-    HIKAU_VERSIONS,
-    ReportPeriod,
 )
 
 
@@ -400,10 +382,6 @@ class TestSegmentId:
         assert HIKAZ7.segment_id() == "HIKAZ7"
         assert HKCAZ1.segment_id() == "HKCAZ1"
         assert HICAZ1.segment_id() == "HICAZ1"
-        assert HKEKA5.segment_id() == "HKEKA5"
-        assert HIEKA5.segment_id() == "HIEKA5"
-        assert HKKAU2.segment_id() == "HKKAU2"
-        assert HIKAU2.segment_id() == "HIKAU2"
 
 
 # =============================================================================
@@ -543,140 +521,4 @@ class TestHICAZ:
         assert segment.camt_descriptor.startswith("urn:iso")
 
 
-# =============================================================================
-# Statement Segment Tests
-# =============================================================================
-
-
-class TestHKEKA:
-    """Tests for HKEKA (statement request) segments."""
-
-    def test_hkeka3_creation(self, sample_header, sample_account):
-        """Create HKEKA3 segment."""
-        sample_header.type = "HKEKA"
-        sample_header.version = 3
-
-        segment = HKEKA3(
-            header=sample_header,
-            account=sample_account,
-            statement_number=1,
-            statement_year=2023,
-        )
-        assert segment.SEGMENT_TYPE == "HKEKA"
-        assert segment.SEGMENT_VERSION == 3
-        assert segment.statement_number == 1
-        assert segment.statement_year == 2023
-
-    def test_hkeka5_with_format(self, sample_header):
-        """Create HKEKA5 with statement format."""
-        sample_header.type = "HKEKA"
-        sample_header.version = 5
-
-        account = AccountInternational(
-            iban="DE89370400440532013000",
-        )
-
-        segment = HKEKA5(
-            header=sample_header,
-            account=account,
-            statement_format=StatementFormat.PDF,
-            statement_number=12,
-            statement_year=2023,
-        )
-        assert segment.statement_format == StatementFormat.PDF
-
-    def test_hkeka_version_registry(self):
-        """HKEKA version registry contains all versions."""
-        assert 3 in HKEKA_VERSIONS
-        assert 4 in HKEKA_VERSIONS
-        assert 5 in HKEKA_VERSIONS
-
-
-class TestHIEKA:
-    """Tests for HIEKA (statement response) segments."""
-
-    def test_hieka3_creation(self, sample_header):
-        """Create HIEKA3 segment."""
-        sample_header.type = "HIEKA"
-        sample_header.version = 3
-
-        report_period = ReportPeriod(
-            start_date=date(2023, 1, 1),
-            end_date=date(2023, 1, 31),
-        )
-
-        segment = HIEKA3(
-            header=sample_header,
-            statement_period=report_period,
-            data=b"%PDF-1.4\n...",
-        )
-        assert segment.statement_period.start_date == date(2023, 1, 1)
-        assert b"PDF" in segment.data
-
-    def test_hieka5_with_metadata(self, sample_header):
-        """Create HIEKA5 with all optional metadata."""
-        sample_header.type = "HIEKA"
-        sample_header.version = 5
-
-        report_period = ReportPeriod(start_date=date(2023, 12, 1))
-
-        segment = HIEKA5(
-            header=sample_header,
-            statement_format=StatementFormat.PDF,
-            statement_period=report_period,
-            data=b"...",
-            date_created=date(2023, 12, 15),
-            statement_year=2023,
-            statement_number=12,
-            account_iban="DE89370400440532013000",
-            account_bic="COBADEFFXXX",
-            statement_name_1="Kontoauszug Dezember",
-        )
-        assert segment.date_created == date(2023, 12, 15)
-        assert segment.account_iban == "DE89370400440532013000"
-
-    def test_hieka_version_registry(self):
-        """HIEKA version registry contains all versions."""
-        assert 3 in HIEKA_VERSIONS
-        assert 4 in HIEKA_VERSIONS
-        assert 5 in HIEKA_VERSIONS
-
-
-class TestStatementOverview:
-    """Tests for statement overview segments (HKKAU, HIKAU)."""
-
-    def test_hkkau1_creation(self, sample_header, sample_account):
-        """Create HKKAU1 segment."""
-        sample_header.type = "HKKAU"
-        sample_header.version = 1
-
-        segment = HKKAU1(
-            header=sample_header,
-            account=sample_account,
-        )
-        assert segment.SEGMENT_TYPE == "HKKAU"
-
-    def test_hikau1_creation(self, sample_header):
-        """Create HIKAU1 segment."""
-        sample_header.type = "HIKAU"
-        sample_header.version = 1
-
-        segment = HIKAU1(
-            header=sample_header,
-            statement_number=12,
-            confirmation=Confirmation.NOT_REQUIRED,
-            collection_possible=True,
-            year=2023,
-            date_created=date(2023, 12, 1),
-        )
-        assert segment.statement_number == 12
-        assert segment.confirmation == Confirmation.NOT_REQUIRED
-        assert segment.collection_possible is True
-
-    def test_version_registries(self):
-        """Version registries contain all versions."""
-        assert 1 in HKKAU_VERSIONS
-        assert 2 in HKKAU_VERSIONS
-        assert 1 in HIKAU_VERSIONS
-        assert 2 in HIKAU_VERSIONS
 

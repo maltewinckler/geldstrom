@@ -53,8 +53,6 @@ from .enums import (
     SecurityRole,
     ServiceType,
     SMSChargeAccountRequired,
-    # Statement
-    StatementFormat,
     # System
     SynchronizationMode,
     SystemIDStatus,
@@ -169,7 +167,6 @@ __all__ = [
     "TANMediaClass3",
     "TANMediaClass4",
     # Enums - Statement
-    "StatementFormat",
     "Confirmation",
     # Identifiers
     "BankIdentifier",

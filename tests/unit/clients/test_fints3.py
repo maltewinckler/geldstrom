@@ -54,7 +54,6 @@ def sample_account() -> Account:
         capabilities=AccountCapabilities(
             can_fetch_balance=True,
             can_list_transactions=True,
-            can_fetch_statements=False,
             can_fetch_holdings=False,
         ),
     )
@@ -230,6 +229,84 @@ class TestConnectionManagement:
         mock_session.close_session.assert_called_once_with(mock_session_state)
 
     @patch("geldstrom.clients.fints3.FinTSSessionAdapter")
+    def test_disconnect_clears_cached_data(
+        self, mock_session_cls, mock_session_state, sample_account
+    ):
+        """disconnect() clears cached accounts and capabilities."""
+        mock_session = MagicMock()
+        mock_session_cls.return_value = mock_session
+
+        client = FinTS3Client(
+            bank_code="12345678",
+            server_url="https://example.com/fints",
+            user_id="testuser",
+            pin="testpin",
+            product_id="TESTPROD",
+        )
+        client._session_state = mock_session_state
+        client._session_adapter = mock_session
+        client._accounts = [sample_account]
+        client._capabilities = BankCapabilities()
+        client._connected = True
+
+        client.disconnect()
+
+        assert client._accounts == ()
+        assert client._capabilities is None
+        assert not client.is_connected
+
+    @patch("geldstrom.clients.fints3.FinTSSessionAdapter")
+    @patch("geldstrom.clients.fints3.FinTSAccountDiscovery")
+    def test_ensure_connected_reconnects_when_disconnected(
+        self,
+        mock_discovery_cls,
+        mock_session_cls,
+        sample_account,
+        mock_session_state,
+    ):
+        """ensure_connected() triggers connect() when not connected."""
+        mock_session = MagicMock()
+        mock_session.open_session.return_value = mock_session_state
+        mock_session_cls.return_value = mock_session
+
+        mock_discovery = MagicMock()
+        mock_discovery.fetch_bank_capabilities.return_value = BankCapabilities()
+        mock_discovery.fetch_accounts.return_value = [sample_account]
+        mock_discovery_cls.return_value = mock_discovery
+
+        client = FinTS3Client(
+            bank_code="12345678",
+            server_url="https://example.com/fints",
+            user_id="testuser",
+            pin="testpin",
+            product_id="TESTPROD",
+        )
+
+        assert not client.is_connected
+
+        client.ensure_connected()
+
+        assert client.is_connected
+        mock_session.open_session.assert_called_once()
+
+    def test_ensure_connected_noop_when_connected(self, sample_account):
+        """ensure_connected() does nothing when already connected."""
+        client = FinTS3Client(
+            bank_code="12345678",
+            server_url="https://example.com/fints",
+            user_id="testuser",
+            pin="testpin",
+            product_id="TESTPROD",
+        )
+        client._accounts = [sample_account]
+        client._connected = True
+
+        # Should not raise or trigger connection
+        client.ensure_connected()
+
+        assert client.is_connected
+
+    @patch("geldstrom.clients.fints3.FinTSSessionAdapter")
     @patch("geldstrom.clients.fints3.FinTSAccountDiscovery")
     def test_context_manager(
         self,
@@ -272,8 +349,8 @@ class TestConnectionManagement:
 class TestAccountOperations:
     """Tests for account-related operations."""
 
-    def test_list_accounts_returns_cached(self, sample_account):
-        """list_accounts() returns cached accounts if available."""
+    def test_list_accounts_returns_cached_when_connected(self, sample_account):
+        """list_accounts() returns cached accounts when already connected."""
         client = FinTS3Client(
             bank_code="12345678",
             server_url="https://example.com/fints",
@@ -282,6 +359,7 @@ class TestAccountOperations:
             product_id="TESTPROD",
         )
         client._accounts = [sample_account]
+        client._connected = True  # Mark as connected
 
         accounts = client.list_accounts()
 
@@ -298,6 +376,7 @@ class TestAccountOperations:
             product_id="TESTPROD",
         )
         client._accounts = [sample_account]
+        client._connected = True  # Mark as connected
 
         account = client.get_account("123456:0")
 
@@ -313,6 +392,7 @@ class TestAccountOperations:
             product_id="TESTPROD",
         )
         client._accounts = [sample_account]
+        client._connected = True  # Mark as connected
 
         with pytest.raises(ValueError, match="not found"):
             client.get_account("999999:0")
@@ -348,6 +428,7 @@ class TestBalanceOperations:
         )
         client._session_state = mock_session_state
         client._accounts = [sample_account]
+        client._connected = True  # Mark as connected
 
         balance = client.get_balance(sample_account)
 
@@ -378,24 +459,11 @@ class TestBalanceOperations:
         )
         client._session_state = mock_session_state
         client._accounts = [sample_account]
+        client._connected = True  # Mark as connected
 
         balance = client.get_balance("123456:0")
 
         assert balance.booked.amount == Decimal("1234.56")
-
-    def test_get_balance_not_connected(self, sample_account):
-        """get_balance() raises RuntimeError if not connected."""
-        client = FinTS3Client(
-            bank_code="12345678",
-            server_url="https://example.com/fints",
-            user_id="testuser",
-            pin="testpin",
-            product_id="TESTPROD",
-        )
-        client._accounts = [sample_account]
-
-        with pytest.raises(RuntimeError, match="Not connected"):
-            client.get_balance(sample_account)
 
 
 # =============================================================================
@@ -428,6 +496,7 @@ class TestTransactionOperations:
         )
         client._session_state = mock_session_state
         client._accounts = [sample_account]
+        client._connected = True  # Mark as connected
 
         start = date(2025, 1, 1)
         end = date(2025, 1, 31)
@@ -462,6 +531,7 @@ class TestTransactionOperations:
             product_id="TESTPROD",
         )
         client._session_state = mock_session_state
+        client._connected = True  # Mark as connected
 
         feed = client.get_transactions("123456:0")
 

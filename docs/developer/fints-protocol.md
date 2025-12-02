@@ -236,13 +236,6 @@ Segment types follow a naming pattern:
 | `HKCAZ` | 1 | Transaction request (CAMT) |
 | `HICAZ` | 1 | Transaction response (CAMT) |
 
-#### Statements
-
-| Segment | Version | Description |
-|---------|---------|-------------|
-| `HKEKA` | 5 | Statement request |
-| `HIEKA` | 5 | Statement response |
-
 #### TAN Management
 
 | Segment | Version | Description |

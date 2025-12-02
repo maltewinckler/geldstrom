@@ -1,5 +1,6 @@
 """FinTS dialog infrastructure for managing bank connections."""
 
+from .challenge import FinTSChallenge
 from .connection import ConnectionConfig, HTTPSDialogConnection
 from .factory import (
     DIALOG_ID_UNASSIGNED,
@@ -31,6 +32,7 @@ __all__ = [
     "DialogResponse",
     "DialogState",
     "DIALOG_ID_UNASSIGNED",
+    "FinTSChallenge",
     "FinTSCustomerMessage",
     "FinTSInstituteMessage",
     "FinTSMessage",

@@ -12,7 +12,6 @@ from .enums import FinTSOperations
 from .helpers import find_highest_supported_version
 from .mt940 import decode_phototan_image, mt940_to_array
 from .pagination import PaginatedResult, TouchdownPaginator
-from .statements import StatementDocument, StatementInfo, StatementOperations
 from .transactions import (
     CAMTTransactionResult,
     MT940TransactionResult,
@@ -37,10 +36,6 @@ __all__ = [
     "CAMTTransactionResult",
     "MT940TransactionResult",
     "TransactionOperations",
-    # Statements
-    "StatementDocument",
-    "StatementInfo",
-    "StatementOperations",
     # MT940 utilities
     "decode_phototan_image",
     "mt940_to_array",

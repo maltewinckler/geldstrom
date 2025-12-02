@@ -38,14 +38,13 @@ def test_bank_capabilities_support_lookup() -> None:
         supported_formats={"GET_TRANSACTIONS": ("camt.052",)},
     )
     assert capabilities.supports("GET_BALANCE")
-    assert not capabilities.supports("GET_STATEMENT")
+    assert not capabilities.supports("GET_HOLDINGS")
 
 
 def test_account_support_helpers(bank_route: BankRoute) -> None:
     caps = AccountCapabilities(
         can_fetch_balance=True,
         can_list_transactions=True,
-        can_fetch_statements=False,
         can_fetch_holdings=True,
         can_fetch_scheduled_debits=False,
     )
@@ -62,22 +61,27 @@ def test_account_support_helpers(bank_route: BankRoute) -> None:
         metadata={"account_number": "123"},
     )
     assert account.supports_transactions()
-    assert not account.supports_statements()
     assert account.supports_holdings()
     assert caps.as_dict()["transactions"] is True
 
 
 def test_balance_snapshot_records_all_amounts() -> None:
     booked = BalanceAmount(amount=Decimal("123.45"), currency="EUR")
+    pending = BalanceAmount(amount=Decimal("-10.00"), currency="EUR")
     available = BalanceAmount(amount=Decimal("111.00"), currency="EUR")
+    credit_limit = BalanceAmount(amount=Decimal("5000.00"), currency="EUR")
     snapshot = BalanceSnapshot(
         account_id="acct",
         as_of=datetime(2024, 1, 1, tzinfo=timezone.utc),
         booked=booked,
+        pending=pending,
         available=available,
+        credit_limit=credit_limit,
     )
     assert snapshot.booked.amount == Decimal("123.45")
+    assert snapshot.pending.amount == Decimal("-10.00")
     assert snapshot.available.amount == Decimal("111.00")
+    assert snapshot.credit_limit.amount == Decimal("5000.00")
 
 
 def test_transaction_feed_preserves_entry_bounds() -> None:

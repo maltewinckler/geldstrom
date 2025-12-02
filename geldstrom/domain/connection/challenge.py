@@ -1,4 +1,5 @@
 """Protocol-agnostic second-factor authentication challenges."""
+
 from __future__ import annotations
 
 from abc import ABCMeta, abstractmethod
@@ -6,7 +7,37 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Protocol, runtime_checkable
 
-from pydantic import BaseModel
+from pydantic import BaseModel, PositiveFloat, model_validator
+
+
+class TANConfig(BaseModel):
+    """
+    Configuration for TAN (Transaction Authentication Number) handling.
+
+    This configuration controls how the client handles second-factor
+    authentication challenges. Currently focused on decoupled TAN
+    (app-based confirmation), but designed for future extensibility
+    to other TAN methods.
+
+    Attributes:
+        poll_interval: Seconds between status checks during decoupled TAN
+                       polling (default: 2.0)
+        timeout_seconds: Maximum seconds to wait for TAN confirmation
+                         (default: 120.0)
+
+    Example:
+        >>> config = TANConfig(poll_interval=3.0, timeout_seconds=180.0)
+        >>> client = FinTS3Client(..., tan_config=config)
+    """
+
+    poll_interval: PositiveFloat = 2.0
+    timeout_seconds: PositiveFloat = 120.0
+
+    @model_validator(mode="after")
+    def validate_config(self):
+        if self.poll_interval > self.timeout_seconds:
+            raise ValueError("poll_interval cannot exceed timeout_seconds")
+        return self
 
 
 class ChallengeType(Enum):
@@ -219,4 +250,5 @@ __all__ = [
     "ChallengeType",
     "DecoupledPoller",
     "InteractiveChallengeHandler",
+    "TANConfig",
 ]
