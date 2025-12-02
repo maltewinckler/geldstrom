@@ -1,18 +1,17 @@
 # Geldstrom
 
-A pure-Python implementation of FinTS 3.0, the standard protocol for online banking with German banks.
+Access your German bank accounts programmatically. Geldstrom is a Python client for FinTS 3.0, the standardized banking protocol used by Sparkassen, Volksbanken, Deutsche Bank, DKB, and most other German financial institutions.
 
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![License: BUSL 1.1](https://img.shields.io/badge/License-BUSL%201.1-blue.svg)](https://mariadb.com/bsl11/)
 
 ## Features
 
-- Read-only access to German bank accounts
-- Transaction history with date range filtering (MT940 and CAMT formats)
-- Balance queries across multiple accounts
-- Account discovery and capability detection
-- Decoupled TAN support (push notifications via SecureGo, pushTAN, etc.)
-- Type-safe API with Pydantic models
+- **Account access** — List accounts, fetch balances, download transaction history
+- **Modern TAN support** — Decoupled authentication via SecureGo, pushTAN, and similar app-based methods
+- **Multiple formats** — Parses both legacy MT940 and modern CAMT.052/053 transaction data
+- **Type-safe** — Pydantic models with full validation throughout
+- **Read-only** — Designed for data retrieval, not transfers (safe by default)
 
 ## Installation
 
@@ -245,7 +244,7 @@ Never commit banking credentials to version control.
 
 ## Credits
 
-Originally developed as [python-fints](https://github.com/raphaelm/python-fints) by Raphael Michel and Henryk Ploetz, with contributions from the community.
+Geldstrom builds on the foundation laid by [python-fints](https://github.com/raphaelm/python-fints), an open-source FinTS implementation created and maintained by [Raphael Michel](https://github.com/raphaelm).
 
 ## License
 
