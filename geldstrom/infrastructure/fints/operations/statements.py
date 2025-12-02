@@ -129,7 +129,7 @@ class StatementOperations:
                 account=account_field,
                 statement_format=None,  # List all formats
                 statement_number=0,  # 0 = list available
-                statement_year=0,
+                statement_year=date.today().year,  # Current year
                 touchdown_point=touchdown,
             )
 

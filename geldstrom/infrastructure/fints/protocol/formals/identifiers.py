@@ -91,6 +91,9 @@ class BankIdentifier(FinTSDataElementGroup):
 
     Source: FinTS 3.0 Formals
 
+    Note: bank_code is optional because some banks (e.g., DKB) send incomplete
+    data with just the country code.
+
     Example:
         bank = BankIdentifier(country_identifier="280", bank_code="12345678")
         bank = BankIdentifier.from_wire_list(["280", "12345678"])
@@ -99,7 +102,8 @@ class BankIdentifier(FinTSDataElementGroup):
     country_identifier: FinTSCountry = Field(
         description="Länderkennzeichen (ISO 3166-1 numeric)",
     )
-    bank_code: FinTSAlphanumeric = Field(
+    bank_code: FinTSAlphanumeric | None = Field(
+        default=None,
         max_length=30,
         description="Kreditinstitutscode (BLZ in Germany)",
     )
@@ -238,12 +242,15 @@ class AccountInternationalSEPA(FinTSDataElementGroup):
         """Convert to SEPAAccount model."""
         if not self.is_sepa:
             return None
+        blz = None
+        if self.bank_identifier and self.bank_identifier.bank_code:
+            blz = self.bank_identifier.bank_code
         return SEPAAccount(
             iban=self.iban,
             bic=self.bic,
             accountnumber=self.account_number,
             subaccount=self.subaccount_number or "",
-            blz=self.bank_identifier.bank_code,
+            blz=blz,
         )
 
     @classmethod

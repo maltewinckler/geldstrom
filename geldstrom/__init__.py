@@ -1,34 +1,25 @@
-"""Python FinTS - A pure Python implementation of FinTS 3.0.
+"""Geldstrom - A pure Python implementation of FinTS 3.0.
 
 This package provides clients for interacting with German banks using
 the FinTS (Financial Transaction Services) protocol.
 
 Quick Start:
-    from geldstrom import FinTS3Client, BankCredentials, BankRoute
-    from geldstrom.clients import ClientCredentials
+    from geldstrom import FinTS3Client
 
-    creds = ClientCredentials(
-        route=BankRoute("DE", "12345678"),
+    with FinTS3Client(
+        bank_code="12345678",
         server_url="https://banking.example.com/fints",
-        credentials=BankCredentials(
-            user_id="user123",
-            secret="mypin",
-        ),
+        user_id="user123",
+        pin="mypin",
         product_id="YOUR_PRODUCT_ID",
-    )
-
-    with FinTS3Client(creds) as client:
+    ) as client:
         for account in client.list_accounts():
             balance = client.get_balance(account)
             print(f"{account.iban}: {balance.booked.amount}")
 """
 
 # --- Client exports (presentation layer) ---
-# --- Application exports ---
-from geldstrom.clients import (
-    ClientCredentials,
-    FinTS3Client,
-)
+from geldstrom.clients import FinTS3Client
 
 # --- Domain exports ---
 from geldstrom.domain import (
@@ -45,6 +36,8 @@ from geldstrom.domain import (
     TransactionEntry,
     TransactionFeed,
 )
+
+# --- Advanced/internal exports ---
 from geldstrom.infrastructure.fints import GatewayCredentials
 
 # Version
@@ -55,7 +48,6 @@ __all__ = [
     "version",
     # Clients
     "FinTS3Client",
-    "ClientCredentials",
     # Domain models
     "Account",
     "AccountCapabilities",
@@ -69,6 +61,6 @@ __all__ = [
     "SessionToken",
     "TransactionEntry",
     "TransactionFeed",
-    # Application
+    # Advanced (for from_gateway_credentials)
     "GatewayCredentials",
 ]

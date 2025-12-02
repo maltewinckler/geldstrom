@@ -1,21 +1,18 @@
 # Geldstrom
 
-**German banking made simple.** Access your bank accounts, fetch transactions, and check balances programmatically.
-
-Geldstrom is a pure-Python implementation of the FinTS/HBCI protocol, the standard interface for online banking with German banks.
+A pure-Python implementation of FinTS 3.0, the standard protocol for online banking with German banks.
 
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
-[![License: LGPL v3](https://img.shields.io/badge/License-LGPL%20v3-blue.svg)](https://www.gnu.org/licenses/lgpl-3.0)
+[![License: BUSL 1.1](https://img.shields.io/badge/License-BUSL%201.1-blue.svg)](https://mariadb.com/bsl11/)
 
 ## Features
 
-- **Read-only access** to German bank accounts
-- **Fetch transactions** with date range filtering
-- **Check balances** across multiple accounts
-- **List accounts** and their capabilities
-- **Decoupled TAN support** (push notifications via banking apps like SecureGo)
-- **Type-safe** with Pydantic models
-- **No external dependencies** on banking software
+- Read-only access to German bank accounts
+- Transaction history with date range filtering (MT940 and CAMT formats)
+- Balance queries across multiple accounts
+- Account discovery and capability detection
+- Decoupled TAN support (push notifications via SecureGo, pushTAN, etc.)
+- Type-safe API with Pydantic models
 
 ## Installation
 
@@ -32,150 +29,228 @@ poetry add geldstrom
 ## Quick Start
 
 ```python
-from geldstrom.clients import ReadOnlyFinTSClient
-from geldstrom.domain.model import BankRoute, FinTSCredentials
+from geldstrom import FinTS3Client
 
-# Configure your bank connection
-credentials = FinTSCredentials(
-    bank_route=BankRoute(country_code="280", bank_code="12345678"),
+with FinTS3Client(
+    bank_code="12345678",
+    server_url="https://banking.example.com/fints",
     user_id="your_username",
     pin="your_pin",
-    fints_url="https://your-bank.example/fints",
-)
+    product_id="YOUR_PRODUCT_ID",
+) as client:
+    # List accounts
+    for account in client.list_accounts():
+        print(f"{account.iban} ({account.currency})")
 
-# Connect and fetch data
-with ReadOnlyFinTSClient(credentials) as client:
-    # List all accounts
-    accounts = client.list_accounts()
-    for account in accounts:
-        print(f"Account: {account.iban}")
+    # Get balance
+    balance = client.get_balance(account)
+    print(f"Balance: {balance.booked.amount} {balance.booked.currency}")
 
-    # Get balance for first account
-    if accounts:
-        balance = client.get_balance(accounts[0].account_id)
-        print(f"Balance: {balance.amount} {balance.currency}")
-
-    # Fetch recent transactions
-    transactions = client.get_transactions(accounts[0].account_id)
+    # Fetch transactions
+    transactions = client.get_transactions(account)
     for tx in transactions.entries:
-        print(f"{tx.date}: {tx.amount} - {tx.purpose}")
+        print(f"{tx.booking_date}: {tx.amount} {tx.currency} - {tx.purpose}")
 ```
 
-## Supported Operations
+**Note:** The `product_id` requires registration with the [Deutsche Kreditwirtschaft](https://www.die-dk.de/) (German Banking Industry Committee). Register at [fints.org](https://www.fints.org/de/hersteller/produktregistrierung)). It is for free and usually, they respond rather quickly (think weeks, not months).
 
-| Operation | Description |
-|-----------|-------------|
-| `list_accounts()` | List all accessible bank accounts |
-| `get_balance(account_id)` | Fetch current balance for an account |
-| `get_transactions(account_id, start_date, end_date)` | Fetch transaction history |
-| `list_statements(account_id)` | List available bank statements |
-| `get_statement(account_id, statement_id)` | Download a specific statement |
+## API Reference
+
+### FinTS3Client
+
+The main client class for interacting with banks.
+
+#### Constructor
+
+```python
+FinTS3Client(
+    bank_code: str,           # Bank identifier (BLZ), e.g., "12345678"
+    server_url: str,          # FinTS server URL
+    user_id: str,             # Online banking username
+    pin: str,                 # Online banking PIN
+    product_id: str,          # FinTS product registration ID
+    *,
+    country_code: str = "DE", # Country code (default: Germany)
+    customer_id: str = None,  # Customer ID if different from user_id
+    tan_medium: str = None,   # TAN device name (e.g., "SecureGo")
+    tan_method: str = None,   # TAN method identifier (usually auto-detected)
+)
+```
+
+#### Methods
+
+| Method | Description | Returns |
+|--------|-------------|---------|
+| `connect()` | Establish connection and fetch accounts | `Sequence[Account]` |
+| `disconnect()` | Close the session | `None` |
+| `list_accounts()` | List all accessible accounts | `Sequence[Account]` |
+| `get_account(account_id)` | Get account by ID | `Account` |
+| `get_balance(account)` | Fetch current balance | `BalanceSnapshot` |
+| `get_balances(account_ids)` | Fetch multiple balances | `Sequence[BalanceSnapshot]` |
+| `get_transactions(account, start_date, end_date)` | Fetch transaction history | `TransactionFeed` |
+| `list_statements(account)` | List available statements | `Sequence[StatementReference]` |
+| `get_statement(reference)` | Download a statement | `StatementDocument` |
+
+#### Properties
+
+| Property | Description | Type |
+|----------|-------------|------|
+| `is_connected` | Connection status | `bool` |
+| `capabilities` | Bank's advertised capabilities | `BankCapabilities` |
+| `session_state` | Current session for persistence | `SessionToken` |
+
+#### Context Manager
+
+The client supports the context manager protocol:
+
+```python
+with FinTS3Client(...) as client:
+    # client.connect() called automatically
+    accounts = client.list_accounts()
+# client.disconnect() called automatically
+```
+
+### Data Models
+
+#### Account
+
+Represents a bank account.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `account_id` | `str` | Unique identifier (format: `account_number:subaccount`) |
+| `iban` | `str` | IBAN |
+| `bic` | `str` | BIC/SWIFT code |
+| `currency` | `str` | Account currency (e.g., "EUR") |
+| `owner` | `AccountOwner` | Account owner information |
+| `capabilities` | `AccountCapabilities` | What operations are supported |
+
+#### BalanceSnapshot
+
+Current account balance.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `account_id` | `str` | Account identifier |
+| `booked` | `BalanceAmount` | Booked balance |
+| `available` | `BalanceAmount` | Available balance (if provided) |
+| `as_of` | `datetime` | Timestamp of the balance |
+
+#### TransactionFeed
+
+Collection of transactions.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `account_id` | `str` | Account identifier |
+| `start_date` | `date` | Start of date range |
+| `end_date` | `date` | End of date range |
+| `entries` | `list[TransactionEntry]` | Transaction entries |
+
+#### TransactionEntry
+
+A single transaction.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `entry_id` | `str` | Unique transaction identifier |
+| `amount` | `Decimal` | Transaction amount (negative for debits) |
+| `currency` | `str` | Currency code |
+| `booking_date` | `date` | Date booked |
+| `value_date` | `date` | Value date |
+| `purpose` | `str` | Transaction purpose/description |
+| `counterpart_name` | `str` | Name of counterparty |
+| `counterpart_iban` | `str` | IBAN of counterparty |
 
 ## TAN Handling
 
-Geldstrom supports decoupled TAN methods (like SecureGo or pushTAN). When a TAN is required:
+Geldstrom supports decoupled TAN methods (SecureGo, pushTAN). When a TAN is required:
 
-1. You'll receive a push notification in your banking app
+1. You receive a push notification in your banking app
 2. Approve the request in the app
-3. Geldstrom automatically polls for confirmation and continues
+3. The client automatically polls for confirmation and continues
 
 ```python
-# TAN handling is automatic - just approve in your banking app
+from datetime import date, timedelta
+
+# Fetching older transactions typically requires TAN approval
 transactions = client.get_transactions(
-    account_id,
-    start_date=date.today() - timedelta(days=90),  # May require TAN
+    account,
+    start_date=date.today() - timedelta(days=90),
+    end_date=date.today(),
 )
 ```
+
+The default timeout for TAN approval is 120 seconds.
 
 ## Configuration
 
 ### Environment Variables
 
-For convenience, you can configure credentials via environment variables:
-
 ```bash
-export FINTS_BLZ=12345678
-export FINTS_COUNTRY=DE
-export FINTS_USER=your_username
-export FINTS_PIN=your_pin
-export FINTS_SERVER=https://your-bank.example/fints
+FINTS_BLZ=12345678
+FINTS_COUNTRY=DE
+FINTS_USER=your_username
+FINTS_PIN=your_pin
+FINTS_SERVER=https://banking.example.com/fints
+FINTS_PRODUCT_ID=YOUR_PRODUCT_ID
 ```
 
 ### Finding Your Bank's FinTS URL
 
-Most German banks publish their FinTS server URLs. Common patterns:
+Common patterns:
 
-- Sparkassen: `https://banking-[region].s-fints-pt-[region].de/fints30`
-- Volksbanken: `https://fints.gad.de/fints`
-- Deutsche Bank: `https://fints.deutsche-bank.de/`
+- **Sparkassen:** `https://banking-[region].s-fints-pt-[region].de/fints30`
+- **Volksbanken:** `https://fints.gad.de/fints`
+- **Deutsche Bank:** `https://fints.deutsche-bank.de/`
+- **DKB:** `https://banking-dkb.s-fints-pt-dkb.de/fints30`
 
-Check your bank's online banking documentation or contact their support.
+Check your bank's online banking documentation or contact support.
+
+### Product Registration
+
+To use FinTS, you need a registered product ID. Register at [hbci-zka.de](https://www.hbci-zka.de/register/prod_register.htm).
 
 ## Limitations
 
-- **FinTS 3.0 only** - Older HBCI versions are not supported
-- **PIN/TAN only** - Signature cards (HBCI chipcard) are not supported
-- **Read-focused** - Write operations (transfers) have limited support
-- **German banks** - Only banks supporting FinTS/HBCI (primarily German)
+- FinTS 3.0 only (older HBCI versions not supported)
+- PIN/TAN authentication only (signature cards not supported)
+- Read-only operations (transfers not supported)
+- German banks only (banks supporting FinTS/HBCI)
 
 ## Development
 
 ### Running Tests
 
 ```bash
-# Unit tests (no bank connection required)
-poetry run pytest tests/unit
+# Unit tests
+poetry run pytest tests/unit/
 
-# Integration tests (requires real credentials in .env)
-poetry run pytest tests/integration --run-integration
+# Integration tests (requires credentials in .env)
+poetry run pytest tests/integration/ --run-integration
 ```
-
-### Integration Test Setup
-
-Create a `.env` file:
-
-```env
-FINTS_BLZ=12345678
-FINTS_COUNTRY=DE
-FINTS_USER=your_username
-FINTS_PIN=your_pin
-FINTS_SERVER=https://your-bank.example/fints
-FINTS_PRODUCT_ID=YOUR_PRODUCT_ID
-FINTS_PRODUCT_VERSION=1.0.0
-```
-
-> **Note:** Integration tests may trigger TAN prompts. Be ready to approve them in your banking app.
 
 ### Code Quality
 
 ```bash
-# Linting
 poetry run ruff check geldstrom/
-
-# Formatting
 poetry run ruff format geldstrom/
 ```
 
 ## Security
 
-If you discover a security issue, please report it responsibly:
+Report security issues to: security@pretix.eu
 
-- **Email:** security@pretix.eu
-- **Policy:** [Responsible Disclosure](https://docs.pretix.eu/trust/security/disclosure/)
-
-**Important:** Never commit your banking credentials to version control!
+Never commit banking credentials to version control.
 
 ## Credits
 
-Originally developed as [python-fints](https://github.com/raphaelm/python-fints) by:
-
-- **Raphael Michel** - Original author and maintainer
-- **Henryk Plötz** - Major contributions
-
-Additional contributors: Daniel Nowak, Patrick Braune, Mathias Dalheimer, Christopher Grebs, Markus Schindler, and many more.
+Originally developed as [python-fints](https://github.com/raphaelm/python-fints) by Raphael Michel and Henryk Ploetz, with contributions from the community.
 
 ## License
 
-LGPL-3.0-or-later
+Business Source License 1.1 (BUSL-1.1)
 
-This means you can use this library in proprietary software, but any modifications to the library itself must be released under the same license.
+This software is source-available but not open source. You may use it for non-production purposes. Production use requires a commercial license.
+
+On January 1, 2029, this software will be released under the Apache License 2.0.

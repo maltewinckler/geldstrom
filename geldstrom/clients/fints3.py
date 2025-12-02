@@ -1,7 +1,6 @@
-"""Modern FinTS 3.0 client using domain-driven architecture.
+"""Modern FinTS 3.0 client with a simple, user-friendly API.
 
-This client provides a clean, type-safe interface for FinTS banking operations.
-It uses domain port adapters internally, following DDD principles.
+This client provides a clean interface for FinTS banking operations.
 """
 
 from __future__ import annotations
@@ -13,6 +12,8 @@ from geldstrom.domain import (
     Account,
     BalanceSnapshot,
     BankCapabilities,
+    BankCredentials,
+    BankRoute,
     SessionToken,
     StatementDocument,
     StatementReference,
@@ -29,48 +30,48 @@ from geldstrom.infrastructure.fints.adapters import (
 )
 from geldstrom.infrastructure.fints.session import FinTSSessionState
 
-from .base import ClientCredentials
+from .base import BankClient
 
 
-class FinTS3Client:
+class FinTS3Client(BankClient):
     """
-    Modern FinTS 3.0 client with clean domain-driven architecture.
+    FinTS 3.0 client for German online banking.
 
-    This client provides access to FinTS banking operations using
-    the new adapter-based infrastructure. It supports:
-
+    Provides access to:
     - Account discovery and listing
     - Balance queries
     - Transaction history (MT940 and CAMT formats)
     - Statement retrieval
-    - Decoupled TAN (app-based confirmation)
+    - Decoupled TAN (app-based 2FA)
 
     Example:
         from geldstrom import FinTS3Client
-        from geldstrom.domain import BankCredentials, BankRoute
 
-        creds = ClientCredentials(
-            route=BankRoute("DE", "12345678"),
+        with FinTS3Client(
+            bank_code="12345678",
             server_url="https://banking.example.com/fints",
-            credentials=BankCredentials(
-                user_id="user123",
-                secret="mypin",
-                two_factor_device="SecureGo",
-            ),
+            user_id="user123",
+            pin="mypin",
             product_id="MYPRODUCT123",
-        )
-
-        with FinTS3Client(creds) as client:
-            accounts = client.list_accounts()
-            for acc in accounts:
-                balance = client.get_balance(acc)
-                print(f"{acc.iban}: {balance.booked.amount} {balance.booked.currency}")
+        ) as client:
+            for account in client.list_accounts():
+                balance = client.get_balance(account)
+                print(f"{account.iban}: {balance.booked.amount}")
     """
 
     def __init__(
         self,
-        credentials: ClientCredentials | GatewayCredentials,
+        bank_code: str,
+        server_url: str,
+        user_id: str,
+        pin: str,
+        product_id: str,
         *,
+        country_code: str = "DE",
+        customer_id: str | None = None,
+        tan_medium: str | None = None,
+        tan_method: str | None = None,
+        product_version: str = "1.0",
         session_state: SessionToken | None = None,
         challenge_handler: ChallengeHandler | None = None,
     ) -> None:
@@ -78,28 +79,75 @@ class FinTS3Client:
         Initialize the FinTS 3.0 client.
 
         Args:
-            credentials: Bank connection credentials
+            bank_code: Bank identifier (BLZ in Germany, e.g., "12345678")
+            server_url: FinTS server URL (e.g., "https://banking.example.com/fints")
+            user_id: Your online banking username
+            pin: Your online banking PIN
+            product_id: FinTS product registration ID
+
+        Keyword Args:
+            country_code: Country code (default: "DE" for Germany)
+            customer_id: Customer ID if different from user_id (rare)
+            tan_medium: TAN device name (e.g., "SecureGo" for push TAN)
+            tan_method: TAN method identifier (usually auto-detected)
+            product_version: Product version string (default: "1.0")
+            session_state: Existing session state to resume
+            challenge_handler: Custom handler for 2FA challenges
+        """
+        self._credentials = GatewayCredentials(
+            route=BankRoute(country_code=country_code, bank_code=bank_code),
+            server_url=server_url,
+            credentials=BankCredentials(
+                user_id=user_id,
+                secret=pin,
+                customer_id=customer_id,
+                two_factor_device=tan_medium,
+                two_factor_method=tan_method,
+            ),
+            product_id=product_id,
+            product_version=product_version,
+        )
+        self._init_common(session_state, challenge_handler)
+
+    @classmethod
+    def from_gateway_credentials(
+        cls,
+        credentials: GatewayCredentials,
+        *,
+        session_state: SessionToken | None = None,
+        challenge_handler: ChallengeHandler | None = None,
+    ) -> FinTS3Client:
+        """
+        Create client from pre-built GatewayCredentials.
+
+        This is useful for advanced scenarios or when credentials
+        are constructed programmatically.
+
+        Args:
+            credentials: Pre-built GatewayCredentials object
             session_state: Optional existing session state to resume
             challenge_handler: Optional handler for 2FA challenges
-        """
-        # Convert ClientCredentials to GatewayCredentials if needed
-        if isinstance(credentials, ClientCredentials):
-            self._credentials = GatewayCredentials(
-                route=credentials.route,
-                server_url=credentials.server_url,
-                credentials=credentials.credentials,
-                product_id=credentials.product_id,
-                product_version=credentials.product_version,
-            )
-        else:
-            self._credentials = credentials
 
+        Returns:
+            Configured FinTS3Client instance
+        """
+        instance = cls.__new__(cls)
+        instance._credentials = credentials
+        instance._init_common(session_state, challenge_handler)
+        return instance
+
+    def _init_common(
+        self,
+        session_state: SessionToken | None,
+        challenge_handler: ChallengeHandler | None,
+    ) -> None:
+        """Common initialization logic."""
         self._session_state: FinTSSessionState | None = (
             session_state if isinstance(session_state, FinTSSessionState) else None
         )
         self._challenge_handler = challenge_handler or InteractiveChallengeHandler()
 
-        # Adapters (created lazily to avoid import cycles)
+        # Adapters (created lazily)
         self._session_adapter: FinTSSessionAdapter | None = None
         self._account_adapter: FinTSAccountDiscovery | None = None
         self._balance_adapter: FinTSBalanceAdapter | None = None
@@ -327,7 +375,7 @@ class FinTS3Client:
         Save this to resume sessions without re-authenticating:
             state = client.session_state
             # ... later ...
-            client = FinTS3Client(creds, session_state=state)
+            client = FinTS3Client.from_gateway_credentials(creds, session_state=state)
         """
         return self._session_state
 

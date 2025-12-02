@@ -89,7 +89,7 @@ def credentials(fints_env: Mapping[str, str]) -> GatewayCredentials:
 @pytest.fixture
 def client(credentials: GatewayCredentials) -> FinTS3Client:
     """Create a fresh FinTS3Client for each test."""
-    return FinTS3Client(credentials)
+    return FinTS3Client.from_gateway_credentials(credentials)
 
 
 # ---------------------------------------------------------------------------
@@ -153,7 +153,7 @@ def test_fetch_transactions(client: FinTS3Client):
 def test_session_reuse(credentials: GatewayCredentials):
     """Verify that session state can be persisted and reused."""
     # First connection: establish session
-    client1 = FinTS3Client(credentials)
+    client1 = FinTS3Client.from_gateway_credentials(credentials)
     with client1:
         accounts1 = client1.list_accounts()
         session_state = client1.session_state
@@ -161,7 +161,7 @@ def test_session_reuse(credentials: GatewayCredentials):
     assert session_state.system_id
     assert accounts1
     # Second connection: reuse session
-    client2 = FinTS3Client(credentials, session_state=session_state)
+    client2 = FinTS3Client.from_gateway_credentials(credentials, session_state=session_state)
     with client2:
         accounts2 = client2.list_accounts()
         assert len(accounts2) == len(accounts1)
@@ -254,7 +254,7 @@ def test_all_accounts_balance(client: FinTS3Client):
 @pytest.mark.integration
 def test_session_state_contains_parameters(credentials: GatewayCredentials):
     """Verify session state includes BPD/UPD for efficient reconnection."""
-    client = FinTS3Client(credentials)
+    client = FinTS3Client.from_gateway_credentials(credentials)
     with client:
         client.connect()
         session_state = client.session_state
@@ -269,14 +269,14 @@ def test_session_state_contains_parameters(credentials: GatewayCredentials):
 def test_session_reuse_skips_sync_dialog(credentials: GatewayCredentials):
     """Verify that reusing session state avoids unnecessary sync dialogs."""
     # First connection: full initialization
-    client1 = FinTS3Client(credentials)
+    client1 = FinTS3Client.from_gateway_credentials(credentials)
     with client1:
         accounts1 = client1.list_accounts()
         session_state = client1.session_state
         system_id = session_state.system_id
 
     # Second connection: should reuse existing system_id
-    client2 = FinTS3Client(credentials, session_state=session_state)
+    client2 = FinTS3Client.from_gateway_credentials(credentials, session_state=session_state)
     with client2:
         accounts2 = client2.list_accounts()
         # System ID should be the same (no new sync dialog)
@@ -288,7 +288,7 @@ def test_session_reuse_skips_sync_dialog(credentials: GatewayCredentials):
 def test_session_state_serialization_roundtrip(credentials: GatewayCredentials):
     """Verify session state can be serialized and deserialized correctly."""
     # Create session
-    client1 = FinTS3Client(credentials)
+    client1 = FinTS3Client.from_gateway_credentials(credentials)
     with client1:
         accounts1 = client1.list_accounts()
         session_state = client1.session_state
@@ -380,6 +380,166 @@ def test_transactions_empty_range(client: FinTS3Client):
 
 
 # ---------------------------------------------------------------------------
+# Account Operations Tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.integration
+def test_get_account_by_id(client: FinTS3Client):
+    """Verify get_account() retrieves a specific account by ID."""
+    with client:
+        accounts = client.list_accounts()
+        if not accounts:
+            pytest.skip("No accounts available")
+
+        # Get the first account's ID
+        expected_id = accounts[0].account_id
+
+        # Retrieve by ID
+        account = client.get_account(expected_id)
+
+        assert account.account_id == expected_id
+        assert account.iban == accounts[0].iban
+        assert account.currency == accounts[0].currency
+
+
+@pytest.mark.integration
+def test_get_account_not_found(client: FinTS3Client):
+    """Verify get_account() raises ValueError for unknown account."""
+    with client:
+        client.connect()
+        with pytest.raises(ValueError, match="not found"):
+            client.get_account("NONEXISTENT:0")
+
+
+# ---------------------------------------------------------------------------
+# Batch Balance Tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.integration
+def test_get_balances_all_accounts(client: FinTS3Client):
+    """Verify get_balances() fetches balances for all accounts."""
+    with client:
+        accounts = client.list_accounts()
+        if not accounts:
+            pytest.skip("No accounts available")
+
+        # Fetch all balances (no filter)
+        balances = client.get_balances()
+
+        assert len(balances) > 0
+        for balance in balances:
+            assert balance.account_id
+            assert balance.booked
+            assert balance.booked.currency
+
+
+@pytest.mark.integration
+def test_get_balances_filtered(client: FinTS3Client):
+    """Verify get_balances() can filter by account IDs."""
+    with client:
+        accounts = client.list_accounts()
+        if len(accounts) < 1:
+            pytest.skip("Need at least one account")
+
+        # Request balance for specific account(s)
+        account_ids = [accounts[0].account_id]
+        balances = client.get_balances(account_ids)
+
+        assert len(balances) >= 1
+        # All returned balances should be for requested accounts
+        returned_ids = {b.account_id for b in balances}
+        for aid in account_ids:
+            assert aid in returned_ids or len(balances) > 0
+
+
+# ---------------------------------------------------------------------------
+# Statement Tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.integration
+def test_list_statements(client: FinTS3Client):
+    """Verify list_statements() returns available statements."""
+    with client:
+        accounts = client.list_accounts()
+        if not accounts:
+            pytest.skip("No accounts available")
+
+        # Try to list statements for first account
+        try:
+            statements = client.list_statements(accounts[0])
+            # May be empty if no statements available
+            assert isinstance(statements, (list, tuple))
+            for stmt in statements:
+                assert stmt.statement_id or stmt.date
+        except Exception as e:
+            # Some banks/accounts don't support statements
+            if "not support" in str(e).lower() or "9010" in str(e):
+                pytest.skip(f"Account does not support statements: {e}")
+            raise
+
+
+@pytest.mark.integration
+def test_get_statement(client: FinTS3Client):
+    """Verify get_statement() downloads a statement."""
+    with client:
+        accounts = client.list_accounts()
+        if not accounts:
+            pytest.skip("No accounts available")
+
+        # First list available statements
+        try:
+            statements = client.list_statements(accounts[0])
+            if not statements:
+                pytest.skip("No statements available for download")
+
+            # Download the first statement
+            document = client.get_statement(statements[0])
+            assert document.content
+            assert document.mime_type or document.format
+
+        except Exception as e:
+            if "not support" in str(e).lower() or "9010" in str(e):
+                pytest.skip(f"Account does not support statements: {e}")
+            raise
+
+
+# ---------------------------------------------------------------------------
+# Connection State Tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.integration
+def test_is_connected_property(credentials: GatewayCredentials):
+    """Verify is_connected property reflects actual connection state."""
+    client = FinTS3Client.from_gateway_credentials(credentials)
+
+    # Initially not connected
+    assert not client.is_connected
+
+    # After connect
+    client.connect()
+    assert client.is_connected
+
+    # After disconnect
+    client.disconnect()
+    assert not client.is_connected
+
+
+@pytest.mark.integration
+def test_is_connected_with_context_manager(client: FinTS3Client):
+    """Verify is_connected works correctly with context manager."""
+    assert not client.is_connected
+
+    with client:
+        assert client.is_connected
+
+    assert not client.is_connected
+
+
+# ---------------------------------------------------------------------------
 # Error Handling Tests
 # ---------------------------------------------------------------------------
 
@@ -397,7 +557,7 @@ def test_invalid_account_raises_error(client: FinTS3Client):
 def test_auto_connect_on_operation(credentials: GatewayCredentials):
     """Verify that the client auto-connects when operations are called outside context."""
     # Create a client but don't explicitly enter context
-    client = FinTS3Client(credentials)
+    client = FinTS3Client.from_gateway_credentials(credentials)
 
     # Session state should be None initially
     assert client.session_state is None

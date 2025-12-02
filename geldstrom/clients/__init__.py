@@ -12,10 +12,8 @@ Example:
 
 from __future__ import annotations
 
-from .base import ClientCredentials
 from .fints3 import FinTS3Client
 
 __all__ = [
-    "ClientCredentials",
     "FinTS3Client",
 ]

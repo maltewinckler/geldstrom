@@ -906,8 +906,13 @@ def _is_fints_model_type(annotation: Any) -> bool:
     if isinstance(annotation, type) and issubclass(annotation, FinTSModel):
         return True
 
-    # Handle Optional[T], Union[T, None], etc.
+    # Handle Union types (typing.Union or Python 3.10+ X | Y)
     origin = getattr(annotation, "__origin__", None)
+    if origin is Union or isinstance(annotation, types.UnionType):
+        args = getattr(annotation, "__args__", ())
+        return any(_is_fints_model_type(arg) for arg in args)
+
+    # Handle other generic types
     if origin is not None:
         args = getattr(annotation, "__args__", ())
         return any(_is_fints_model_type(arg) for arg in args)
@@ -924,8 +929,16 @@ def _extract_model_type(annotation: Any) -> type[FinTSModel] | None:
     if isinstance(annotation, type) and issubclass(annotation, FinTSModel):
         return annotation
 
-    # Handle Optional[T], Union[T, None], etc.
+    # Handle Union types (typing.Union or Python 3.10+ X | Y)
     origin = getattr(annotation, "__origin__", None)
+    if origin is Union or isinstance(annotation, types.UnionType):
+        args = getattr(annotation, "__args__", ())
+        for arg in args:
+            result = _extract_model_type(arg)
+            if result is not None:
+                return result
+
+    # Handle other generic types
     if origin is not None:
         args = getattr(annotation, "__args__", ())
         for arg in args:

@@ -1,62 +1,66 @@
-"""Minimal example demonstrating the FinTS client.
+"""Full demo of read-only FinTS operations.
 
 Usage:
-    python examples/read_only_client_demo.py [--env-file path] [--reuse-session]
+    python examples/read_only_client_demo.py [--reuse-session] [--save-session]
 
-Environment variables stored in .env (default location) must provide the
-credentials and product metadata used to open the FinTS dialog:
+This comprehensive demo:
+1. Connects to the bank
+2. Lists all accounts
+3. Fetches balance for the first account
+4. Fetches recent transactions
 
-    FINTS_BLZ=12345678
-    FINTS_COUNTRY=DE
-    FINTS_USER=demo
-    FINTS_PIN=12345
-    FINTS_SERVER=https://bank.example/hbci
-    FINTS_PRODUCT_ID=MYAPP
-    FINTS_PRODUCT_VERSION=1.0.0
-    # optional
-    FINTS_CUSTOMER_ID=demo
-    FINTS_TAN_MEDIUM=TAN-APP
-    FINTS_TAN_METHOD=944
-
-The script prints discovered accounts and fetches the balance + recent transactions
-for the first account.
-
-IMPORTANT: For banks with decoupled TAN (SecureGo, pushTAN, etc.), you will
-receive a push notification to approve the connection. The script will wait
-up to 120 seconds for approval before timing out.
-
-For more focused examples, see:
-- fetch_balance.py - Just fetch account balances
-- fetch_transactions.py - Fetch transaction history with date filters
+SESSION STATE NOTE:
+    The --reuse-session and --save-session flags save/restore bank parameters
+    (BPD/UPD) and system ID, which speeds up connection by skipping parameter
+    negotiation. However, this does NOT bypass 2FA/TAN - German banks require
+    fresh authentication for each dialog session and for sensitive operations.
+    Session state helps with:
+      - Faster connection (skip parameter sync)
+      - Preserving system ID (avoid re-registration)
+    It does NOT help with:
+      - Bypassing 2FA (by design, for security)
 """
+
 from __future__ import annotations
 
 import argparse
 import json
-import os
 from pathlib import Path
-from typing import Mapping, Optional
 
-# New recommended imports from top-level fints package
-from geldstrom import (
-    BankCredentials,
-    BankRoute,
-    FinTS3Client,
-    SessionToken,
-)
-from geldstrom.infrastructure.fints import GatewayCredentials
+from geldstrom import SessionToken
 from geldstrom.infrastructure.fints import FinTSSessionState
+
+from _common import (
+    add_common_args,
+    create_client,
+    load_env,
+    print_header,
+    print_separator,
+    setup_logging,
+)
 
 SESSION_FILE = Path(".session_state.json")
 
 
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Read-only FinTS client demo")
-    parser.add_argument(
-        "--env-file",
-        default=".env",
-        help="Path to .env file containing FinTS credentials (default: .env)",
-    )
+def load_session() -> FinTSSessionState | None:
+    """Load a previously saved session from disk."""
+    if not SESSION_FILE.exists():
+        return None
+    data = json.loads(SESSION_FILE.read_text())
+    return FinTSSessionState.from_dict(data)
+
+
+def save_session(state: SessionToken) -> None:
+    """Save session to disk for later reuse."""
+    if isinstance(state, FinTSSessionState):
+        SESSION_FILE.write_text(json.dumps(state.to_dict(), indent=2))
+    else:
+        SESSION_FILE.write_bytes(state.serialize())
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Full read-only FinTS demo")
+    add_common_args(parser)
     parser.add_argument(
         "--reuse-session",
         action="store_true",
@@ -65,126 +69,66 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--save-session",
         action="store_true",
-        help="Persist refreshed session state to .session_state.json",
+        help="Save session state to .session_state.json",
     )
-    return parser.parse_args()
+    args = parser.parse_args()
 
-
-def build_credentials(env: Mapping[str, str]) -> GatewayCredentials:
-    country = env.get("FINTS_COUNTRY", "DE")
-    blz = env_required(env, "FINTS_BLZ")
-
-    bank_creds = BankCredentials(
-        user_id=env_required(env, "FINTS_USER"),
-        secret=env_required(env, "FINTS_PIN"),
-        customer_id=env.get("FINTS_CUSTOMER_ID"),
-        two_factor_device=env.get("FINTS_TAN_MEDIUM"),
-        two_factor_method=env.get("FINTS_TAN_METHOD"),
-    )
-
-    return GatewayCredentials(
-        route=BankRoute(country_code=country, bank_code=blz),
-        server_url=env_required(env, "FINTS_SERVER"),
-        credentials=bank_creds,
-        product_id=env_required(env, "FINTS_PRODUCT_ID"),
-        product_version=env_required(env, "FINTS_PRODUCT_VERSION"),
-    )
-
-
-def env_required(env: Mapping[str, str], key: str) -> str:
-    value = env.get(key)
-    if not value:
-        raise RuntimeError(f"Missing {key} in .env file")
-    return value
-
-
-def load_env(path: Path) -> Mapping[str, str]:
-    if not path.exists():
-        raise FileNotFoundError(f"Env file {path} not found")
-
-    env: dict[str, str] = {}
-    for raw_line in path.read_text().splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#"):
-            continue
-        if "=" not in line:
-            continue
-        key, value = line.split("=", 1)
-        env[key.strip()] = _strip_quotes(value.strip())
-
-    # Allow overriding with actual environment variables for convenience.
-    for key, value in os.environ.items():
-        if key.startswith("FINTS_"):
-            env[key] = value
-
-    return env
-
-
-def _strip_quotes(value: str) -> str:
-    if (value.startswith('"') and value.endswith('"')) or (
-        value.startswith("'") and value.endswith("'")
-    ):
-        return value[1:-1]
-    return value
-
-
-def load_session() -> Optional[FinTSSessionState]:
-    """Load a previously saved FinTS session from disk."""
-    if not SESSION_FILE.exists():
-        return None
-    data = json.loads(SESSION_FILE.read_text())
-    return FinTSSessionState.from_dict(data)
-
-
-def persist_session(state: SessionToken) -> None:
-    """Persist a session to disk for later reuse.
-
-    Note: This assumes the session is a FinTSSessionState which provides
-    the to_dict() method. For other session types, serialization would differ.
-    """
-    if isinstance(state, FinTSSessionState):
-        SESSION_FILE.write_text(json.dumps(state.to_dict(), indent=2))
-    else:
-        # For generic SessionToken, use serialize()
-        SESSION_FILE.write_bytes(state.serialize())
-
-
-def main() -> None:
-    args = parse_args()
-    env_values = load_env(Path(args.env_file))
-    credentials = build_credentials(env_values)
+    setup_logging(args.verbose)
+    env = load_env(args.env_file)
     session_state = load_session() if args.reuse_session else None
 
-    client = FinTS3Client(credentials, session_state=session_state)
-    with client:
+    print_header("FINTS CLIENT DEMO")
+    print(f"\nBank: {env.get('FINTS_BLZ')}")
+    print(f"User: {env.get('FINTS_USER')}")
+
+    if session_state:
+        print("Session: Reusing saved session state")
+    else:
+        print("Session: Starting fresh")
+
+    print_separator()
+    print("Connecting...")
+
+    with create_client(env, session_state=session_state) as client:
+        # List accounts
         accounts = client.list_accounts()
-        print("Discovered accounts:")
+        print(f"Connected. Found {len(accounts)} account(s).\n")
+
+        print_header("ACCOUNTS")
         for account in accounts:
-            identifier = account.iban or account.metadata.get("account_number")
-            print(f"- {account.account_id} {identifier} ({account.currency})")
+            iban = account.iban or account.account_id
+            print(f"  - {iban} ({account.currency})")
 
         if not accounts:
-            print("No accounts returned. Exiting.")
+            print("No accounts available.")
             return
 
+        # Get balance
         first = accounts[0]
-        balance = client.get_balance(first.account_id)
-        print(
-            f"\nBalance for {first.account_id}: "
-            f"{balance.booked.amount} {balance.booked.currency}"
-        )
+        print_separator()
+        print(f"Balance for {first.iban or first.account_id}:")
 
-        feed = client.get_transactions(first.account_id)
-        print(f"\nTransactions ({len(feed.entries)} entries):")
-        for entry in feed.entries[:10]:
-            print(
-                f"{entry.booking_date} {entry.amount} {entry.currency}"
-                f" {entry.purpose[:60]}"
-            )
+        balance = client.get_balance(first)
+        print(f"  {balance.booked.amount:,.2f} {balance.booked.currency}")
 
+        # Get transactions
+        print_separator()
+        print("Recent transactions:")
+
+        feed = client.get_transactions(first)
+        if not feed.entries:
+            print("  No transactions found.")
+        else:
+            for entry in feed.entries[:10]:
+                purpose = entry.purpose[:50] if entry.purpose else "No description"
+                print(f"  {entry.booking_date} {entry.amount:>10,.2f} {entry.currency}  {purpose}")
+
+        # Save session if requested
         if args.save_session and client.session_state:
-            persist_session(client.session_state)
-            print(f"\nSaved session to {SESSION_FILE}")
+            save_session(client.session_state)
+            print(f"\nSession saved to {SESSION_FILE}")
+
+        print()
 
 
 if __name__ == "__main__":
