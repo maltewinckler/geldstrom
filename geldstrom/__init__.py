@@ -30,9 +30,6 @@ from geldstrom.clients import (
     FinTS3Client,
 )
 
-# Backward compatibility alias
-ReadOnlyFinTSClient = FinTS3Client
-
 # --- Domain exports ---
 from geldstrom.domain import (
     Account,
@@ -58,7 +55,6 @@ __all__ = [
     "version",
     # Clients
     "FinTS3Client",
-    "ReadOnlyFinTSClient",
     "ClientCredentials",
     # Domain models
     "Account",
