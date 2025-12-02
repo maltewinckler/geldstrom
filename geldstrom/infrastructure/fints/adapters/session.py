@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import logging
 
-from geldstrom.application.ports import GatewayCredentials
+from geldstrom.infrastructure.fints.credentials import GatewayCredentials
 from geldstrom.domain.ports.session import SessionPort
 from geldstrom.infrastructure.fints.session import FinTSSessionState
 

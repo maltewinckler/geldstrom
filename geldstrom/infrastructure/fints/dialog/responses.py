@@ -7,6 +7,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Callable
 
+from geldstrom.infrastructure.fints.dialog.message import FinTSInstituteMessage
 from geldstrom.infrastructure.fints.protocol import (
     HIBPA3,
     HIRMG2,
@@ -15,7 +16,6 @@ from geldstrom.infrastructure.fints.protocol import (
     HNHBK3,
 )
 from geldstrom.infrastructure.fints.protocol.base import SegmentSequence
-from geldstrom.message import FinTSInstituteMessage
 
 logger = logging.getLogger(__name__)
 

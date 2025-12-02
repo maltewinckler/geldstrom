@@ -13,6 +13,12 @@ from typing import ClassVar
 from pydantic import Field
 
 from ..base import FinTSSegment
+from ..formals import (
+    AccountIdentifier,
+    AccountInternational,
+    BookedCamtStatements,
+    SupportedMessageTypes,
+)
 from ..types import (
     FinTSAlphanumeric,
     FinTSBinary,
@@ -20,13 +26,6 @@ from ..types import (
     FinTSDate,
     FinTSNumeric,
 )
-from ..formals import (
-    AccountIdentifier,
-    AccountInternational,
-    BookedCamtStatements,
-    SupportedMessageTypes,
-)
-
 
 # =============================================================================
 # MT940 Transaction Request Segments (HKKAZ)

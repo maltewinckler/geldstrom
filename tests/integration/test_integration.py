@@ -1,4 +1,4 @@
-"""Integration tests for the ReadOnlyFinTSClient.
+"""Integration tests for the FinTS3Client.
 
 These tests exercise the full end-to-end flow against a real bank backend,
 requiring valid credentials in the .env file. Users must be prepared to
@@ -26,9 +26,9 @@ from typing import Mapping
 
 import pytest
 
-from geldstrom.application import GatewayCredentials
+from geldstrom.infrastructure.fints import GatewayCredentials
 from geldstrom.domain import BankCredentials, BankRoute
-from geldstrom.readonly import ReadOnlyFinTSClient
+from geldstrom.clients import FinTS3Client
 
 
 # ---------------------------------------------------------------------------
@@ -87,9 +87,9 @@ def credentials(fints_env: Mapping[str, str]) -> GatewayCredentials:
 
 
 @pytest.fixture
-def client(credentials: GatewayCredentials) -> ReadOnlyFinTSClient:
-    """Create a fresh ReadOnlyFinTSClient for each test."""
-    return ReadOnlyFinTSClient(credentials)
+def client(credentials: GatewayCredentials) -> FinTS3Client:
+    """Create a fresh FinTS3Client for each test."""
+    return FinTS3Client(credentials)
 
 
 # ---------------------------------------------------------------------------
@@ -98,7 +98,7 @@ def client(credentials: GatewayCredentials) -> ReadOnlyFinTSClient:
 
 
 @pytest.mark.integration
-def test_connect_and_list_accounts(client: ReadOnlyFinTSClient):
+def test_connect_and_list_accounts(client: FinTS3Client):
     """Verify that connect() returns account metadata."""
     with client:
         accounts = client.list_accounts()
@@ -110,7 +110,7 @@ def test_connect_and_list_accounts(client: ReadOnlyFinTSClient):
 
 
 @pytest.mark.integration
-def test_fetch_balance(client: ReadOnlyFinTSClient):
+def test_fetch_balance(client: FinTS3Client):
     """Verify balance retrieval for the first available account."""
     with client:
         accounts = client.list_accounts()
@@ -125,7 +125,7 @@ def test_fetch_balance(client: ReadOnlyFinTSClient):
 
 
 @pytest.mark.integration
-def test_fetch_transactions(client: ReadOnlyFinTSClient):
+def test_fetch_transactions(client: FinTS3Client):
     """Verify transaction retrieval for the first available account.
 
     Note: This may trigger a TAN prompt if the bank requires approval
@@ -153,7 +153,7 @@ def test_fetch_transactions(client: ReadOnlyFinTSClient):
 def test_session_reuse(credentials: GatewayCredentials):
     """Verify that session state can be persisted and reused."""
     # First connection: establish session
-    client1 = ReadOnlyFinTSClient(credentials)
+    client1 = FinTS3Client(credentials)
     with client1:
         accounts1 = client1.list_accounts()
         session_state = client1.session_state
@@ -161,7 +161,7 @@ def test_session_reuse(credentials: GatewayCredentials):
     assert session_state.system_id
     assert accounts1
     # Second connection: reuse session
-    client2 = ReadOnlyFinTSClient(credentials, session_state=session_state)
+    client2 = FinTS3Client(credentials, session_state=session_state)
     with client2:
         accounts2 = client2.list_accounts()
         assert len(accounts2) == len(accounts1)
@@ -170,7 +170,7 @@ def test_session_reuse(credentials: GatewayCredentials):
 
 
 @pytest.mark.integration
-def test_fetch_capabilities(client: ReadOnlyFinTSClient):
+def test_fetch_capabilities(client: FinTS3Client):
     """Verify that bank capabilities are discoverable."""
     with client:
         client.connect()
@@ -190,7 +190,7 @@ def test_fetch_capabilities(client: ReadOnlyFinTSClient):
 
 
 @pytest.mark.integration
-def test_multiple_operations_same_session(client: ReadOnlyFinTSClient):
+def test_multiple_operations_same_session(client: FinTS3Client):
     """Verify multiple operations work within a single session.
 
     This tests that:
@@ -228,7 +228,7 @@ def test_multiple_operations_same_session(client: ReadOnlyFinTSClient):
 
 
 @pytest.mark.integration
-def test_all_accounts_balance(client: ReadOnlyFinTSClient):
+def test_all_accounts_balance(client: FinTS3Client):
     """Verify balance retrieval works for all accounts that support it."""
     with client:
         accounts = client.list_accounts()
@@ -254,7 +254,7 @@ def test_all_accounts_balance(client: ReadOnlyFinTSClient):
 @pytest.mark.integration
 def test_session_state_contains_parameters(credentials: GatewayCredentials):
     """Verify session state includes BPD/UPD for efficient reconnection."""
-    client = ReadOnlyFinTSClient(credentials)
+    client = FinTS3Client(credentials)
     with client:
         client.connect()
         session_state = client.session_state
@@ -269,14 +269,14 @@ def test_session_state_contains_parameters(credentials: GatewayCredentials):
 def test_session_reuse_skips_sync_dialog(credentials: GatewayCredentials):
     """Verify that reusing session state avoids unnecessary sync dialogs."""
     # First connection: full initialization
-    client1 = ReadOnlyFinTSClient(credentials)
+    client1 = FinTS3Client(credentials)
     with client1:
         accounts1 = client1.list_accounts()
         session_state = client1.session_state
         system_id = session_state.system_id
 
     # Second connection: should reuse existing system_id
-    client2 = ReadOnlyFinTSClient(credentials, session_state=session_state)
+    client2 = FinTS3Client(credentials, session_state=session_state)
     with client2:
         accounts2 = client2.list_accounts()
         # System ID should be the same (no new sync dialog)
@@ -288,7 +288,7 @@ def test_session_reuse_skips_sync_dialog(credentials: GatewayCredentials):
 def test_session_state_serialization_roundtrip(credentials: GatewayCredentials):
     """Verify session state can be serialized and deserialized correctly."""
     # Create session
-    client1 = ReadOnlyFinTSClient(credentials)
+    client1 = FinTS3Client(credentials)
     with client1:
         accounts1 = client1.list_accounts()
         session_state = client1.session_state
@@ -303,7 +303,7 @@ def test_session_state_serialization_roundtrip(credentials: GatewayCredentials):
     restored_state = FinTSSessionState.deserialize(serialized)
 
     # Use restored state
-    client2 = ReadOnlyFinTSClient(credentials, session_state=restored_state)
+    client2 = FinTS3Client(credentials, session_state=restored_state)
     with client2:
         accounts2 = client2.list_accounts()
         assert len(accounts2) == len(accounts1)
@@ -315,7 +315,7 @@ def test_session_state_serialization_roundtrip(credentials: GatewayCredentials):
 
 
 @pytest.mark.integration
-def test_transactions_with_date_range(client: ReadOnlyFinTSClient):
+def test_transactions_with_date_range(client: FinTS3Client):
     """Verify transaction filtering by date range works."""
     from datetime import date, timedelta
 
@@ -348,7 +348,7 @@ def test_transactions_with_date_range(client: ReadOnlyFinTSClient):
 
 
 @pytest.mark.integration
-def test_transactions_empty_range(client: ReadOnlyFinTSClient):
+def test_transactions_empty_range(client: FinTS3Client):
     """Verify handling of date range with potentially no transactions."""
     from datetime import date, timedelta
 
@@ -385,7 +385,7 @@ def test_transactions_empty_range(client: ReadOnlyFinTSClient):
 
 
 @pytest.mark.integration
-def test_invalid_account_raises_error(client: ReadOnlyFinTSClient):
+def test_invalid_account_raises_error(client: FinTS3Client):
     """Verify that querying an invalid account raises an appropriate error."""
     with client:
         client.connect()
@@ -397,7 +397,7 @@ def test_invalid_account_raises_error(client: ReadOnlyFinTSClient):
 def test_auto_connect_on_operation(credentials: GatewayCredentials):
     """Verify that the client auto-connects when operations are called outside context."""
     # Create a client but don't explicitly enter context
-    client = ReadOnlyFinTSClient(credentials)
+    client = FinTS3Client(credentials)
 
     # Session state should be None initially
     assert client.session_state is None

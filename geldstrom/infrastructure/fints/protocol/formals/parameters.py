@@ -16,7 +16,6 @@ from ..types import (
 from .enums import Language, ServiceType
 from .identifiers import BankIdentifier
 
-
 # =============================================================================
 # Language and Version DEGs
 # =============================================================================

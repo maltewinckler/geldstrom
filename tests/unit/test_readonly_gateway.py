@@ -1,13 +1,9 @@
-"""Tests for the read-only gateway and adapter helpers.
+"""Tests for the infrastructure adapter helpers.
 
-Note: Many internal helper methods that were previously in the gateway have been
-moved to the infrastructure adapters. Those methods are now tested through the
-adapter tests in tests/unit/infrastructure/fints/.
-
-This file tests:
-- Gateway delegation to adapters
-- Adapter parsing functionality
+This file tests adapter parsing functionality that supports the
+FinTS3Client.
 """
+
 from __future__ import annotations
 
 from datetime import date
@@ -16,37 +12,19 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 from geldstrom.domain import BankRoute
-from geldstrom.infrastructure.gateway import FinTSReadOnlyGateway
 from geldstrom.infrastructure.fints.protocol.formals import SEPAAccount
 
-# --------------------------------------------------------------------------
-# Gateway Tests - verify delegation to adapters works
-# --------------------------------------------------------------------------
-
-
-def test_gateway_delegates_to_session_adapter():
-    """Verify that open_session delegates to FinTSSessionAdapter."""
-    gateway = FinTSReadOnlyGateway()
-
-    # The session adapter is created and used
-    assert gateway._session_adapter is not None
-
-
-def test_gateway_instantiation():
-    """Verify gateway can be instantiated."""
-    gateway = FinTSReadOnlyGateway()
-    assert gateway is not None
-
 
 # --------------------------------------------------------------------------
-# Adapter Helper Tests - test parsing logic that moved to adapters
-# These tests use the adapters directly since the gateway now delegates
+# Adapter Helper Tests - test parsing logic in adapters
 # --------------------------------------------------------------------------
 
 
 def test_transactions_adapter_camt_parsing():
     """Test CAMT parsing through the transaction adapter."""
-    from geldstrom.infrastructure.fints.adapters.transactions import FinTSTransactionHistory
+    from geldstrom.infrastructure.fints.adapters.transactions import (
+        FinTSTransactionHistory,
+    )
 
     # Create adapter instance (doesn't need real credentials for parsing tests)
     creds = MagicMock()
@@ -82,7 +60,9 @@ def test_transactions_adapter_camt_parsing():
 
 def test_transactions_adapter_pending_entries():
     """Test pending entry parsing through transaction adapter."""
-    from geldstrom.infrastructure.fints.adapters.transactions import FinTSTransactionHistory
+    from geldstrom.infrastructure.fints.adapters.transactions import (
+        FinTSTransactionHistory,
+    )
 
     creds = MagicMock()
     adapter = FinTSTransactionHistory(creds)
@@ -160,7 +140,9 @@ def test_accounts_adapter_merges_sepa_metadata():
         )
     ]
 
-    accounts = adapter._accounts_from_operations(default_route, upd_accounts, sepa_accounts)
+    accounts = adapter._accounts_from_operations(
+        default_route, upd_accounts, sepa_accounts
+    )
 
     assert len(accounts) == 1
     account = accounts[0]
@@ -198,7 +180,9 @@ def test_balance_adapter_operations_parsing():
 
 def test_transactions_adapter_mt940_parsing():
     """Test MT940 transaction parsing through transaction adapter."""
-    from geldstrom.infrastructure.fints.adapters.transactions import FinTSTransactionHistory
+    from geldstrom.infrastructure.fints.adapters.transactions import (
+        FinTSTransactionHistory,
+    )
 
     creds = MagicMock()
     adapter = FinTSTransactionHistory(creds)

@@ -6,7 +6,7 @@ import logging
 from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
-from geldstrom.application.ports import GatewayCredentials
+from geldstrom.infrastructure.fints.credentials import GatewayCredentials
 from geldstrom.domain import (
     Account,
     AccountCapabilities,

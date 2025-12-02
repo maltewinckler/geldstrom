@@ -5,13 +5,11 @@ Response segments (HISAL) contain balance information.
 """
 from __future__ import annotations
 
-from datetime import date, time
 from typing import ClassVar
 
 from pydantic import Field
 
 from ..base import FinTSSegment
-from ..types import FinTSAlphanumeric, FinTSBool, FinTSCurrency, FinTSDate, FinTSNumeric, FinTSTime
 from ..formals import (
     AccountIdentifier,
     AccountInternational,
@@ -20,7 +18,14 @@ from ..formals import (
     BalanceSimple,
     Timestamp,
 )
-
+from ..types import (
+    FinTSAlphanumeric,
+    FinTSBool,
+    FinTSCurrency,
+    FinTSDate,
+    FinTSNumeric,
+    FinTSTime,
+)
 
 # =============================================================================
 # Balance Request Segments (HKSAL)

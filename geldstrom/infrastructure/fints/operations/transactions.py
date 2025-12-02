@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from datetime import date
 from typing import TYPE_CHECKING
 
+from geldstrom.infrastructure.fints.operations.mt940 import mt940_to_array
 from geldstrom.infrastructure.fints.protocol import (
     HKCAZ1,
     HKKAZ5,
@@ -20,7 +21,6 @@ from geldstrom.infrastructure.fints.protocol import (
     SupportedMessageTypes,
 )
 from geldstrom.infrastructure.fints.protocol.formals import SEPAAccount
-from geldstrom.utils import mt940_to_array
 
 from .helpers import build_account_field, find_highest_supported_version
 from .pagination import TouchdownPaginator

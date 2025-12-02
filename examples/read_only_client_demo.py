@@ -41,10 +41,10 @@ from typing import Mapping, Optional
 from geldstrom import (
     BankCredentials,
     BankRoute,
-    ReadOnlyFinTSClient,
+    FinTS3Client,
     SessionToken,
 )
-from geldstrom.application import GatewayCredentials
+from geldstrom.infrastructure.fints import GatewayCredentials
 from geldstrom.infrastructure.fints import FinTSSessionState
 
 SESSION_FILE = Path(".session_state.json")
@@ -155,7 +155,7 @@ def main() -> None:
     credentials = build_credentials(env_values)
     session_state = load_session() if args.reuse_session else None
 
-    client = ReadOnlyFinTSClient(credentials, session_state=session_state)
+    client = FinTS3Client(credentials, session_state=session_state)
     with client:
         accounts = client.list_accounts()
         print("Discovered accounts:")

@@ -1,5 +1,5 @@
 import pytest
-from geldstrom.utils import decode_phototan_image
+from geldstrom.infrastructure.fints.operations.mt940 import decode_phototan_image
 
 
 # HITAN3:

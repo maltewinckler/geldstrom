@@ -9,10 +9,13 @@ from dataclasses import dataclass
 
 import requests
 
-from geldstrom.exceptions import FinTSConnectionError
+from geldstrom.infrastructure.fints.dialog.logging import Password, log_configuration
+from geldstrom.infrastructure.fints.dialog.message import (
+    FinTSInstituteMessage,
+    FinTSMessage,
+)
+from geldstrom.infrastructure.fints.exceptions import FinTSConnectionError
 from geldstrom.infrastructure.fints.protocol.base import SegmentSequence
-from geldstrom.message import FinTSInstituteMessage, FinTSMessage
-from geldstrom.utils import Password, log_configuration
 
 logger = logging.getLogger(__name__)
 

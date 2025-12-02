@@ -16,8 +16,8 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from geldstrom import BankCredentials, BankRoute, ReadOnlyFinTSClient
-from geldstrom.application import GatewayCredentials
+from geldstrom import BankCredentials, BankRoute, FinTS3Client
+from geldstrom.infrastructure.fints import GatewayCredentials
 
 
 def load_env() -> dict[str, str]:
@@ -65,7 +65,7 @@ def main() -> None:
     # Connect and list accounts
     print(f"Connecting to bank {credentials.route.bank_code}...")
 
-    with ReadOnlyFinTSClient(credentials) as client:
+    with FinTS3Client(credentials) as client:
         accounts = client.list_accounts()
 
         print(f"\nFound {len(accounts)} account(s):\n")

@@ -28,9 +28,9 @@ logging.basicConfig(
 from geldstrom import (
     BankCredentials,
     BankRoute,
-    ReadOnlyFinTSClient,
+    FinTS3Client,
 )
-from geldstrom.application import GatewayCredentials
+from geldstrom.infrastructure.fints import GatewayCredentials
 
 
 def parse_args() -> argparse.Namespace:
@@ -131,7 +131,7 @@ def main() -> None:
     print("-" * 70)
     print("Connecting to bank...")
 
-    client = ReadOnlyFinTSClient(credentials)
+    client = FinTS3Client(credentials)
 
     with client:
         accounts = client.list_accounts()

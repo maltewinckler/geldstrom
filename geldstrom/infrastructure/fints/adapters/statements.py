@@ -2,19 +2,20 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Sequence
+from collections.abc import Sequence
+from typing import TYPE_CHECKING
 
-from geldstrom.application.ports import GatewayCredentials
+from geldstrom.infrastructure.fints.credentials import GatewayCredentials
 from geldstrom.domain import StatementDocument, StatementReference
 from geldstrom.domain.ports.statements import StatementPort
 from geldstrom.infrastructure.fints.protocol import StatementFormat
 from geldstrom.infrastructure.fints.session import FinTSSessionState
 
 from .connection import FinTSConnectionHelper
-from .helpers import account_key, locate_sepa_account
+from .helpers import locate_sepa_account
 
 if TYPE_CHECKING:
-    from geldstrom.infrastructure.fints.protocol.formals import SEPAAccount
+    pass
 
 logger = logging.getLogger(__name__)
 

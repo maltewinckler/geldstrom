@@ -8,26 +8,25 @@ from __future__ import annotations
 
 from typing import Any, ClassVar
 
-from pydantic import Field, model_validator
+from pydantic import Field
 
-from ..base import FinTSSegment, FinTSDataElementGroup
+from ..base import FinTSDataElementGroup, FinTSSegment
+from ..formals.enums import (
+    AllowedFormat,
+    DescriptionRequired,
+    InitializationMode,
+    PrincipalAccountRequired,
+    SMSChargeAccountRequired,
+    TANListNumberRequired,
+    TANTimeDialogAssociation,
+    TaskHashAlgorithm,
+)
 from ..types import (
     FinTSAlphanumeric,
     FinTSBool,
     FinTSCode,
     FinTSNumeric,
 )
-from ..formals.enums import (
-    AllowedFormat,
-    TANTimeDialogAssociation,
-    TANListNumberRequired,
-    InitializationMode,
-    DescriptionRequired,
-    SMSChargeAccountRequired,
-    PrincipalAccountRequired,
-    TaskHashAlgorithm,
-)
-
 
 # =============================================================================
 # Supporting DEGs
@@ -499,7 +498,7 @@ class TwoStepParameters6(TwoStepParametersCommon):
     )
 
     @classmethod
-    def from_wire_list(cls, data: list[Any] | None) -> "TwoStepParameters6":
+    def from_wire_list(cls, data: list[Any] | None) -> TwoStepParameters6:
         """Parse from wire data, handling banks that omit tan_process.
 
         Some banks (e.g., DKB) omit the tan_process field entirely, causing all

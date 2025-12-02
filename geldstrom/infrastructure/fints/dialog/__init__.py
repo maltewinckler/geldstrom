@@ -9,6 +9,13 @@ from .factory import (
     DialogFactory,
     DialogState,
 )
+from .logging import LogConfiguration, Password, log_configuration
+from .message import (
+    FinTSCustomerMessage,
+    FinTSInstituteMessage,
+    FinTSMessage,
+    MessageDirection,
+)
 from .responses import DialogResponse, ProcessedResponse, ResponseProcessor
 from .security import (
     SecurityContext,
@@ -24,11 +31,18 @@ __all__ = [
     "DialogResponse",
     "DialogState",
     "DIALOG_ID_UNASSIGNED",
+    "FinTSCustomerMessage",
+    "FinTSInstituteMessage",
+    "FinTSMessage",
     "HTTPSDialogConnection",
+    "LogConfiguration",
+    "MessageDirection",
+    "Password",
     "ProcessedResponse",
     "ResponseProcessor",
     "SecurityContext",
     "StandaloneAuthenticationMechanism",
     "StandaloneEncryptionMechanism",
     "SYSTEM_ID_UNASSIGNED",
+    "log_configuration",
 ]

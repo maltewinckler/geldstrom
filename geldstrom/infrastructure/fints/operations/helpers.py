@@ -8,7 +8,7 @@ This module provides helpers for:
 from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any
 
-from geldstrom.exceptions import FinTSUnsupportedOperation
+from geldstrom.infrastructure.fints.exceptions import FinTSUnsupportedOperation
 
 if TYPE_CHECKING:
     from geldstrom.infrastructure.fints.protocol.formals import SEPAAccount

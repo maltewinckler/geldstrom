@@ -19,7 +19,11 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any
 
-from geldstrom.application.ports import GatewayCredentials
+from geldstrom.infrastructure.fints.credentials import GatewayCredentials
+from geldstrom.infrastructure.fints.adapters.serialization import (
+    compress_datablob,
+    decompress_datablob,
+)
 from geldstrom.infrastructure.fints.dialog import (
     SYSTEM_ID_UNASSIGNED,
     ConnectionConfig,
@@ -39,7 +43,6 @@ from geldstrom.infrastructure.fints.protocol import (
     SynchronizationMode,
 )
 from geldstrom.infrastructure.fints.session import FinTSSessionState
-from geldstrom.utils import compress_datablob, decompress_datablob
 
 # Magic bytes for the compressed data blob format
 DATA_BLOB_MAGIC = b"python-fints"

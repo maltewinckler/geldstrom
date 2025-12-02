@@ -24,7 +24,7 @@ from typing import TYPE_CHECKING, Sequence
 
 import pytest
 
-from geldstrom.application import GatewayCredentials
+from geldstrom.infrastructure.fints import GatewayCredentials
 from geldstrom.domain import BankCredentials, BankRoute
 from geldstrom.infrastructure.fints.protocol.parser import (
     FinTSParser,
@@ -324,7 +324,7 @@ class TestStrictParsing:
             AccountOperations,
             TransactionOperations,
         )
-        from geldstrom.exceptions import FinTSUnsupportedOperation
+        from geldstrom.infrastructure.fints.exceptions import FinTSUnsupportedOperation
 
         collector = ParserWarningCollector()
 

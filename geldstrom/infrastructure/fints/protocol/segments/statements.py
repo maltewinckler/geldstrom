@@ -10,6 +10,12 @@ from typing import ClassVar
 from pydantic import Field
 
 from ..base import FinTSDataElementGroup, FinTSSegment
+from ..formals import (
+    AccountIdentifier,
+    AccountInternational,
+    Confirmation,
+    StatementFormat,
+)
 from ..types import (
     FinTSAlphanumeric,
     FinTSBinary,
@@ -19,13 +25,6 @@ from ..types import (
     FinTSText,
     FinTSTime,
 )
-from ..formals import (
-    AccountIdentifier,
-    AccountInternational,
-    StatementFormat,
-    Confirmation,
-)
-
 
 # =============================================================================
 # Supporting DEGs

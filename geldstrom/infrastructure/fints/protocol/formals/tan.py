@@ -5,9 +5,6 @@ related data structures used in PIN/TAN security procedures.
 """
 from __future__ import annotations
 
-from datetime import date, time
-from typing import ClassVar
-
 from pydantic import Field
 
 from ..base import FinTSDataElementGroup
@@ -27,7 +24,6 @@ from .identifiers import (
     AccountIdentifier,
     AccountInternational,
 )
-
 
 # =============================================================================
 # TAN Media DEGs

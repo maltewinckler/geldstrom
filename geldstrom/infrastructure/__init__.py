@@ -1,4 +1,7 @@
-"""Infrastructure adapters for the read-only FinTS architecture."""
-from .gateway import FinTSReadOnlyGateway
+"""Infrastructure layer - FinTS protocol implementation."""
 
-__all__ = ["FinTSReadOnlyGateway"]
+# Infrastructure is accessed via submodules:
+#   from geldstrom.infrastructure.fints import GatewayCredentials
+#   from geldstrom.infrastructure.fints.adapters import FinTSAccountDiscovery
+
+__all__: list[str] = []

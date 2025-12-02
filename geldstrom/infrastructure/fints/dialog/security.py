@@ -39,7 +39,7 @@ from geldstrom.infrastructure.fints.protocol import (
 )
 
 if TYPE_CHECKING:
-    from geldstrom.message import FinTSMessage
+    from geldstrom.infrastructure.fints.dialog.message import FinTSMessage
 
 
 @dataclass

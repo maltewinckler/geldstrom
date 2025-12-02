@@ -13,17 +13,15 @@ from typing import ClassVar
 from pydantic import Field
 
 from ..base import FinTSSegment
-from ..types import (
-    FinTSAlphanumeric,
-    FinTSID,
-    FinTSNumeric,
-)
 from ..formals import (
     ReferenceMessage,
     Response,
     SynchronizationMode,
 )
-
+from ..types import (
+    FinTSID,
+    FinTSNumeric,
+)
 
 # =============================================================================
 # Message Header/Trailer Segments

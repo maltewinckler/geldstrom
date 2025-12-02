@@ -32,9 +32,9 @@ logging.getLogger("geldstrom.infrastructure.fints.dialog.factory").setLevel(logg
 from geldstrom import (
     BankCredentials,
     BankRoute,
-    ReadOnlyFinTSClient,
+    FinTS3Client,
 )
-from geldstrom.application import GatewayCredentials
+from geldstrom.infrastructure.fints import GatewayCredentials
 
 
 def load_env(path: Path) -> dict[str, str]:
@@ -108,7 +108,7 @@ def main() -> None:
 
     # Step 1: Connect
     print("\n[1/3] Connecting to bank...")
-    client = ReadOnlyFinTSClient(credentials)
+    client = FinTS3Client(credentials)
 
     try:
         with client:

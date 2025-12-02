@@ -3,24 +3,23 @@
 This client provides a clean, type-safe interface for FinTS banking operations.
 It uses domain port adapters internally, following DDD principles.
 """
+
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import date
-from typing import Sequence
 
-from geldstrom.application.ports import GatewayCredentials
 from geldstrom.domain import (
     Account,
     BalanceSnapshot,
     BankCapabilities,
-    BankCredentials,
-    BankRoute,
     SessionToken,
     StatementDocument,
     StatementReference,
     TransactionFeed,
 )
 from geldstrom.domain.connection import ChallengeHandler, InteractiveChallengeHandler
+from geldstrom.infrastructure.fints import GatewayCredentials
 from geldstrom.infrastructure.fints.adapters import (
     FinTSAccountDiscovery,
     FinTSBalanceAdapter,
@@ -114,7 +113,7 @@ class FinTS3Client:
 
     # --- Context manager ---
 
-    def __enter__(self) -> "FinTS3Client":
+    def __enter__(self) -> FinTS3Client:
         """Enter context and connect to bank."""
         self.connect()
         return self
@@ -365,10 +364,7 @@ class FinTS3Client:
     def _get_balance_adapter(self) -> FinTSBalanceAdapter:
         """Lazy-create balance adapter."""
         if self._balance_adapter is None:
-            self._balance_adapter = FinTSBalanceAdapter(
-                self._credentials,
-                self._accounts,
-            )
+            self._balance_adapter = FinTSBalanceAdapter(self._credentials)
         return self._balance_adapter
 
     def _get_transaction_adapter(self) -> FinTSTransactionHistory:
@@ -385,4 +381,3 @@ class FinTS3Client:
 
 
 __all__ = ["FinTS3Client"]
-

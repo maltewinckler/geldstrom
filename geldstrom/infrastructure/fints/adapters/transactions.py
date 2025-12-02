@@ -3,22 +3,23 @@ from __future__ import annotations
 
 import hashlib
 import logging
+from collections.abc import Iterable, Sequence
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
-from typing import TYPE_CHECKING, Iterable, Sequence
+from typing import TYPE_CHECKING
 from xml.etree import ElementTree as ET
 
-from geldstrom.application.ports import GatewayCredentials
+from geldstrom.infrastructure.fints.credentials import GatewayCredentials
 from geldstrom.domain import TransactionEntry, TransactionFeed
 from geldstrom.domain.ports.transactions import TransactionHistoryPort
-from geldstrom.exceptions import FinTSUnsupportedOperation
+from geldstrom.infrastructure.fints.exceptions import FinTSUnsupportedOperation
 from geldstrom.infrastructure.fints.session import FinTSSessionState
 
 from .connection import FinTSConnectionHelper
 from .helpers import locate_sepa_account
 
 if TYPE_CHECKING:
-    from geldstrom.infrastructure.fints.protocol.formals import SEPAAccount
+    pass
 
 logger = logging.getLogger(__name__)
 

@@ -25,12 +25,13 @@ Quick Start:
 
 # --- Client exports (presentation layer) ---
 # --- Application exports ---
-from geldstrom.application import GatewayCredentials
 from geldstrom.clients import (
     ClientCredentials,
     FinTS3Client,
-    ReadOnlyFinTSClient,
 )
+
+# Backward compatibility alias
+ReadOnlyFinTSClient = FinTS3Client
 
 # --- Domain exports ---
 from geldstrom.domain import (
@@ -47,6 +48,7 @@ from geldstrom.domain import (
     TransactionEntry,
     TransactionFeed,
 )
+from geldstrom.infrastructure.fints import GatewayCredentials
 
 # Version
 version = "0.0.0"

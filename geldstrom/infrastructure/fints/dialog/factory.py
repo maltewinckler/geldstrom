@@ -8,7 +8,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from geldstrom.exceptions import (
+from geldstrom.infrastructure.fints.exceptions import (
     FinTSDialogError,
     FinTSDialogInitError,
     FinTSDialogStateError,
@@ -70,8 +70,8 @@ def _get_hktan_class(hitans_version: int) -> tuple[type | None, int]:
 
 
 if TYPE_CHECKING:
+    from geldstrom.infrastructure.fints.dialog.message import FinTSCustomerMessage
     from geldstrom.infrastructure.fints.protocol import ParameterStore
-    from geldstrom.message import FinTSCustomerMessage
 
     from .security import (
         StandaloneAuthenticationMechanism,
@@ -612,7 +612,7 @@ class Dialog:
 
     def _create_message_with_header(self) -> FinTSCustomerMessage:
         """Create a new message with header initialized."""
-        from geldstrom.message import FinTSCustomerMessage
+        from geldstrom.infrastructure.fints.dialog.message import FinTSCustomerMessage
 
         # Create minimal dialog context for message
         class MinimalContext:
