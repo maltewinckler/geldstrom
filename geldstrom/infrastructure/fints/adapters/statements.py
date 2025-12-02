@@ -11,6 +11,7 @@ from geldstrom.infrastructure.fints.protocol import StatementFormat
 from geldstrom.infrastructure.fints.session import FinTSSessionState
 
 from .connection import FinTSConnectionHelper
+from .helpers import account_key, locate_sepa_account
 
 if TYPE_CHECKING:
     from geldstrom.infrastructure.fints.protocol.formals import SEPAAccount
@@ -61,7 +62,7 @@ class FinTSStatementAdapter(StatementPort):
             stmt_ops = StatementOperations(ctx.dialog, ctx.parameters)
 
             # Find SEPA account
-            sepa_account = self._locate_sepa_account(account_ops, account_id)
+            sepa_account = locate_sepa_account(account_ops, account_id)
 
             # List statements
             result = stmt_ops.list_statements(sepa_account)
@@ -99,9 +100,7 @@ class FinTSStatementAdapter(StatementPort):
             stmt_ops = StatementOperations(ctx.dialog, ctx.parameters)
 
             # Find SEPA account
-            sepa_account = self._locate_sepa_account(
-                account_ops, reference.account_id
-            )
+            sepa_account = locate_sepa_account(account_ops, reference.account_id)
 
             # Determine format
             fmt = self._format_from_mime(preferred_mime_type)
@@ -122,18 +121,6 @@ class FinTSStatementAdapter(StatementPort):
             )
 
     # --- Helpers ---
-
-    def _locate_sepa_account(self, account_ops, account_id: str) -> "SEPAAccount":
-        """Find SEPA account using operations."""
-        for sepa in account_ops.fetch_sepa_accounts():
-            if self._account_key(sepa) == account_id:
-                return sepa
-        raise ValueError(f"Account {account_id} not available from bank")
-
-    @staticmethod
-    def _account_key(account: "SEPAAccount") -> str:
-        """Create lookup key from SEPA account."""
-        return f"{account.accountnumber}:{account.subaccount or '0'}"
 
     def _references_from_operations(
         self,

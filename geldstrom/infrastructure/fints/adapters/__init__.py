@@ -8,6 +8,7 @@ from __future__ import annotations
 from .accounts import FinTSAccountDiscovery
 from .balances import FinTSBalanceAdapter
 from .connection import ConnectionContext, FinTSConnectionHelper
+from .helpers import account_key, locate_sepa_account
 from .session import FinTSSessionAdapter
 from .statements import FinTSStatementAdapter
 from .transactions import FinTSTransactionHistory
@@ -20,4 +21,6 @@ __all__ = [
     "FinTSSessionAdapter",
     "FinTSStatementAdapter",
     "FinTSTransactionHistory",
+    "account_key",
+    "locate_sepa_account",
 ]

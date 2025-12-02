@@ -15,6 +15,7 @@ from geldstrom.exceptions import FinTSUnsupportedOperation
 from geldstrom.infrastructure.fints.session import FinTSSessionState
 
 from .connection import FinTSConnectionHelper
+from .helpers import locate_sepa_account
 
 if TYPE_CHECKING:
     from geldstrom.infrastructure.fints.protocol.formals import SEPAAccount
@@ -72,7 +73,7 @@ class FinTSTransactionHistory(TransactionHistoryPort):
             tx_ops = TransactionOperations(ctx.dialog, ctx.parameters)
 
             # Find SEPA account
-            sepa_account = self._locate_sepa_account(account_ops, account_id)
+            sepa_account = locate_sepa_account(account_ops, account_id)
 
             try:
                 # Try MT940 format first (pending not supported in MT940)
@@ -87,20 +88,6 @@ class FinTSTransactionHistory(TransactionHistoryPort):
                     result.booked_documents,
                     result.pending_documents if include_pending else [],
                 )
-
-    # --- Helpers ---
-
-    def _locate_sepa_account(self, account_ops, account_id: str) -> "SEPAAccount":
-        """Find SEPA account using operations."""
-        for sepa in account_ops.fetch_sepa_accounts():
-            if self._account_key(sepa) == account_id:
-                return sepa
-        raise ValueError(f"Account {account_id} not available from bank")
-
-    @staticmethod
-    def _account_key(account: "SEPAAccount") -> str:
-        """Create lookup key from SEPA account."""
-        return f"{account.accountnumber}:{account.subaccount or '0'}"
 
     # --- MT940 parsing ---
 

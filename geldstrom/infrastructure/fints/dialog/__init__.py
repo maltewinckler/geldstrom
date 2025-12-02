@@ -10,6 +10,11 @@ from .factory import (
     DialogState,
 )
 from .responses import DialogResponse, ProcessedResponse, ResponseProcessor
+from .security import (
+    SecurityContext,
+    StandaloneAuthenticationMechanism,
+    StandaloneEncryptionMechanism,
+)
 
 __all__ = [
     "ConnectionConfig",
@@ -22,5 +27,8 @@ __all__ = [
     "HTTPSDialogConnection",
     "ProcessedResponse",
     "ResponseProcessor",
+    "SecurityContext",
+    "StandaloneAuthenticationMechanism",
+    "StandaloneEncryptionMechanism",
     "SYSTEM_ID_UNASSIGNED",
 ]

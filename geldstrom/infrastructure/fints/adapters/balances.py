@@ -11,6 +11,7 @@ from geldstrom.domain.ports.balances import BalancePort
 from geldstrom.infrastructure.fints.session import FinTSSessionState
 
 from .connection import FinTSConnectionHelper
+from .helpers import account_key, locate_sepa_account
 
 if TYPE_CHECKING:
     from geldstrom.infrastructure.fints.protocol.formals import SEPAAccount
@@ -25,20 +26,14 @@ class FinTSBalanceAdapter(BalancePort):
     Fetches account balances via HKSAL segments.
     """
 
-    def __init__(
-        self,
-        credentials: GatewayCredentials,
-        accounts: Sequence[Account] | None = None,
-    ) -> None:
+    def __init__(self, credentials: GatewayCredentials) -> None:
         """
-        Initialize with credentials and optional account list.
+        Initialize with credentials.
 
         Args:
             credentials: Bank connection credentials
-            accounts: Optional pre-fetched account list for account lookup
         """
         self._credentials = credentials
-        self._accounts = {acc.account_id: acc for acc in (accounts or [])}
 
     def fetch_balances(
         self,
@@ -69,7 +64,7 @@ class FinTSBalanceAdapter(BalancePort):
 
             # Get SEPA accounts
             sepa_accounts = account_ops.fetch_sepa_accounts()
-            sepa_lookup = {self._account_key(sepa): sepa for sepa in sepa_accounts}
+            sepa_lookup = {account_key(sepa): sepa for sepa in sepa_accounts}
 
             # Determine which accounts to fetch
             target_ids = account_ids or list(sepa_lookup.keys())
@@ -118,7 +113,7 @@ class FinTSBalanceAdapter(BalancePort):
             account_ops = AccountOperations(ctx.dialog, ctx.parameters)
             balance_ops = BalanceOperations(ctx.dialog, ctx.parameters)
 
-            sepa_account = self._locate_sepa_account(account_ops, account)
+            sepa_account = locate_sepa_account(account_ops, account.account_id)
             result = balance_ops.fetch_balance(sepa_account)
             return self._balance_from_operations(account.account_id, result)
 
@@ -145,18 +140,5 @@ class FinTSBalanceAdapter(BalancePort):
             as_of=as_of,
             booked=booked_amount,
         )
-
-    def _locate_sepa_account(self, account_ops, account: Account) -> "SEPAAccount":
-        """Find SEPA account using operations."""
-        for sepa in account_ops.fetch_sepa_accounts():
-            if self._account_key(sepa) == account.account_id:
-                return sepa
-        raise ValueError(f"Account {account.account_id} not available from bank")
-
-    @staticmethod
-    def _account_key(account: "SEPAAccount") -> str:
-        """Create lookup key from SEPA account."""
-        return f"{account.accountnumber}:{account.subaccount or '0'}"
-
 
 __all__ = ["FinTSBalanceAdapter"]

@@ -1,6 +1,6 @@
-"""Standalone security mechanisms for FinTS dialogs.
+"""Security mechanisms for FinTS dialog messages.
 
-These mechanisms work directly with the Dialog/connection infrastructure.
+These mechanisms handle message signing and encryption for FinTS dialogs.
 """
 
 from __future__ import annotations
@@ -58,7 +58,7 @@ class SecurityContext:
 
 class StandaloneEncryptionMechanism:
     """
-    PIN/TAN "encryption" mechanism that works without legacy client.
+    PIN/TAN "encryption" mechanism for dialog messages.
 
     This wraps messages in the required HNVSK/HNVSD envelope structure.
 
@@ -141,7 +141,7 @@ class StandaloneEncryptionMechanism:
 
 class StandaloneAuthenticationMechanism:
     """
-    PIN/TAN authentication mechanism that works without legacy client.
+    PIN/TAN authentication mechanism for dialog messages.
 
     Supports both one-step (security function 999) and two-step
     (custom security function) authentication.
@@ -245,6 +245,7 @@ class StandaloneAuthenticationMechanism:
 
 __all__ = [
     "SecurityContext",
-    "StandaloneEncryptionMechanism",
     "StandaloneAuthenticationMechanism",
+    "StandaloneEncryptionMechanism",
 ]
+

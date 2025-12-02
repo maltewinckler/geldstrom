@@ -17,9 +17,7 @@ from geldstrom.infrastructure.fints.protocol import (
     CUSTOMER_ID_ANONYMOUS,
     HKEND1,
     HKIDN2,
-    HKTAN2,
-    HKTAN6,
-    HKTAN7,
+    HKTAN_VERSIONS,
     HKVVB3,
     HNHBK3,
     Language2,
@@ -32,9 +30,6 @@ from .responses import ProcessedResponse, ResponseProcessor
 # FinTS protocol markers for uninitialized state
 DIALOG_ID_UNASSIGNED = "0"
 SYSTEM_ID_UNASSIGNED = "0"
-
-# HKTAN version map
-HKTAN_VERSIONS = {2: HKTAN2, 6: HKTAN6, 7: HKTAN7}
 
 # Segments that should NOT have HKTAN added (dialog management segments only)
 # IMPORTANT: Business segments like HKSPA and HKSAL *may* require HKTAN
@@ -75,12 +70,13 @@ def _get_hktan_class(hitans_version: int) -> tuple[type | None, int]:
 
 
 if TYPE_CHECKING:
-    from geldstrom.infrastructure.fints.auth import (
+    from geldstrom.infrastructure.fints.protocol import ParameterStore
+    from geldstrom.message import FinTSCustomerMessage
+
+    from .security import (
         StandaloneAuthenticationMechanism,
         StandaloneEncryptionMechanism,
     )
-    from geldstrom.infrastructure.fints.protocol import ParameterStore
-    from geldstrom.message import FinTSCustomerMessage
 
 logger = logging.getLogger(__name__)
 

@@ -20,24 +20,20 @@ from dataclasses import dataclass
 from typing import Any
 
 from geldstrom.application.ports import GatewayCredentials
-from geldstrom.infrastructure.fints.auth.standalone_mechanisms import (
-    SecurityContext,
-    StandaloneAuthenticationMechanism,
-    StandaloneEncryptionMechanism,
-)
 from geldstrom.infrastructure.fints.dialog import (
     SYSTEM_ID_UNASSIGNED,
     ConnectionConfig,
     Dialog,
     DialogConfig,
     HTTPSDialogConnection,
+    SecurityContext,
+    StandaloneAuthenticationMechanism,
+    StandaloneEncryptionMechanism,
 )
 from geldstrom.infrastructure.fints.protocol import (
     HISYN4,
     HKSYN3,
-    HKTAN2,
-    HKTAN6,
-    HKTAN7,
+    HKTAN_VERSIONS,
     BankIdentifier,
     ParameterStore,
     SynchronizationMode,
@@ -47,13 +43,6 @@ from geldstrom.utils import compress_datablob, decompress_datablob
 
 # Magic bytes for the compressed data blob format
 DATA_BLOB_MAGIC = b"python-fints"
-
-# Mapping of HKTAN versions to segment classes
-HKTAN_VERSIONS = {
-    2: HKTAN2,
-    6: HKTAN6,
-    7: HKTAN7,
-}
 
 logger = logging.getLogger(__name__)
 

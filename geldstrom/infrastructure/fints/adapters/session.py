@@ -46,21 +46,6 @@ class FinTSSessionAdapter(SessionPort):
             )
             return helper.create_session_state(ctx)
 
-    def refresh_session(
-        self,
-        state: FinTSSessionState,
-    ) -> FinTSSessionState:
-        """
-        Refresh session state (e.g., after BPD/UPD changes).
-
-        Note: This requires credentials, which are not stored in state.
-        For now, this raises NotImplementedError. Use open_session with
-        existing state instead.
-        """
-        raise NotImplementedError(
-            "refresh_session requires credentials. Use open_session with existing state."
-        )
-
     def close_session(self, state: FinTSSessionState) -> None:
         """
         Close the session.

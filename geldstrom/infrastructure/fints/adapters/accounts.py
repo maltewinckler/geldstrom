@@ -1,8 +1,10 @@
 """FinTS 3.0 implementation of AccountDiscoveryPort."""
+
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Sequence
+from collections.abc import Sequence
+from typing import TYPE_CHECKING
 
 from geldstrom.application.ports import GatewayCredentials
 from geldstrom.domain import (
@@ -13,11 +15,14 @@ from geldstrom.domain import (
     BankRoute,
 )
 from geldstrom.domain.ports.accounts import AccountDiscoveryPort
-from geldstrom.infrastructure.fints.protocol import BankIdentifier as FinTSBankIdentifier
-from geldstrom.infrastructure.fints.session import FinTSSessionState
 from geldstrom.infrastructure.fints.operations import AccountInfo
+from geldstrom.infrastructure.fints.protocol import (
+    BankIdentifier as FinTSBankIdentifier,
+)
+from geldstrom.infrastructure.fints.session import FinTSSessionState
 
 from .connection import FinTSConnectionHelper
+from .helpers import account_key
 
 if TYPE_CHECKING:
     from geldstrom.infrastructure.fints.protocol.formals import SEPAAccount
@@ -91,7 +96,7 @@ class FinTSAccountDiscovery(AccountDiscoveryPort):
             sepa_accounts = ops.fetch_sepa_accounts()
             upd_accounts = list(ops.get_accounts_from_upd())
             if not upd_accounts and sepa_accounts:
-                logger.warning(
+                logger.info(
                     "UPD accounts missing; synthesizing from %d SEPA accounts",
                     len(sepa_accounts),
                 )
@@ -110,7 +115,7 @@ class FinTSAccountDiscovery(AccountDiscoveryPort):
                             allowed_operations=[],
                         )
                     )
-            logger.warning(
+            logger.debug(
                 "Fetched %d SEPA accounts, %d UPD accounts",
                 len(sepa_accounts),
                 len(upd_accounts),
@@ -129,11 +134,11 @@ class FinTSAccountDiscovery(AccountDiscoveryPort):
         self,
         default_route: BankRoute,
         upd_accounts,
-        sepa_accounts: Sequence["SEPAAccount"],
+        sepa_accounts: Sequence[SEPAAccount],
     ) -> Sequence[Account]:
         """Convert operations result to domain Account objects."""
 
-        sepa_lookup = {self._account_key(sepa): sepa for sepa in sepa_accounts}
+        sepa_lookup = {account_key(sepa): sepa for sepa in sepa_accounts}
         domain_accounts: list[Account] = []
 
         for acc in upd_accounts:
@@ -174,7 +179,7 @@ class FinTSAccountDiscovery(AccountDiscoveryPort):
                 )
             )
 
-        logger.warning("Converted %d domain accounts", len(domain_accounts))
+        logger.debug("Converted %d domain accounts", len(domain_accounts))
         return tuple(domain_accounts)
 
     def _capabilities_from_operations(
@@ -203,11 +208,6 @@ class FinTSAccountDiscovery(AccountDiscoveryPort):
         )
         bank_code = getattr(identifier, "bank_code", self._credentials.route.bank_code)
         return BankRoute(country_code=country_code, bank_code=bank_code)
-
-    @staticmethod
-    def _account_key(account: "SEPAAccount") -> str:
-        """Create lookup key from SEPA account."""
-        return f"{account.accountnumber}:{account.subaccount or '0'}"
 
 
 __all__ = ["FinTSAccountDiscovery"]

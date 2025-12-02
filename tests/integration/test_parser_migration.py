@@ -266,7 +266,7 @@ class TestStrictParsing:
                 _ = ctx.parameters.upd.get_accounts()
 
         # Report warnings for debugging
-        if collector.parser_warnings:
+        if collector.warning_messages:
             print("\n" + collector.report())
 
         collector.assert_no_critical_warnings(
@@ -286,7 +286,7 @@ class TestStrictParsing:
                 accounts = ops.fetch_sepa_accounts()
                 assert accounts, "Expected at least one SEPA account"
 
-        if collector.parser_warnings:
+        if collector.warning_messages:
             print("\n" + collector.report())
 
         collector.assert_no_critical_warnings("Account fetch produced critical parser warnings")
@@ -313,7 +313,7 @@ class TestStrictParsing:
                     # Balance might fail for some account types, that's okay
                     logger.warning("Balance fetch failed (may be expected): %s", e)
 
-        if collector.parser_warnings:
+        if collector.warning_messages:
             print("\n" + collector.report())
 
         collector.assert_no_critical_warnings("Balance fetch produced critical parser warnings")
@@ -347,7 +347,7 @@ class TestStrictParsing:
                     except FinTSUnsupportedOperation:
                         pytest.skip("Bank doesn't support transactions")
 
-        if collector.parser_warnings:
+        if collector.warning_messages:
             print("\n" + collector.report())
 
         collector.assert_no_critical_warnings("Transaction fetch produced critical parser warnings")
@@ -417,16 +417,15 @@ class TestSegmentCoverage:
 
     def test_core_bpd_segments_recognized(self, connection_helper):
         """Verify core BPD segments have Pydantic models."""
-        from geldstrom.infrastructure.fints.protocol.parser import get_default_registry
+        from geldstrom.infrastructure.fints.protocol.base import FinTSSegment
 
-        registry = get_default_registry()
         missing_core: list[tuple[str, int]] = []
 
         with connection_helper.connect(None) as ctx:
             for segment in ctx.parameters.bpd.segments.segments:
                 header = segment.header
                 if self._is_core_segment(header.type):
-                    if not registry.get(header.type, header.version):
+                    if not FinTSSegment.get_segment_class(header.type, header.version):
                         missing_core.append((header.type, header.version))
 
         if missing_core:
@@ -438,16 +437,15 @@ class TestSegmentCoverage:
 
     def test_core_upd_segments_recognized(self, connection_helper):
         """Verify core UPD segments have Pydantic models."""
-        from geldstrom.infrastructure.fints.protocol.parser import get_default_registry
+        from geldstrom.infrastructure.fints.protocol.base import FinTSSegment
 
-        registry = get_default_registry()
         missing_core: list[tuple[str, int]] = []
 
         with connection_helper.connect(None) as ctx:
             for segment in ctx.parameters.upd.segments.segments:
                 header = segment.header
                 if self._is_core_segment(header.type):
-                    if not registry.get(header.type, header.version):
+                    if not FinTSSegment.get_segment_class(header.type, header.version):
                         missing_core.append((header.type, header.version))
 
         if missing_core:
@@ -462,9 +460,7 @@ class TestSegmentCoverage:
 
         This test always passes but prints diagnostic information.
         """
-        from geldstrom.infrastructure.fints.protocol.parser import get_default_registry
-
-        registry = get_default_registry()
+        from geldstrom.infrastructure.fints.protocol.base import FinTSSegment
 
         with connection_helper.connect(None) as ctx:
             bpd_types = {
@@ -477,7 +473,7 @@ class TestSegmentCoverage:
             }
 
         all_types = bpd_types | upd_types
-        recognized = {t for t in all_types if registry.get(*t)}
+        recognized = {t for t in all_types if FinTSSegment.get_segment_class(*t)}
         unrecognized = all_types - recognized
 
         # Categorize unrecognized segments
