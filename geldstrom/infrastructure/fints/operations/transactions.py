@@ -12,7 +12,6 @@ from dataclasses import dataclass, field
 from datetime import date
 from typing import TYPE_CHECKING
 
-from geldstrom.exceptions import FinTSUnsupportedOperation
 from geldstrom.infrastructure.fints.protocol import (
     HKCAZ1,
     HKKAZ5,
@@ -23,7 +22,8 @@ from geldstrom.infrastructure.fints.protocol import (
 from geldstrom.infrastructure.fints.protocol.formals import SEPAAccount
 from geldstrom.utils import mt940_to_array
 
-from .pagination import TouchdownPaginator, find_highest_supported_version
+from .helpers import build_account_field, find_highest_supported_version
+from .pagination import TouchdownPaginator
 
 if TYPE_CHECKING:
     from geldstrom.infrastructure.fints.dialog import Dialog
@@ -92,7 +92,6 @@ class TransactionOperations:
         account: SEPAAccount,
         start_date: date | None = None,
         end_date: date | None = None,
-        include_pending: bool = False,
     ) -> MT940TransactionResult:
         """
         Fetch transaction history in MT940 format.
@@ -101,7 +100,6 @@ class TransactionOperations:
             account: SEPA account to query
             start_date: Start of date range (optional)
             end_date: End of date range (optional)
-            include_pending: Include pending transactions
 
         Returns:
             MT940TransactionResult with parsed transactions
@@ -120,21 +118,11 @@ class TransactionOperations:
         hkkaz_class = find_highest_supported_version(
             self._parameters.bpd.segments,
             SUPPORTED_HKKAZ,
+            raise_if_missing="Bank does not support transaction queries (HKKAZ)",
         )
 
-        if not hkkaz_class:
-            raise FinTSUnsupportedOperation(
-                "Bank does not support transaction queries (HKKAZ)"
-            )
-
         # Build account field
-        from .helpers import get_account_type_for_segment
-
-        account_type = get_account_type_for_segment(hkkaz_class)
-        account_field = account_type.from_sepa_account(account)
-
-        # Collect raw MT940 segments
-        mt940_segments: list[bytes] = []
+        account_field = build_account_field(hkkaz_class, account)
 
         def segment_factory(touchdown: str | None):
             return hkkaz_class(
@@ -146,9 +134,7 @@ class TransactionOperations:
             )
 
         def extract_mt940(seg) -> bytes | None:
-            if hasattr(seg, "statement_booked"):
-                return seg.statement_booked
-            return None
+            return getattr(seg, "statement_booked", None)
 
         # Fetch with pagination
         result = self._paginator.fetch(
@@ -157,20 +143,9 @@ class TransactionOperations:
             extract_items=extract_mt940,
         )
 
-        mt940_segments = [s for s in result.items if s]
-
-        # Also collect pending if requested
-        pending_segments: list[bytes] = []
-        if include_pending:
-            # Re-fetch to get pending (or parse from same response)
-            # For now, pending comes from the same segments
-            pass
-
         # Combine and parse MT940
-        combined = self._combine_mt940_segments(
-            mt940_segments,
-            pending_segments if include_pending else [],
-        )
+        mt940_segments = [s for s in result.items if s]
+        combined = self._decode_mt940_segments(mt940_segments)
         transactions = mt940_to_array(combined)
 
         return MT940TransactionResult(
@@ -210,12 +185,8 @@ class TransactionOperations:
         hkcaz_class = find_highest_supported_version(
             self._parameters.bpd.segments,
             SUPPORTED_HKCAZ,
+            raise_if_missing="Bank does not support CAMT queries (HKCAZ)",
         )
-
-        if not hkcaz_class:
-            raise FinTSUnsupportedOperation(
-                "Bank does not support CAMT queries (HKCAZ)"
-            )
 
         # Get supported CAMT message types from BPD
         camt_messages = self._get_supported_camt_types()
@@ -226,10 +197,7 @@ class TransactionOperations:
         supported_messages = SupportedMessageTypes(expected_type=list(camt_messages))
 
         # Build account field
-        from .helpers import get_account_type_for_segment
-
-        account_type = get_account_type_for_segment(hkcaz_class)
-        account_field = account_type.from_sepa_account(account)
+        account_field = build_account_field(hkcaz_class, account)
 
         booked_docs: list[bytes] = []
         pending_docs: list[bytes] = []
@@ -248,9 +216,9 @@ class TransactionOperations:
         def extract_camt(seg) -> tuple[list[bytes], bytes | None] | None:
             booked = []
             pending = None
-            if hasattr(seg, "statement_booked") and seg.statement_booked:
-                if hasattr(seg.statement_booked, "camt_statements"):
-                    booked = list(seg.statement_booked.camt_statements)
+            stmt = getattr(seg, "statement_booked", None)
+            if stmt and hasattr(stmt, "camt_statements"):
+                booked = list(stmt.camt_statements)
             if hasattr(seg, "statement_pending"):
                 pending = seg.statement_pending
             return (booked, pending) if booked or pending else None
@@ -277,25 +245,14 @@ class TransactionOperations:
             has_more=result.has_more,
         )
 
-    def _combine_mt940_segments(
-        self,
-        booked: Sequence[bytes],
-        pending: Sequence[bytes],
-    ) -> str:
-        """Combine MT940 segments into a single string for parsing."""
+    def _decode_mt940_segments(self, segments: Sequence[bytes]) -> str:
+        """Decode MT940 segments into a single string for parsing."""
         parts = []
-        for seg in booked:
+        for seg in segments:
             if isinstance(seg, bytes):
                 parts.append(seg.decode("iso-8859-1"))
             else:
                 parts.append(str(seg))
-
-        for seg in pending:
-            if isinstance(seg, bytes):
-                parts.append(seg.decode("iso-8859-1"))
-            else:
-                parts.append(str(seg))
-
         return "".join(parts)
 
     def _get_supported_camt_types(self) -> tuple[str, ...]:
@@ -335,12 +292,8 @@ class TransactionOperations:
                 self._collect_camt_identifiers(item, bucket)
             return
 
-        # Check object fields
-        fields = getattr(node, "_fields", {})
-        for name in fields:
-            self._collect_camt_identifiers(getattr(node, name, None), bucket)
-
-        # Check additional data
-        additional = getattr(node, "_additional_data", None)
-        if additional:
-            self._collect_camt_identifiers(additional, bucket)
+        # Check Pydantic model fields
+        model_fields = getattr(node, "model_fields", None)
+        if model_fields:
+            for name in model_fields:
+                self._collect_camt_identifiers(getattr(node, name, None), bucket)

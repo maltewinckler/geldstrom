@@ -6,6 +6,7 @@ These segments handle message-level security including:
 - Signature header (HNSHK)
 - Signature trailer (HNSHA)
 """
+
 from __future__ import annotations
 
 from typing import ClassVar
@@ -13,12 +14,6 @@ from typing import ClassVar
 from pydantic import Field
 
 from ..base import FinTSSegment, SegmentSequence
-from ..types import (
-    FinTSAlphanumeric,
-    FinTSBinary,
-    FinTSCode,
-    FinTSNumeric,
-)
 from ..formals import (
     Certificate,
     CompressionFunction,
@@ -33,7 +28,12 @@ from ..formals import (
     SignatureAlgorithm,
     UserDefinedSignature,
 )
-
+from ..types import (
+    FinTSAlphanumeric,
+    FinTSBinary,
+    FinTSCode,
+    FinTSNumeric,
+)
 
 # =============================================================================
 # Encryption Segments
@@ -96,16 +96,17 @@ class HNVSD1(FinTSSegment):
         description="Daten, verschlüsselt (contains nested segments)",
     )
 
-    _parsed_segments: "SegmentSequence | None" = None
+    _parsed_segments: SegmentSequence | None = None
 
     @property
-    def segments(self) -> "SegmentSequence":
+    def segments(self) -> SegmentSequence:
         """Parse and return the nested segments from the data field.
 
         This allows find_segments to recurse into the encrypted data.
         """
         if self._parsed_segments is None:
             from geldstrom.infrastructure.fints.protocol.base import SegmentSequence
+
             if isinstance(self.data, bytes):
                 self._parsed_segments = SegmentSequence(self.data)
             else:
@@ -232,4 +233,3 @@ __all__ = [
     "HNSHK_VERSIONS",
     "HNSHA_VERSIONS",
 ]
-

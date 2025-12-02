@@ -5,7 +5,6 @@ from __future__ import annotations
 import logging
 from collections.abc import Sequence
 from dataclasses import dataclass, field
-from enum import Enum
 from typing import Callable
 
 from geldstrom.infrastructure.fints.protocol import (
@@ -21,14 +20,6 @@ from geldstrom.message import FinTSInstituteMessage
 logger = logging.getLogger(__name__)
 
 
-class ResponseLevel(Enum):
-    """Severity level for dialog responses."""
-
-    INFO = "info"
-    WARNING = "warning"
-    ERROR = "error"
-
-
 @dataclass
 class DialogResponse:
     """A single response code and message from the bank."""
@@ -36,16 +27,6 @@ class DialogResponse:
     code: str
     text: str
     parameters: Sequence[str] = field(default_factory=tuple)
-
-    @property
-    def level(self) -> ResponseLevel:
-        """Determine the severity level from the response code."""
-        if self.code.startswith("0") or self.code.startswith("1"):
-            return ResponseLevel.INFO
-        elif self.code.startswith("3"):
-            return ResponseLevel.WARNING
-        else:
-            return ResponseLevel.ERROR
 
     @property
     def is_success(self) -> bool:
@@ -243,7 +224,7 @@ class ResponseProcessor:
             return None, None, None
 
         segments_iter = list(response.find_segments("HIUPD"))
-        logger.warning("Response contains %d HIUPD segments", len(segments_iter))
+        logger.debug("Response contains %d HIUPD segments", len(segments_iter))
         upd_segments = SegmentSequence(segments_iter)
         return upa, upa.upd_version, upd_segments
 
@@ -256,26 +237,3 @@ class ResponseProcessor:
                 callback(response, segment)
             except Exception:
                 logger.exception("Error in response callback")
-
-
-def log_response(response: DialogResponse, segment: object | None = None) -> None:
-    """Standard callback for logging responses."""
-    if response.level == ResponseLevel.INFO:
-        log_target = logger.info
-    elif response.level == ResponseLevel.WARNING:
-        log_target = logger.warning
-    else:
-        log_target = logger.error
-
-    params_str = f" ({response.parameters!r})" if response.parameters else ""
-    log_target(
-        "Dialog response: %s - %s%s",
-        response.code,
-        response.text,
-        params_str,
-        extra={
-            "fints_response_code": response.code,
-            "fints_response_text": response.text,
-            "fints_response_parameters": response.parameters,
-        },
-    )

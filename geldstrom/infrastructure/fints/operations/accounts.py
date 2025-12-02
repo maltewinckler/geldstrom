@@ -94,14 +94,14 @@ class AccountOperations:
 
         if response.raw_response is not None:
             for seg in response.raw_response.find_segments(HISPA1):
-                logger.warning("Inspecting HISPA segment %s", seg)
+                logger.debug("Inspecting HISPA segment %s", seg)
                 if seg.accounts:
-                    logger.warning("Segment has %d accounts", len(seg.accounts))
+                    logger.debug("Segment has %d accounts", len(seg.accounts))
                     for acc in seg.accounts:
-                        logger.warning("Account data %s", acc)
+                        logger.debug("Account data %s", acc)
                         sepa = acc.as_sepa_account()
                         if sepa:
-                            logger.warning("Converted to SEPA account %s", sepa)
+                            logger.debug("Converted to SEPA account %s", sepa)
                             accounts.append(sepa)
 
         # Fallback to UPD if HISPA returned no accounts

@@ -12,13 +12,11 @@ Organization:
 - auth: Authentication (HKIDN, HKVVB, HKTAN, HITAN, HKTAB, HITAB)
 - bank: Bank/User parameters (HIBPA, HIUPA, HIUPD, HIKOM)
 - pintan: PIN/TAN parameters (HIPINS, HITANS)
-- transfer: SEPA transfers (HKCCS, HKCCM, HKIPZ, HKIPM)
-- depot: Securities/portfolio (HKWPD, HIWPD)
-- journal: Status protocol (HKPRO, HIPRO)
 - saldo: Balance segments (HKSAL, HISAL)
 - accounts: Account segments (HKSPA, HISPA)
 - transactions: Transaction segments (HKKAZ, HIKAZ, HKCAZ, HICAZ)
 - statements: Statement segments (HKEKA, HIEKA, HKKAU, HIKAU)
+- params: Generic parameter segments
 """
 from __future__ import annotations
 
@@ -130,51 +128,6 @@ from .pintan import (
     HIPINS_VERSIONS,
     HITANS_VERSIONS,
 )
-from .transfer import (
-    # DEGs
-    BatchTransferParameter,
-    # Single transfers
-    HKCCS1,
-    HKIPZ1,
-    HKCCS_VERSIONS,
-    HKIPZ_VERSIONS,
-    # Batch transfers
-    HKCCM1,
-    HKIPM1,
-    HKCCM_VERSIONS,
-    HKIPM_VERSIONS,
-    # Parameters
-    HICCMS1,
-    HICCMS_VERSIONS,
-)
-from .depot import (
-    # DEGs
-    DepotAccount2,
-    DepotAccount3,
-    # Request
-    HKWPD5,
-    HKWPD6,
-    HKWPD_VERSIONS,
-    # Response
-    HIWPD5,
-    HIWPD6,
-    HIWPD_VERSIONS,
-)
-from .journal import (
-    # Request
-    HKPRO3,
-    HKPRO4,
-    HKPRO_VERSIONS,
-    # Response
-    HIPRO3,
-    HIPRO4,
-    HIPRO_VERSIONS,
-    # Parameters
-    ParameterSegment22Base,
-    HIPROS3,
-    HIPROS4,
-    HIPROS_VERSIONS,
-)
 from .saldo import (
     # Request segments
     HKSAL5,
@@ -231,16 +184,6 @@ from .statements import (
     HIKAU2,
     HIKAU_VERSIONS,
 )
-from .informational import (
-    # DEGs
-    AuthorizationSecurityScheme,
-    VisualizationInfo,
-    # Segments
-    HIAZSS1,
-    HIVISS1,
-    HIAZSS_VERSIONS,
-    HIVISS_VERSIONS,
-)
 from .params import (
     # Base classes
     GenericParameter,
@@ -274,73 +217,6 @@ from .params import (
     # Security Parameters
     HISHV3,
     HISHV_VERSIONS,
-    # Transfer Parameters
-    HICSBase,
-    TransferParameter,
-    HICCSS1 as HICCSS1_PARAMS,  # Aliased because HICCSS1 also exists in transfer.py
-    HIDSCS1,
-    HIBSES1,
-    HIDSES1,
-    HIDMES1,
-    HIBMES1,
-    HICCSS_VERSIONS,
-    HIDSCS_VERSIONS,
-    HIBSES_VERSIONS,
-    HIDSES_VERSIONS,
-    HIDMES_VERSIONS,
-    # Other Parameters (bank-specific generic)
-    HIPAES1,
-    HIPSPS1,
-    HIQTGS1,
-    HICSAS1,
-    HICSBS1,
-    HICSLS1,
-    HICSES1,
-    HICDBS1,
-    HICDLS1,
-    HICDNS1,
-    HIDSBS1,
-    HICUBS1,
-    HICUMS1,
-    HICDES1,
-    HIDSWS1,
-    HIECAS1,
-    HIDBSS1,
-    HIBBSS1,
-    HIDMBS1,
-    HIBMBS1,
-    HICMBS1,
-    HICMES1,
-    HICMLS1,
-    HIWPDS6,
-    HIWPDS7,
-    HIIPZS1,
-    HIIPMS1,
-    HICAZS1,
-    HIKAUS1,
-    HIKAUS2,
-    HIPROS5,
-    HITABS4,
-    HITABS5,
-    # Version 2 and additional
-    HIBMES2,
-    HIBSES2,
-    HIDSES2,
-    HIDMES2,
-    HIWDUS5,
-    HIKIFS7,
-    HIBAZS1,
-    HIZDFS1,
-    HIDVKS2,
-    HIKOMS4,
-    HIDSWS2,
-    HICCMS1 as HICCMS1_PARAMS,
-    HICCMS2,
-    HIDSCS2,
-    HIDMCS1,
-    HIDMCS2,
-    HIDBSS2,
-    HIBBSS2,
 )
 
 __all__ = [
@@ -442,45 +318,6 @@ __all__ = [
     "HITANS7",
     "HIPINS_VERSIONS",
     "HITANS_VERSIONS",
-    # Transfer - DEGs
-    "BatchTransferParameter",
-    # Transfer - Single
-    "HKCCS1",
-    "HKIPZ1",
-    "HKCCS_VERSIONS",
-    "HKIPZ_VERSIONS",
-    # Transfer - Batch
-    "HKCCM1",
-    "HKIPM1",
-    "HKCCM_VERSIONS",
-    "HKIPM_VERSIONS",
-    # Transfer - Parameters
-    "HICCMS1",
-    "HICCMS_VERSIONS",
-    # Depot - DEGs
-    "DepotAccount2",
-    "DepotAccount3",
-    # Depot - Request
-    "HKWPD5",
-    "HKWPD6",
-    "HKWPD_VERSIONS",
-    # Depot - Response
-    "HIWPD5",
-    "HIWPD6",
-    "HIWPD_VERSIONS",
-    # Journal - Request
-    "HKPRO3",
-    "HKPRO4",
-    "HKPRO_VERSIONS",
-    # Journal - Response
-    "HIPRO3",
-    "HIPRO4",
-    "HIPRO_VERSIONS",
-    # Journal - Parameters
-    "ParameterSegment22Base",
-    "HIPROS3",
-    "HIPROS4",
-    "HIPROS_VERSIONS",
     # Balance request segments
     "HKSAL5",
     "HKSAL6",
@@ -526,17 +363,9 @@ __all__ = [
     "HIKAU1",
     "HIKAU2",
     "HIKAU_VERSIONS",
-    # Informational segments
-    "AuthorizationSecurityScheme",
-    "VisualizationInfo",
-    "HIAZSS1",
-    "HIVISS1",
-    "HIAZSS_VERSIONS",
-    "HIVISS_VERSIONS",
     # Parameter segments - Base
     "GenericParameter",
     "GenericSegment",
-    "HICSBase",
     # Parameter segments - SEPA Account
     "GetSEPAAccountParameter",
     "HISPAS1",
@@ -566,71 +395,5 @@ __all__ = [
     # Parameter segments - Security
     "HISHV3",
     "HISHV_VERSIONS",
-    # Parameter segments - Transfers
-    "TransferParameter",
-    "HICCSS1_PARAMS",
-    "HIDSCS1",
-    "HIBSES1",
-    "HIDSES1",
-    "HIDMES1",
-    "HIBMES1",
-    "HICCSS_VERSIONS",
-    "HIDSCS_VERSIONS",
-    "HIBSES_VERSIONS",
-    "HIDSES_VERSIONS",
-    "HIDMES_VERSIONS",
-    # Parameter segments - Other (bank-specific generic)
-    "HIPAES1",
-    "HIPSPS1",
-    "HIQTGS1",
-    "HICSAS1",
-    "HICSBS1",
-    "HICSLS1",
-    "HICSES1",
-    "HICDBS1",
-    "HICDLS1",
-    "HICDNS1",
-    "HIDSBS1",
-    "HICUBS1",
-    "HICUMS1",
-    "HICDES1",
-    "HIDSWS1",
-    "HIECAS1",
-    "HIDBSS1",
-    "HIBBSS1",
-    "HIDMBS1",
-    "HIBMBS1",
-    "HICMBS1",
-    "HICMES1",
-    "HICMLS1",
-    "HIWPDS6",
-    "HIWPDS7",
-    "HIIPZS1",
-    "HIIPMS1",
-    "HICAZS1",
-    "HIKAUS1",
-    "HIKAUS2",
-    "HIPROS5",
-    "HITABS4",
-    "HITABS5",
-    # Version 2 and additional
-    "HIBMES2",
-    "HIBSES2",
-    "HIDSES2",
-    "HIDMES2",
-    "HIWDUS5",
-    "HIKIFS7",
-    "HIBAZS1",
-    "HIZDFS1",
-    "HIDVKS2",
-    "HIKOMS4",
-    "HIDSWS2",
-    "HICCMS1_PARAMS",
-    "HICCMS2",
-    "HIDSCS2",
-    "HIDMCS1",
-    "HIDMCS2",
-    "HIDBSS2",
-    "HIBBSS2",
 ]
 

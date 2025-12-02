@@ -5,6 +5,7 @@ These segments handle bank and user parameter data:
 - User Parameter Data (UPD): HIUPA, HIUPD
 - Communication Access: HKKOM, HIKOM
 """
+
 from __future__ import annotations
 
 from typing import ClassVar
@@ -12,13 +13,6 @@ from typing import ClassVar
 from pydantic import Field
 
 from ..base import FinTSDataElementGroup, FinTSSegment
-from ..types import (
-    FinTSAlphanumeric,
-    FinTSCode,
-    FinTSCurrency,
-    FinTSID,
-    FinTSNumeric,
-)
 from ..formals import (
     AccountLimit,
     AllowedTransaction,
@@ -27,7 +21,13 @@ from ..formals import (
     Language,
     UPDUsage,
 )
-
+from ..types import (
+    FinTSAlphanumeric,
+    FinTSCode,
+    FinTSCurrency,
+    FinTSID,
+    FinTSNumeric,
+)
 
 # =============================================================================
 # Supporting DEGs for Bank Segments
@@ -296,27 +296,11 @@ class HIKOM4(FinTSSegment):
 # =============================================================================
 # Version Registries
 # =============================================================================
-
-
-HIBPA_VERSIONS: dict[int, type[FinTSSegment]] = {
-    3: HIBPA3,
-}
-
-HIUPA_VERSIONS: dict[int, type[FinTSSegment]] = {
-    4: HIUPA4,
-}
-
-HIUPD_VERSIONS: dict[int, type[FinTSSegment]] = {
-    6: HIUPD6,
-}
-
-HKKOM_VERSIONS: dict[int, type[FinTSSegment]] = {
-    4: HKKOM4,
-}
-
-HIKOM_VERSIONS: dict[int, type[FinTSSegment]] = {
-    4: HIKOM4,
-}
+HIBPA_VERSIONS: dict[int, type[FinTSSegment]] = {3: HIBPA3}
+HIUPA_VERSIONS: dict[int, type[FinTSSegment]] = {4: HIUPA4}
+HIUPD_VERSIONS: dict[int, type[FinTSSegment]] = {6: HIUPD6}
+HKKOM_VERSIONS: dict[int, type[FinTSSegment]] = {4: HKKOM4}
+HIKOM_VERSIONS: dict[int, type[FinTSSegment]] = {4: HIKOM4}
 
 
 __all__ = [
@@ -338,4 +322,3 @@ __all__ = [
     "HKKOM_VERSIONS",
     "HIKOM_VERSIONS",
 ]
-

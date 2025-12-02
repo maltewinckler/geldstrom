@@ -94,6 +94,12 @@ def _parse_list_of_degs(
 ) -> tuple[list[Any], int]:
     """Parse a list of DEGs from wire data.
 
+    Some banks send fewer fields than the model defines (e.g., omitting optional
+    fields). This function tries to detect DEG boundaries by:
+    1. Using the expected field count as a starting point
+    2. If parsing fails, looking for the next element that looks like a new DEG
+       (e.g., a 3-digit code for TwoStepParameters)
+
     Returns:
         (parsed_items, new_data_index)
     """
@@ -103,24 +109,77 @@ def _parse_list_of_degs(
 
     chunk_start = 0
     while chunk_start < len(remaining_data):
+        # Try standard chunk size first
         chunk = remaining_data[chunk_start : chunk_start + inner_field_count]
         if len(chunk) == 0:
             break
+
         try:
             item = inner_type.from_wire_list(chunk)
             list_values.append(item)
             chunk_start += inner_field_count
-        except Exception as exc:
-            logger.warning(
-                "Failed to parse list field %s.%s chunk %s: %s",
-                cls_name,
-                field_name,
-                chunk,
-                exc,
+        except Exception:
+            # Parsing failed - try to find actual DEG boundary
+            # Look for the next element that could start a new DEG
+            # (typically a 2-3 digit code for security_function)
+            actual_end = _find_deg_boundary(
+                remaining_data, chunk_start, inner_field_count
             )
-            break
+            if actual_end > chunk_start:
+                # Try parsing with the detected boundary
+                smaller_chunk = remaining_data[chunk_start:actual_end]
+                try:
+                    item = inner_type.from_wire_list(smaller_chunk)
+                    list_values.append(item)
+                    chunk_start = actual_end
+                    continue
+                except Exception as exc:
+                    logger.warning(
+                        "Failed to parse list field %s.%s chunk %s: %s",
+                        cls_name,
+                        field_name,
+                        smaller_chunk,
+                        exc,
+                    )
+                    break
+            else:
+                # No boundary found, give up
+                logger.warning(
+                    "Failed to parse list field %s.%s chunk %s",
+                    cls_name,
+                    field_name,
+                    chunk,
+                )
+                break
 
     return list_values, len(data)
+
+
+def _find_deg_boundary(data: list[Any], start: int, expected_size: int) -> int:
+    """Find the actual end of a DEG in the data.
+
+    Looks for patterns that indicate the start of a new DEG:
+    - A 2-3 digit numeric code (typical security_function)
+    - After at least half the expected fields
+
+    Returns:
+        Index of the boundary, or start + expected_size if not found
+    """
+    min_fields = expected_size // 2  # At least half the expected fields
+
+    for i in range(start + min_fields, min(start + expected_size, len(data))):
+        value = data[i]
+        # Check if this looks like a security_function (start of new DEG)
+        if (
+            value is not None
+            and isinstance(value, str)
+            and len(value) <= 3
+            and value.isdigit()
+            and int(value) >= 100  # Typical security_function codes are 900+
+        ):
+            return i
+
+    return start + expected_size
 
 
 def _parse_nested_model(
@@ -605,7 +664,11 @@ class SegmentSequence(FinTSModel):
                 if isinstance(query, type):
                     matches = isinstance(segment, query)
                 else:
-                    matches = query == segment.SEGMENT_TYPE
+                    # Check both class SEGMENT_TYPE and header.type
+                    # (header.type is needed for GenericSegment fallbacks)
+                    matches = (
+                        query == segment.SEGMENT_TYPE or query == segment.header.type
+                    )
 
             # Check callback
             if matches and callback is not None:

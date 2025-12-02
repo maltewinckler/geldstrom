@@ -2,11 +2,13 @@
 
 These DEGs represent monetary amounts and account balances.
 """
+
 from __future__ import annotations
 
-from datetime import date, time
+from datetime import date
 from decimal import Decimal
 
+from mt940.models import Balance as MT940Balance
 from pydantic import Field
 
 from ..base import FinTSDataElementGroup
@@ -26,12 +28,8 @@ class Amount(FinTSDataElementGroup):
         amount = Amount.from_wire_list(["1234,56", "EUR"])
     """
 
-    amount: FinTSAmount = Field(
-        description="Wert (Value)",
-    )
-    currency: FinTSCurrency = Field(
-        description="Währung (Currency)",
-    )
+    amount: FinTSAmount = Field(description="Wert (Value)")
+    currency: FinTSCurrency = Field(description="Währung (Currency)")
 
     def __str__(self) -> str:
         return f"{self.amount} {self.currency}"
@@ -52,19 +50,10 @@ class Balance(FinTSDataElementGroup):
         )
     """
 
-    credit_debit: CreditDebit = Field(
-        description="Soll-Haben-Kennzeichen",
-    )
-    amount: Amount = Field(
-        description="Betrag",
-    )
-    date: FinTSDate = Field(
-        description="Datum",
-    )
-    time: FinTSTime | None = Field(
-        default=None,
-        description="Uhrzeit",
-    )
+    credit_debit: CreditDebit = Field(description="Soll-Haben-Kennzeichen")
+    amount: Amount = Field(description="Betrag")
+    date: FinTSDate = Field(description="Datum")
+    time: FinTSTime | None = Field(default=None, description="Uhrzeit")
 
     @property
     def signed_amount(self) -> Decimal:
@@ -87,13 +76,13 @@ class Balance(FinTSDataElementGroup):
         """Get currency from nested amount."""
         return self.amount.currency
 
-    def as_mt940_balance(self):
+    def as_mt940_balance(self) -> MT940Balance:
         """Convert to mt940 Balance model.
 
         Returns:
             mt940.models.Balance instance
         """
-        from mt940.models import Balance as MT940Balance
+
         return MT940Balance(
             self.credit_debit.value,
             f"{self.amount.amount:.12f}".rstrip("0"),
@@ -110,22 +99,11 @@ class BalanceSimple(FinTSDataElementGroup):
     Source: HBCI Homebanking-Computer-Interface, Schnittstellenspezifikation
     """
 
-    credit_debit: CreditDebit = Field(
-        description="Soll-Haben-Kennzeichen",
-    )
-    amount: FinTSAmount = Field(
-        description="Wert",
-    )
-    currency: FinTSCurrency = Field(
-        description="Währung",
-    )
-    date: FinTSDate = Field(
-        description="Datum",
-    )
-    time: FinTSTime | None = Field(
-        default=None,
-        description="Uhrzeit",
-    )
+    credit_debit: CreditDebit = Field(description="Soll-Haben-Kennzeichen")
+    amount: FinTSAmount = Field(description="Wert")
+    currency: FinTSCurrency = Field(description="Währung")
+    date: FinTSDate = Field(description="Datum")
+    time: FinTSTime | None = Field(default=None, description="Uhrzeit")
 
     @property
     def signed_amount(self) -> Decimal:
@@ -134,9 +112,8 @@ class BalanceSimple(FinTSDataElementGroup):
             return self.amount
         return -self.amount
 
-    def as_mt940_balance(self):
+    def as_mt940_balance(self) -> MT940Balance:
         """Convert to mt940 Balance model."""
-        from mt940.models import Balance as MT940Balance
         return MT940Balance(
             self.credit_debit.value,
             f"{self.amount:.12f}".rstrip("0"),
@@ -153,13 +130,8 @@ class Timestamp(FinTSDataElementGroup):
     Source: FinTS 3.0 Messages - Multibankfähige Geschäftsvorfälle
     """
 
-    date: FinTSDate = Field(
-        description="Datum",
-    )
-    time: FinTSTime | None = Field(
-        default=None,
-        description="Uhrzeit",
-    )
+    date: FinTSDate = Field(description="Datum")
+    time: FinTSTime | None = Field(default=None, description="Uhrzeit")
 
 
 # =============================================================================
@@ -176,12 +148,22 @@ class Holding(FinTSDataElementGroup):
 
     ISIN: str = Field(description="ISIN code")
     name: str = Field(description="Security name")
-    market_value: Decimal | None = Field(default=None, description="Market value per unit")
-    value_symbol: str | None = Field(default=None, description="Currency/symbol for market value")
+    market_value: Decimal | None = Field(
+        default=None, description="Market value per unit"
+    )
+    value_symbol: str | None = Field(
+        default=None, description="Currency/symbol for market value"
+    )
     valuation_date: date | None = Field(default=None, description="Date of valuation")
-    pieces: Decimal | None = Field(default=None, description="Number of pieces/units held")
-    total_value: Decimal | None = Field(default=None, description="Total value of holding")
-    acquisitionprice: Decimal | None = Field(default=None, description="Acquisition price per unit")
+    pieces: Decimal | None = Field(
+        default=None, description="Number of pieces/units held"
+    )
+    total_value: Decimal | None = Field(
+        default=None, description="Total value of holding"
+    )
+    acquisitionprice: Decimal | None = Field(
+        default=None, description="Acquisition price per unit"
+    )
 
 
 __all__ = [
@@ -191,4 +173,3 @@ __all__ = [
     "Timestamp",
     "Holding",
 ]
-

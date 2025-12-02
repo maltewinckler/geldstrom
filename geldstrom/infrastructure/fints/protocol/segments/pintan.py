@@ -6,9 +6,9 @@ These segments handle PIN/TAN-specific parameters:
 """
 from __future__ import annotations
 
-from typing import ClassVar
+from typing import Any, ClassVar
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from ..base import FinTSSegment, FinTSDataElementGroup
 from ..types import (
@@ -97,7 +97,10 @@ class ParameterPinTan(FinTSDataElementGroup):
 class TwoStepParametersCommon(FinTSDataElementGroup):
     """Common fields for all two-step TAN parameters.
 
-    All TwoStepParameters versions share these first 3 fields.
+    All TwoStepParameters versions share these first fields.
+
+    Note: `tan_process` is optional because some banks (e.g., DKB) omit it,
+    sending the TAN process at the segment level instead.
 
     Source: FinTS 3.0 Sicherheitsverfahren PIN/TAN
     """
@@ -106,8 +109,9 @@ class TwoStepParametersCommon(FinTSDataElementGroup):
         max_length=3,
         description="Sicherheitsfunktion, kodiert",
     )
-    tan_process: FinTSCode = Field(
-        description="TAN-Prozess",
+    tan_process: FinTSCode | None = Field(
+        default=None,
+        description="TAN-Prozess (optional, some banks omit this)",
     )
     technical_id: FinTSAlphanumeric = Field(
         max_length=32,
@@ -409,6 +413,11 @@ class TwoStepParameters6(TwoStepParametersCommon):
     Note: Most fields are optional because banks may send incomplete data.
     The legacy parser handles this gracefully, and we preserve that behavior.
 
+    Some banks (e.g., DKB) omit the `tan_process` field entirely. The
+    `from_wire_list` method detects this by checking if the value at position 1
+    looks like a technical_id (more than 1 character) rather than a TAN process
+    code ('1'-'4').
+
     Source: FinTS 3.0 Sicherheitsverfahren PIN/TAN
     """
 
@@ -488,6 +497,29 @@ class TwoStepParameters6(TwoStepParametersCommon):
         default=None,
         description="Anzahl unterstützter aktiver TAN-Medien",
     )
+
+    @classmethod
+    def from_wire_list(cls, data: list[Any] | None) -> "TwoStepParameters6":
+        """Parse from wire data, handling banks that omit tan_process.
+
+        Some banks (e.g., DKB) omit the tan_process field entirely, causing all
+        subsequent fields to shift left. We detect this by checking if the value
+        at position 1 looks like a technical_id (>1 character) rather than a
+        TAN process code ('1'-'4').
+        """
+        if data and len(data) >= 2:
+            # tan_process should be at position 1
+            # If it's longer than 1 char and not a digit, it's probably technical_id
+            possible_tan_process = data[1]
+            if (
+                possible_tan_process is not None
+                and isinstance(possible_tan_process, str)
+                and (len(possible_tan_process) > 1 or not possible_tan_process.isdigit())
+            ):
+                # tan_process was omitted, insert None at position 1
+                data = [data[0], None] + data[1:]
+
+        return super().from_wire_list(data)
 
 
 class TwoStepParameters7(TwoStepParameters6):

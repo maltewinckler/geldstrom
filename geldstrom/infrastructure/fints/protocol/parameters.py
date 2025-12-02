@@ -45,15 +45,12 @@ class BankParameters:
         Return a mapping of operation types to their support status.
 
         Returns:
-            Dict mapping segment types to boolean support status
+            Dict mapping operation names to boolean support status
         """
         from geldstrom.infrastructure.fints import FinTSOperations
 
         return {
-            op.name: any(
-                self.find_segment(f"{cmd[0]}I{cmd[2:]}S") is not None
-                for cmd in op.value
-            )
+            op.name: self.find_segment(f"HI{op.value[2:]}S") is not None
             for op in FinTSOperations
         }
 

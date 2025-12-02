@@ -42,6 +42,38 @@ HKTAN_VERSIONS = {2: HKTAN2, 6: HKTAN6, 7: HKTAN7}
 # The safest approach is to always inject HKTAN for business segments.
 DIALOG_SEGMENTS = {"HKIDN", "HKVVB", "HKEND", "HKSYN", "HKTAN"}
 
+
+def _find_highest_hitans(bpd_segments) -> Any | None:
+    """Find the highest version HITANS segment in BPD."""
+    hitans = None
+    for seg in bpd_segments.find_segments("HITANS"):
+        if hitans is None or seg.header.version > hitans.header.version:
+            hitans = seg
+    return hitans
+
+
+def _get_hktan_class(hitans_version: int) -> tuple[type | None, int]:
+    """
+    Get the appropriate HKTAN class for a given HITANS version.
+
+    Args:
+        hitans_version: The HITANS version from BPD
+
+    Returns:
+        Tuple of (HKTAN class, actual version used) or (None, 0) if not found
+    """
+    hktan_class = HKTAN_VERSIONS.get(hitans_version)
+    if hktan_class:
+        return hktan_class, hitans_version
+
+    # Fall back to highest supported version that's <= hitans_version
+    for v in sorted(HKTAN_VERSIONS.keys(), reverse=True):
+        if v <= hitans_version:
+            return HKTAN_VERSIONS[v], v
+
+    return None, 0
+
+
 if TYPE_CHECKING:
     from geldstrom.infrastructure.fints.auth import (
         StandaloneAuthenticationMechanism,
@@ -330,28 +362,12 @@ class Dialog:
         Returns:
             HKTAN segment or None if not supported
         """
-        # Find highest supported HKTAN version from BPD
-        hitans = None
-        for seg in self._parameters.bpd.segments.find_segments("HITANS"):
-            if hitans is None or seg.header.version > hitans.header.version:
-                hitans = seg
-
+        hitans = _find_highest_hitans(self._parameters.bpd.segments)
         if not hitans:
             logger.warning("No HITANS in BPD, cannot build HKTAN")
             return None
 
-        # Get HKTAN class for this version
-        hktan_version = hitans.header.version
-        hktan_class = HKTAN_VERSIONS.get(hktan_version)
-
-        if not hktan_class:
-            # Try to find a supported lower version
-            for v in sorted(HKTAN_VERSIONS.keys(), reverse=True):
-                if v <= hktan_version:
-                    hktan_class = HKTAN_VERSIONS[v]
-                    hktan_version = v
-                    break
-
+        hktan_class, hktan_version = _get_hktan_class(hitans.header.version)
         if not hktan_class:
             logger.warning("No supported HKTAN version found")
             return None
@@ -406,26 +422,12 @@ class Dialog:
             return None
 
         # Find highest supported HKTAN version
-        hitans = None
-        for seg in self._parameters.bpd.segments.find_segments("HITANS"):
-            if hitans is None or seg.header.version > hitans.header.version:
-                hitans = seg
-
+        hitans = _find_highest_hitans(self._parameters.bpd.segments)
         if not hitans:
             logger.warning("No HITANS in BPD, cannot build status HKTAN")
             return None
 
-        hktan_version = hitans.header.version
-        hktan_class = HKTAN_VERSIONS.get(hktan_version)
-
-        # Fall back to lower supported version
-        if not hktan_class:
-            for v in sorted(HKTAN_VERSIONS.keys(), reverse=True):
-                if v <= hktan_version:
-                    hktan_class = HKTAN_VERSIONS[v]
-                    hktan_version = v
-                    break
-
+        hktan_class, _ = _get_hktan_class(hitans.header.version)
         if not hktan_class:
             logger.warning("No supported HKTAN version found for polling")
             return None
@@ -679,6 +681,22 @@ class DialogFactory:
         self._enc_factory = enc_mechanism_factory
         self._auth_factory = auth_mechanism_factory
 
+    def _create_dialog_with_connection(self) -> tuple[Dialog, HTTPSDialogConnection]:
+        """Create a dialog and its connection."""
+        connection = HTTPSDialogConnection(self._connection_config)
+
+        enc_mech = self._enc_factory() if self._enc_factory else None
+        auth_mechs = self._auth_factory() if self._auth_factory else []
+
+        dialog = Dialog(
+            connection=connection,
+            config=self._dialog_config,
+            parameters=self._parameters,
+            enc_mechanism=enc_mech,
+            auth_mechanisms=auth_mechs,
+        )
+        return dialog, connection
+
     @contextmanager
     def open_dialog(
         self,
@@ -703,19 +721,7 @@ class DialogFactory:
             with factory.open_dialog() as dialog:
                 response = dialog.send(segment)
         """
-        connection = HTTPSDialogConnection(self._connection_config)
-
-        # Create mechanisms
-        enc_mech = self._enc_factory() if self._enc_factory else None
-        auth_mechs = self._auth_factory() if self._auth_factory else []
-
-        dialog = Dialog(
-            connection=connection,
-            config=self._dialog_config,
-            parameters=self._parameters,
-            enc_mechanism=enc_mech,
-            auth_mechanisms=auth_mechs,
-        )
+        dialog, connection = self._create_dialog_with_connection()
 
         try:
             if not lazy_init:
@@ -738,19 +744,10 @@ class DialogFactory:
         Create a dialog without opening it.
 
         Use this when you need more control over the dialog lifecycle.
+        Note: Caller is responsible for closing the connection.
 
         Returns:
             Uninitialized dialog instance
         """
-        connection = HTTPSDialogConnection(self._connection_config)
-
-        enc_mech = self._enc_factory() if self._enc_factory else None
-        auth_mechs = self._auth_factory() if self._auth_factory else []
-
-        return Dialog(
-            connection=connection,
-            config=self._dialog_config,
-            parameters=self._parameters,
-            enc_mechanism=enc_mech,
-            auth_mechanisms=auth_mechs,
-        )
+        dialog, _ = self._create_dialog_with_connection()
+        return dialog

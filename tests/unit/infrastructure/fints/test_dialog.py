@@ -214,7 +214,6 @@ class TestConnectionConfig:
         config = ConnectionConfig(url="https://bank.example/fints")
         assert config.url == "https://bank.example/fints"
         assert config.timeout == 30.0
-        assert config.max_retries == 3
 
     def test_custom_timeout(self):
         """ConnectionConfig should accept custom timeout."""

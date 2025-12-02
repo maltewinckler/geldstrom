@@ -6,6 +6,7 @@ These segments handle authentication including:
 - TAN handling (HKTAN, HITAN)
 - TAN media (HKTAB, HITAB)
 """
+
 from __future__ import annotations
 
 from typing import ClassVar
@@ -13,13 +14,6 @@ from typing import ClassVar
 from pydantic import Field
 
 from ..base import FinTSSegment
-from ..types import (
-    FinTSAlphanumeric,
-    FinTSBinary,
-    FinTSBool,
-    FinTSCode,
-    FinTSNumeric,
-)
 from ..formals import (
     AccountInternational,
     BankIdentifier,
@@ -34,7 +28,13 @@ from ..formals import (
     TANMediaType,
     TANUsageOption,
 )
-
+from ..types import (
+    FinTSAlphanumeric,
+    FinTSBinary,
+    FinTSBool,
+    FinTSCode,
+    FinTSNumeric,
+)
 
 # =============================================================================
 # Identification Segment
@@ -52,18 +52,10 @@ class HKIDN2(FinTSSegment):
     SEGMENT_TYPE: ClassVar[str] = "HKIDN"
     SEGMENT_VERSION: ClassVar[int] = 2
 
-    bank_identifier: BankIdentifier = Field(
-        description="Kreditinstitutskennung",
-    )
-    customer_id: FinTSAlphanumeric = Field(
-        description="Kunden-ID",
-    )
-    system_id: FinTSAlphanumeric = Field(
-        description="Kundensystem-ID",
-    )
-    system_id_status: SystemIDStatus = Field(
-        description="Kundensystem-Status",
-    )
+    bank_identifier: BankIdentifier = Field(description="Kreditinstitutskennung")
+    customer_id: FinTSAlphanumeric = Field(description="Kunden-ID")
+    system_id: FinTSAlphanumeric = Field(description="Kundensystem-ID")
+    system_id_status: SystemIDStatus = Field(description="Kundensystem-Status")
 
 
 # =============================================================================
@@ -82,26 +74,14 @@ class HKVVB3(FinTSSegment):
     SEGMENT_TYPE: ClassVar[str] = "HKVVB"
     SEGMENT_VERSION: ClassVar[int] = 3
 
-    bpd_version: FinTSNumeric = Field(
-        ge=0,
-        lt=1000,
-        description="BPD-Version",
-    )
-    upd_version: FinTSNumeric = Field(
-        ge=0,
-        lt=1000,
-        description="UPD-Version",
-    )
-    language: Language = Field(
-        description="Dialogsprache",
-    )
+    bpd_version: FinTSNumeric = Field(ge=0, lt=1000, description="BPD-Version")
+    upd_version: FinTSNumeric = Field(ge=0, lt=1000, description="UPD-Version")
+    language: Language = Field(description="Dialogsprache")
     product_name: FinTSAlphanumeric = Field(
-        max_length=25,
-        description="Produktbezeichnung",
+        max_length=25, description="Produktbezeichnung"
     )
     product_version: FinTSAlphanumeric = Field(
-        max_length=5,
-        description="Produktversion",
+        max_length=5, description="Produktversion"
     )
 
 
@@ -116,7 +96,10 @@ class HKTANBase(FinTSSegment):
     SEGMENT_TYPE: ClassVar[str] = "HKTAN"
 
     tan_process: FinTSCode = Field(
-        description="TAN-Prozess (1=Einschritt, 2=Erste Hälfte, 3=Zweite Hälfte, 4=Prozess stornieren, S=Decoupled)",
+        description=(
+            "TAN-Prozess (1=Einschritt, 2=Erste Hälfte, 3=Zweite Hälfte, "
+            "4=Prozess stornieren, S=Decoupled)"
+        )
     )
 
 
@@ -129,32 +112,22 @@ class HKTAN2(HKTANBase):
     SEGMENT_VERSION: ClassVar[int] = 2
 
     task_hash_value: FinTSBinary | None = Field(
-        default=None,
-        description="Auftrags-Hashwert",
+        default=None, description="Auftrags-Hashwert"
     )
     task_reference: FinTSAlphanumeric | None = Field(
-        default=None,
-        max_length=35,
-        description="Auftragsreferenz",
+        default=None, max_length=35, description="Auftragsreferenz"
     )
     tan_list_number: FinTSAlphanumeric | None = Field(
-        default=None,
-        max_length=20,
-        description="TAN-Listennummer",
+        default=None, max_length=20, description="TAN-Listennummer"
     )
     further_tan_follows: FinTSBool | None = Field(
-        default=None,
-        description="Weitere TAN folgt",
+        default=None, description="Weitere TAN folgt"
     )
     cancel_task: FinTSBool | None = Field(
-        default=None,
-        description="Auftrag stornieren",
+        default=None, description="Auftrag stornieren"
     )
     challenge_class: FinTSNumeric | None = Field(
-        default=None,
-        ge=0,
-        lt=100,
-        description="Challenge-Klasse",
+        default=None, ge=0, lt=100, description="Challenge-Klasse"
     )
     parameter_challenge_class: ParameterChallengeClass | None = Field(
         default=None,
@@ -501,4 +474,3 @@ __all__ = [
     "HKTAB_VERSIONS",
     "HITAB_VERSIONS",
 ]
-

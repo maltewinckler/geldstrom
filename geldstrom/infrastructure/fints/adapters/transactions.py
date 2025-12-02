@@ -75,13 +75,8 @@ class FinTSTransactionHistory(TransactionHistoryPort):
             sepa_account = self._locate_sepa_account(account_ops, account_id)
 
             try:
-                # Try MT940 format first
-                result = tx_ops.fetch_mt940(
-                    sepa_account,
-                    start_date,
-                    end_date,
-                    include_pending=include_pending,
-                )
+                # Try MT940 format first (pending not supported in MT940)
+                result = tx_ops.fetch_mt940(sepa_account, start_date, end_date)
                 return self._transactions_from_mt940(account_id, result.transactions)
 
             except FinTSUnsupportedOperation:

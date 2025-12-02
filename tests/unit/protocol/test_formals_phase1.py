@@ -19,15 +19,11 @@ from geldstrom.infrastructure.fints.protocol.formals import (
     ChallengeValidUntil,
     ParameterChallengeClass,
     ResponseHHDUC,
-    TwoStepTANSubmission,
     # Transaction DEGs
     SupportedMessageTypes,
     BookedCamtStatements,
     SupportedSEPAPainMessages,
     BatchTransferParameter,
-    ScheduledDebitParameter1,
-    ScheduledDebitParameter2,
-    QueryScheduledDebitParameter1,
     # Parameter DEGs
     SupportedLanguages,
     SupportedHBCIVersions,
@@ -175,34 +171,6 @@ class TestTransactionDegs:
         )
         assert param.max_transfer_count == 1000
         assert param.sum_amount_required is True
-
-    def test_scheduled_debit_parameter1(self):
-        """Create ScheduledDebitParameter1."""
-        param = ScheduledDebitParameter1(
-            min_advance_notice_FNAL_RCUR=2,
-            max_advance_notice_FNAL_RCUR=14,
-            min_advance_notice_FRST_OOFF=5,
-            max_advance_notice_FRST_OOFF=14,
-        )
-        assert param.min_advance_notice_FNAL_RCUR == 2
-        assert param.max_advance_notice_FRST_OOFF == 14
-
-    def test_scheduled_debit_parameter2(self):
-        """Create ScheduledDebitParameter2."""
-        param = ScheduledDebitParameter2(
-            min_advance_notice="D+2",
-            max_advance_notice="D+14",
-            allowed_purpose_codes="SALA,PENS",
-        )
-        assert param.min_advance_notice == "D+2"
-
-    def test_query_scheduled_debit_parameter(self):
-        """Create QueryScheduledDebitParameter."""
-        param = QueryScheduledDebitParameter1(
-            date_range_allowed=True,
-            max_number_responses_allowed=True,
-        )
-        assert param.date_range_allowed is True
 
 
 # =============================================================================

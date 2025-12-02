@@ -6,7 +6,6 @@ import base64
 import io
 import logging
 from dataclasses import dataclass
-from typing import Protocol
 
 import requests
 
@@ -24,32 +23,7 @@ class ConnectionConfig:
 
     url: str
     timeout: float = 30.0
-    max_retries: int = 3
-    retry_delay: float = 1.0
     user_agent: str | None = None
-
-
-class DialogConnection(Protocol):
-    """Protocol for FinTS dialog transport connections."""
-
-    def send_raw(self, data: bytes) -> bytes:
-        """
-        Send raw bytes and receive raw response.
-
-        Args:
-            data: Raw message bytes to send
-
-        Returns:
-            Raw response bytes from the server
-
-        Raises:
-            FinTSConnectionError: If the connection fails
-        """
-        ...
-
-    def close(self) -> None:
-        """Close the connection and release resources."""
-        ...
 
 
 def _reduce_message_for_log(msg: FinTSMessage) -> FinTSMessage | SegmentSequence:

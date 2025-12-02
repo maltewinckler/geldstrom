@@ -189,30 +189,6 @@ class ResponseHHDUC(FinTSDataElementGroup):
     )
 
 
-# =============================================================================
-# TAN Process Parameters
-# =============================================================================
-
-
-class TwoStepTANSubmission(FinTSDataElementGroup):
-    """Belegungsrichtlinien für Zwei-Schritt-TAN-Einreichung.
-
-    Defines requirements for two-step TAN submission process.
-
-    Source: FinTS 3.0 Sicherheitsverfahren PIN/TAN
-    """
-
-    one_step_allowed: bool = Field(
-        description="Ein-Schritt-Verfahren erlaubt",
-    )
-    hash_required: bool = Field(
-        description="Auftrags-Hashwert benötigt",
-    )
-    order_reference_required: bool = Field(
-        description="Auftragsreferenz benötigt",
-    )
-
-
 __all__ = [
     # TAN Media
     "TANMediaBase",
@@ -222,7 +198,5 @@ __all__ = [
     "ChallengeValidUntil",
     "ParameterChallengeClass",
     "ResponseHHDUC",
-    # Process
-    "TwoStepTANSubmission",
 ]
 

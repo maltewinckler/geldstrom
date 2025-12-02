@@ -1,4 +1,5 @@
 """FinTS-specific TAN challenge handling."""
+
 from __future__ import annotations
 
 from base64 import b64decode
@@ -326,4 +327,3 @@ __all__ = [
     "ParsedChallenge",
     "parse_tan_challenge",
 ]
-
