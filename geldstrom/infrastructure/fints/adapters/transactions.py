@@ -1,4 +1,5 @@
 """FinTS 3.0 implementation of TransactionHistoryPort."""
+
 from __future__ import annotations
 
 import hashlib
@@ -96,7 +97,12 @@ class FinTSTransactionHistory(TransactionHistoryPort):
             # - Otherwise, prefer MT940 (more widely supported, falls back to CAMT)
             if include_pending:
                 return self._fetch_with_camt_preferred(
-                    tx_ops, sepa_account, account_id, start_date, end_date, include_pending
+                    tx_ops,
+                    sepa_account,
+                    account_id,
+                    start_date,
+                    end_date,
+                    include_pending,
                 )
             else:
                 return self._fetch_with_mt940_preferred(
@@ -169,7 +175,9 @@ class FinTSTransactionHistory(TransactionHistoryPort):
             self._transaction_entry(account_id, idx, tx)
             for idx, tx in enumerate(transactions)
         ]
-        return self._transaction_feed_from_entries(account_id, entries, has_more=has_more)
+        return self._transaction_feed_from_entries(
+            account_id, entries, has_more=has_more
+        )
 
     def _transaction_entry(
         self,
@@ -178,6 +186,10 @@ class FinTSTransactionHistory(TransactionHistoryPort):
         tx,
     ) -> TransactionEntry:
         """Convert single MT940 transaction to TransactionEntry."""
+        # Debug: log all available MT940 fields
+        if logger.isEnabledFor(logging.DEBUG):
+            self._log_mt940_fields(tx, idx)
+
         amount = tx.data.get("amount")
         value = Decimal(str(getattr(amount, "amount", "0")))
         currency = getattr(amount, "currency", "EUR")
@@ -192,6 +204,7 @@ class FinTSTransactionHistory(TransactionHistoryPort):
             purpose_text = str(purpose or "")
 
         counterpart = tx.data.get("applicant_name") or tx.data.get("beneficiary")
+        counterpart_iban = tx.data.get("applicant_iban")
         entry_id = tx.data.get("transaction_reference") or f"{account_id}-{idx}"
 
         return TransactionEntry(
@@ -202,6 +215,7 @@ class FinTSTransactionHistory(TransactionHistoryPort):
             currency=currency,
             purpose=purpose_text,
             counterpart_name=counterpart,
+            counterpart_iban=counterpart_iban,
         )
 
     # --- CAMT parsing ---
@@ -224,7 +238,9 @@ class FinTSTransactionHistory(TransactionHistoryPort):
             self._entries_from_camt_streams(account_id, pending_streams, pending=True)
         )
 
-        return self._transaction_feed_from_entries(account_id, entries, has_more=has_more)
+        return self._transaction_feed_from_entries(
+            account_id, entries, has_more=has_more
+        )
 
     def _entries_from_camt_streams(
         self,
@@ -283,6 +299,10 @@ class FinTSTransactionHistory(TransactionHistoryPort):
         namespace: str | None,
     ) -> TransactionEntry | None:
         """Parse single CAMT entry element."""
+        # Debug: log CAMT element structure
+        if logger.isEnabledFor(logging.DEBUG):
+            self._log_camt_element(element, namespace)
+
         amount_elem = element.find(self._ns(namespace, "Amt"))
         if amount_elem is None or not amount_elem.text:
             return None
@@ -299,9 +319,7 @@ class FinTSTransactionHistory(TransactionHistoryPort):
         currency = amount_elem.attrib.get("Ccy", "EUR")
 
         booking_date = (
-            self._parse_camt_date(
-                self._find_text(element, namespace, "BookgDt", "Dt")
-            )
+            self._parse_camt_date(self._find_text(element, namespace, "BookgDt", "Dt"))
             or self._parse_camt_date(
                 self._find_text(element, namespace, "BookgDt", "DtTm")
             )
@@ -309,9 +327,7 @@ class FinTSTransactionHistory(TransactionHistoryPort):
         )
 
         value_date = (
-            self._parse_camt_date(
-                self._find_text(element, namespace, "ValDt", "Dt")
-            )
+            self._parse_camt_date(self._find_text(element, namespace, "ValDt", "Dt"))
             or self._parse_camt_date(
                 self._find_text(element, namespace, "ValDt", "DtTm")
             )
@@ -321,15 +337,7 @@ class FinTSTransactionHistory(TransactionHistoryPort):
         purpose = self._collect_camt_purpose(element, namespace)
 
         counterpart_tag = "Dbtr" if indicator.upper() == "CRDT" else "Cdtr"
-        counterpart = self._find_text(
-            element,
-            namespace,
-            "NtryDtls",
-            "TxDtls",
-            "RltdPties",
-            counterpart_tag,
-            "Nm",
-        )
+        counterpart = self._find_counterpart_name(element, namespace, counterpart_tag)
 
         counterpart_iban = self._find_text(
             element,
@@ -403,6 +411,45 @@ class FinTSTransactionHistory(TransactionHistoryPort):
             metadata=metadata,
         )
 
+    def _find_counterpart_name(
+        self,
+        element: ET.Element,
+        namespace: str | None,
+        counterpart_tag: str,
+    ) -> str | None:
+        """Find counterpart name from CAMT party elements.
+
+        Banks use varying structures for counterparty info. We search for the
+        first <Nm> element under the party tag, regardless of intermediate
+        wrappers (e.g., <Pty>, <PstlAdr>).
+
+        Search order:
+        1. Direct party (Dbtr/Cdtr) - any nested Nm
+        2. Ultimate party (UltmtDbtr/UltmtCdtr) - any nested Nm
+        """
+        # Find RltdPties element
+        rltd_pties = element.find(
+            f".//{self._ns(namespace, 'NtryDtls')}/{self._ns(namespace, 'TxDtls')}"
+            f"/{self._ns(namespace, 'RltdPties')}"
+        )
+        if rltd_pties is None:
+            return None
+
+        # Search order: direct party first, then ultimate party
+        party_tags = [counterpart_tag, f"Ultmt{counterpart_tag}"]
+
+        for tag in party_tags:
+            party_elem = rltd_pties.find(self._ns(namespace, tag))
+            if party_elem is not None:
+                # Find first Nm anywhere under this party element
+                nm_elem = party_elem.find(f".//{self._ns(namespace, 'Nm')}")
+                if nm_elem is not None and nm_elem.text:
+                    name = nm_elem.text.strip()
+                    if name:
+                        return name
+
+        return None
+
     def _collect_camt_purpose(
         self,
         element: ET.Element,
@@ -461,6 +508,70 @@ class FinTSTransactionHistory(TransactionHistoryPort):
             return datetime.strptime(normalized[:10], "%Y-%m-%d").date()
         except ValueError:
             return None
+
+    def _log_mt940_fields(self, tx, idx: int) -> None:
+        """Log all available fields in MT940 transaction for debugging."""
+        logger.debug("MT940 Transaction #%d - Available fields:", idx)
+        for key, value in tx.data.items():
+            # Truncate long values
+            value_str = str(value)
+            if len(value_str) > 100:
+                value_str = value_str[:100] + "..."
+            logger.debug("  %s: %s", key, value_str)
+
+    def _log_camt_element(self, element: ET.Element, namespace: str | None) -> None:
+        """Log CAMT entry element structure for debugging counterparty fields."""
+        logger.debug("CAMT Entry - Checking counterparty locations:")
+
+        # Check RltdPties structure
+        rltd_pties = element.find(
+            f".//{self._ns(namespace, 'NtryDtls')}/{self._ns(namespace, 'TxDtls')}"
+            f"/{self._ns(namespace, 'RltdPties')}"
+        )
+        if rltd_pties is None:
+            logger.debug("  RltdPties: NOT FOUND")
+            return
+
+        logger.debug("  RltdPties: FOUND")
+
+        # Check all party-related elements
+        party_tags = ["Dbtr", "Cdtr", "UltmtDbtr", "UltmtCdtr"]
+        for tag in party_tags:
+            party_elem = rltd_pties.find(self._ns(namespace, tag))
+            if party_elem is not None:
+                # Direct name
+                name = party_elem.findtext(self._ns(namespace, "Nm"))
+                logger.debug("  %s/Nm: %s", tag, name or "(empty)")
+
+                # Party wrapper (used by Triodos)
+                pty_elem = party_elem.find(self._ns(namespace, "Pty"))
+                if pty_elem is not None:
+                    pty_name = pty_elem.findtext(self._ns(namespace, "Nm"))
+                    logger.debug("  %s/Pty/Nm: %s", tag, pty_name or "(empty)")
+
+                # Check postal address
+                pstl_addr = party_elem.find(self._ns(namespace, "PstlAdr"))
+                if pstl_addr is not None:
+                    addr_name = pstl_addr.findtext(self._ns(namespace, "Nm"))
+                    logger.debug("  %s/PstlAdr/Nm: %s", tag, addr_name or "(empty)")
+            else:
+                logger.debug("  %s: NOT FOUND", tag)
+
+        # Check account elements for IBAN
+        acct_tags = ["DbtrAcct", "CdtrAcct"]
+        for tag in acct_tags:
+            acct_elem = rltd_pties.find(self._ns(namespace, tag))
+            if acct_elem is not None:
+                iban = self._find_text(rltd_pties, namespace, tag, "Id", "IBAN")
+                logger.debug("  %s/Id/IBAN: %s", tag, iban or "(empty)")
+
+        # Log AddtlNtryInf as potential source
+        addtl_info = element.findtext(self._ns(namespace, "AddtlNtryInf"))
+        if addtl_info:
+            truncated = (
+                addtl_info[:100] + "..." if len(addtl_info) > 100 else addtl_info
+            )
+            logger.debug("  AddtlNtryInf: %s", truncated)
 
     @staticmethod
     def _extract_xml_namespace(element: ET.Element) -> str | None:

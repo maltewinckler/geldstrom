@@ -11,9 +11,10 @@ from decimal import Decimal
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
+import pytest
+
 from geldstrom.domain import BankRoute
 from geldstrom.infrastructure.fints.protocol.formals import SEPAAccount
-
 
 # --------------------------------------------------------------------------
 # Adapter Helper Tests - test parsing logic in adapters
@@ -263,6 +264,7 @@ def test_transactions_adapter_mt940_parsing():
                 "entry_date": date(2024, 1, 1),
                 "purpose": ["Line", "One"],
                 "applicant_name": "Alice",
+                "applicant_iban": "DE89370400440532013000",
                 "transaction_reference": "REF-1",
             }
         ),
@@ -281,7 +283,11 @@ def test_transactions_adapter_mt940_parsing():
     assert feed.start_date == date(2024, 1, 2)
     assert feed.end_date == date(2024, 1, 5)
     assert feed.entries[0].purpose == "Line One"
+    assert feed.entries[0].counterpart_name == "Alice"
+    assert feed.entries[0].counterpart_iban == "DE89370400440532013000"
     assert feed.entries[1].amount == Decimal("-2")
+    assert feed.entries[1].counterpart_name == "Bob"
+    assert feed.entries[1].counterpart_iban is None
 
 
 def test_transactions_adapter_has_more_propagation_mt940():
@@ -337,6 +343,157 @@ def test_transactions_adapter_has_more_propagation_camt():
     # Test with has_more=True
     feed = adapter._transactions_from_camt("acct", [document], [], has_more=True)
     assert feed.has_more is True
+
+
+@pytest.mark.parametrize(
+    "name_structure,expected_name,description",
+    [
+        # Standard structure: <Dbtr><Nm>...</Nm></Dbtr>
+        (
+            "<Dbtr><Nm>Direct Name GmbH</Nm></Dbtr>",
+            "Direct Name GmbH",
+            "Direct Nm under Dbtr (standard)",
+        ),
+        # Party wrapper: <Dbtr><Pty><Nm>...</Nm></Pty></Dbtr> (Triodos style)
+        (
+            "<Dbtr><Pty><Nm>Party Wrapper Name</Nm></Pty></Dbtr>",
+            "Party Wrapper Name",
+            "Nm under Pty wrapper (Triodos)",
+        ),
+        # Postal address: <Dbtr><PstlAdr><Nm>...</Nm></PstlAdr></Dbtr>
+        (
+            "<Dbtr><PstlAdr><Nm>Postal Address Name</Nm></PstlAdr></Dbtr>",
+            "Postal Address Name",
+            "Nm under PstlAdr",
+        ),
+        # Deeply nested structure
+        (
+            "<Dbtr><Pty><PstlAdr><Nm>Deeply Nested Name</Nm></PstlAdr></Pty></Dbtr>",
+            "Deeply Nested Name",
+            "Deeply nested Nm",
+        ),
+        # Ultimate party fallback: <UltmtDbtr><Nm>...</Nm></UltmtDbtr>
+        (
+            "<UltmtDbtr><Nm>Ultimate Party Name</Nm></UltmtDbtr>",
+            "Ultimate Party Name",
+            "Nm under UltmtDbtr fallback",
+        ),
+        # Ultimate party with wrapper
+        (
+            "<UltmtDbtr><Pty><Nm>Ultimate Pty Name</Nm></Pty></UltmtDbtr>",
+            "Ultimate Pty Name",
+            "Nm under UltmtDbtr/Pty",
+        ),
+        # Direct party takes precedence over ultimate
+        (
+            "<Dbtr><Nm>Direct Takes Priority</Nm></Dbtr>"
+            "<UltmtDbtr><Nm>Ultimate Ignored</Nm></UltmtDbtr>",
+            "Direct Takes Priority",
+            "Direct Dbtr preferred over UltmtDbtr",
+        ),
+        # Empty direct, falls back to ultimate
+        (
+            "<Dbtr><Nm>   </Nm></Dbtr>"
+            "<UltmtDbtr><Nm>Fallback to Ultimate</Nm></UltmtDbtr>",
+            "Fallback to Ultimate",
+            "Empty Dbtr/Nm falls back to UltmtDbtr",
+        ),
+        # No name elements at all
+        (
+            "<Dbtr><Id>12345</Id></Dbtr>",
+            None,
+            "No Nm element anywhere",
+        ),
+        # Empty Dbtr element
+        (
+            "<Dbtr></Dbtr>",
+            None,
+            "Empty Dbtr element",
+        ),
+    ],
+)
+def test_transactions_adapter_camt_counterpart_name_structures(
+    name_structure: str,
+    expected_name: str | None,
+    description: str,
+):
+    """Test CAMT parsing handles various XML structures for counterpart name.
+
+    Banks use different structures for counterparty information. The parser
+    should find <Nm> elements regardless of intermediate wrapper elements.
+    """
+    from geldstrom.infrastructure.fints.adapters.transactions import (
+        FinTSTransactionHistory,
+    )
+
+    creds = MagicMock()
+    adapter = FinTSTransactionHistory(creds)
+
+    document = _build_camt_document_with_custom_party_structure(
+        amount="100.00",
+        indicator="CRDT",
+        entry_id="TEST123",
+        party_structure=name_structure,
+        counterpart_iban="DE89370400440532013000",
+    )
+
+    feed = adapter._transactions_from_camt("acct", [document], [])
+
+    assert len(feed.entries) == 1, f"Failed for: {description}"
+    entry = feed.entries[0]
+    assert entry.counterpart_name == expected_name, f"Failed for: {description}"
+
+
+@pytest.mark.parametrize(
+    "name_structure,expected_name,description",
+    [
+        # Standard: <Cdtr><Nm>...</Nm></Cdtr>
+        (
+            "<Cdtr><Nm>Creditor Direct</Nm></Cdtr>",
+            "Creditor Direct",
+            "Direct Nm under Cdtr",
+        ),
+        # Party wrapper for creditor
+        (
+            "<Cdtr><Pty><Nm>Creditor Pty Name</Nm></Pty></Cdtr>",
+            "Creditor Pty Name",
+            "Nm under Cdtr/Pty",
+        ),
+        # Ultimate creditor
+        (
+            "<UltmtCdtr><Nm>Ultimate Creditor</Nm></UltmtCdtr>",
+            "Ultimate Creditor",
+            "Nm under UltmtCdtr",
+        ),
+    ],
+)
+def test_transactions_adapter_camt_creditor_name_structures(
+    name_structure: str,
+    expected_name: str | None,
+    description: str,
+):
+    """Test CAMT parsing for DBIT transactions (creditor as counterpart)."""
+    from geldstrom.infrastructure.fints.adapters.transactions import (
+        FinTSTransactionHistory,
+    )
+
+    creds = MagicMock()
+    adapter = FinTSTransactionHistory(creds)
+
+    document = _build_camt_document_with_custom_party_structure(
+        amount="50.00",
+        indicator="DBIT",  # Debit = we're paying, so counterpart is Cdtr
+        entry_id="DBIT123",
+        party_structure=name_structure,
+        counterpart_iban="NL91ABNA0417164300",
+    )
+
+    feed = adapter._transactions_from_camt("acct", [document], [])
+
+    assert len(feed.entries) == 1, f"Failed for: {description}"
+    entry = feed.entries[0]
+    assert entry.counterpart_name == expected_name, f"Failed for: {description}"
+    assert entry.amount < 0, "DBIT should be negative"
 
 
 def test_accounts_adapter_route_from_bank_identifier():
@@ -405,4 +562,168 @@ def _build_camt_document(
     </Rpt>
   </BkToCstmrAcctRpt>
 </Document>
-""".encode("utf-8")
+""".encode()
+
+
+def _build_camt_document_with_ultimate_party(
+    amount: str,
+    indicator: str,
+    entry_id: str,
+    addtl_info: str,
+    remittance: str,
+    ultimate_party_name: str,
+    counterpart_iban: str,
+    booking_date: str = "2025-01-10",
+    value_date: str = "2025-01-09",
+) -> bytes:
+    """Build CAMT document where name is only in UltmtDbtr (not Dbtr/Nm).
+
+    This simulates banks that put counterparty info in
+    Ultimate party fields instead of direct party fields.
+    """
+    return f"""<?xml version='1.0' encoding='UTF-8'?>
+<Document xmlns='urn:iso:std:iso:20022:tech:xsd:camt.052.001.08'>
+  <BkToCstmrAcctRpt>
+    <Rpt>
+      <Ntry>
+        <Amt Ccy='EUR'>{amount}</Amt>
+        <CdtDbtInd>{indicator}</CdtDbtInd>
+        <BookgDt><Dt>{booking_date}</Dt></BookgDt>
+        <ValDt><Dt>{value_date}</Dt></ValDt>
+        <AddtlNtryInf>{addtl_info}</AddtlNtryInf>
+        <NtryDtls>
+          <TxDtls>
+            <Refs>
+              <EndToEndId>{entry_id}</EndToEndId>
+            </Refs>
+            <RltdPties>
+              <UltmtDbtr>
+                <Nm>{ultimate_party_name}</Nm>
+              </UltmtDbtr>
+              <DbtrAcct>
+                <Id>
+                  <IBAN>{counterpart_iban}</IBAN>
+                </Id>
+              </DbtrAcct>
+            </RltdPties>
+            <RmtInf>
+              <Ustrd>{remittance}</Ustrd>
+            </RmtInf>
+          </TxDtls>
+        </NtryDtls>
+      </Ntry>
+    </Rpt>
+  </BkToCstmrAcctRpt>
+</Document>
+""".encode()
+
+
+def _build_camt_document_with_pty_wrapper(
+    amount: str,
+    indicator: str,
+    entry_id: str,
+    addtl_info: str,
+    remittance: str,
+    counterpart_name: str,
+    counterpart_iban: str,
+    booking_date: str = "2025-01-10",
+    value_date: str = "2025-01-09",
+) -> bytes:
+    """Build CAMT document with Pty wrapper around counterparty name.
+
+    Triodos uses <Cdtr><Pty><Nm>...</Nm></Pty></Cdtr> structure
+    instead of <Cdtr><Nm>...</Nm></Cdtr>.
+    """
+    return f"""<?xml version='1.0' encoding='UTF-8'?>
+<Document xmlns='urn:iso:std:iso:20022:tech:xsd:camt.052.001.08'>
+  <BkToCstmrAcctRpt>
+    <Rpt>
+      <Ntry>
+        <Amt Ccy='EUR'>{amount}</Amt>
+        <CdtDbtInd>{indicator}</CdtDbtInd>
+        <BookgDt><Dt>{booking_date}</Dt></BookgDt>
+        <ValDt><Dt>{value_date}</Dt></ValDt>
+        <AddtlNtryInf>{addtl_info}</AddtlNtryInf>
+        <NtryDtls>
+          <TxDtls>
+            <Refs>
+              <EndToEndId>{entry_id}</EndToEndId>
+            </Refs>
+            <RltdPties>
+              <Cdtr>
+                <Pty>
+                  <Nm>{counterpart_name}</Nm>
+                </Pty>
+              </Cdtr>
+              <CdtrAcct>
+                <Id>
+                  <IBAN>{counterpart_iban}</IBAN>
+                </Id>
+              </CdtrAcct>
+            </RltdPties>
+            <RmtInf>
+              <Ustrd>{remittance}</Ustrd>
+            </RmtInf>
+          </TxDtls>
+        </NtryDtls>
+      </Ntry>
+    </Rpt>
+  </BkToCstmrAcctRpt>
+</Document>
+""".encode()
+
+
+def _build_camt_document_with_custom_party_structure(
+    amount: str,
+    indicator: str,
+    entry_id: str,
+    party_structure: str,
+    counterpart_iban: str,
+    booking_date: str = "2025-01-10",
+    value_date: str = "2025-01-09",
+) -> bytes:
+    """Build CAMT document with custom party structure for testing.
+
+    Allows testing various XML structures for counterparty information.
+    The party_structure should contain the relevant party elements
+    (e.g., <Dbtr><Nm>...</Nm></Dbtr>).
+
+    For CRDT: counterpart is Dbtr (debtor paying us)
+    For DBIT: counterpart is Cdtr (creditor we're paying)
+    """
+    # Determine account tag based on indicator
+    acct_tag = "DbtrAcct" if indicator == "CRDT" else "CdtrAcct"
+
+    return f"""<?xml version='1.0' encoding='UTF-8'?>
+<Document xmlns='urn:iso:std:iso:20022:tech:xsd:camt.052.001.08'>
+  <BkToCstmrAcctRpt>
+    <Rpt>
+      <Ntry>
+        <Amt Ccy='EUR'>{amount}</Amt>
+        <CdtDbtInd>{indicator}</CdtDbtInd>
+        <BookgDt><Dt>{booking_date}</Dt></BookgDt>
+        <ValDt><Dt>{value_date}</Dt></ValDt>
+        <AddtlNtryInf>Test transaction</AddtlNtryInf>
+        <NtryDtls>
+          <TxDtls>
+            <Refs>
+              <EndToEndId>{entry_id}</EndToEndId>
+            </Refs>
+            <RltdPties>
+              {party_structure}
+              <{acct_tag}>
+                <Id>
+                  <IBAN>{counterpart_iban}</IBAN>
+                </Id>
+              </{acct_tag}>
+            </RltdPties>
+            <RmtInf>
+              <Ustrd>Test remittance</Ustrd>
+            </RmtInf>
+          </TxDtls>
+        </NtryDtls>
+      </Ntry>
+    </Rpt>
+  </BkToCstmrAcctRpt>
+</Document>
+""".encode()

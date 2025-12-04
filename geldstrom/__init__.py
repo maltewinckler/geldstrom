@@ -41,7 +41,7 @@ from geldstrom.domain import (
 from geldstrom.infrastructure.fints import GatewayCredentials
 
 # Version
-version = "0.0.1"
+version = "0.0.2"
 __version__ = version
 __all__ = [
     # Version

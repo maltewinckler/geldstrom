@@ -78,7 +78,9 @@ def main() -> None:
 
         print(f"\nFetching transactions for {account.iban or account.account_id}...")
 
-        feed = client.get_transactions(account, start_date=start_date, end_date=end_date)
+        feed = client.get_transactions(
+            account, start_date=start_date, end_date=end_date
+        )
 
         print_header(f"TRANSACTIONS ({len(feed.entries)} found)")
 
@@ -96,7 +98,11 @@ def main() -> None:
                     amount_str = f"{entry.amount:,.2f}"
                     total_out += float(entry.amount)
 
-                purpose = entry.purpose[:50] + "..." if len(entry.purpose) > 50 else entry.purpose
+                purpose = (
+                    entry.purpose[:50] + "..."
+                    if len(entry.purpose) > 50
+                    else entry.purpose
+                )
                 counterpart = entry.counterpart_name or "Unknown"
 
                 print(f"\n  {entry.booking_date} | {amount_str:>12} {entry.currency}")
