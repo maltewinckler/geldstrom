@@ -406,6 +406,26 @@ class TestUserDefinedSignature:
         assert sig.pin == "12345"
         assert sig.tan == "654321"
 
+    def test_repr_masks_credentials(self):
+        """Ensure __repr__ masks PIN and TAN to prevent credential leakage."""
+        sig = UserDefinedSignature(pin="supersecret123", tan="tan456")
+        repr_str = repr(sig)
+
+        # PIN and TAN should not appear in repr
+        assert "supersecret123" not in repr_str
+        assert "tan456" not in repr_str
+        # Should show masked values
+        assert "***" in repr_str
+
+    def test_str_masks_credentials(self):
+        """Ensure __str__ masks PIN and TAN to prevent credential leakage."""
+        sig = UserDefinedSignature(pin="mysecretpin", tan=None)
+        str_repr = str(sig)
+
+        # PIN should not appear in str
+        assert "mysecretpin" not in str_repr
+        assert "***" in str_repr
+
 
 # =============================================================================
 # Response Tests

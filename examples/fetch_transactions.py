@@ -92,22 +92,11 @@ def main() -> None:
 
             for entry in feed.entries:
                 if entry.amount >= 0:
-                    amount_str = f"+{entry.amount:,.2f}"
                     total_in += float(entry.amount)
                 else:
-                    amount_str = f"{entry.amount:,.2f}"
                     total_out += float(entry.amount)
 
-                purpose = (
-                    entry.purpose[:50] + "..."
-                    if len(entry.purpose) > 50
-                    else entry.purpose
-                )
-                counterpart = entry.counterpart_name or "Unknown"
-
-                print(f"\n  {entry.booking_date} | {amount_str:>12} {entry.currency}")
-                print(f"  {counterpart}")
-                print(f"  {purpose}")
+                print(entry)
 
             print_separator()
             print(f"  Total In:  +{total_in:>10,.2f} EUR")

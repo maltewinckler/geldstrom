@@ -1,7 +1,37 @@
 """Logging utilities for FinTS dialog communication."""
 
+import re
 import threading
 from contextlib import contextmanager
+
+# Patterns for credential masking in log output
+# These patterns match common formats where PIN/TAN appear in serialized messages
+_CREDENTIAL_PATTERNS = [
+    # UserDefinedSignature in repr: pin='value' or pin="value"
+    (re.compile(r"pin=['\"]([^'\"]+)['\"]", re.IGNORECASE), r"pin='***'"),
+    # TAN in repr: tan='value' or tan="value"
+    (re.compile(r"tan=['\"]([^'\"]+)['\"]", re.IGNORECASE), r"tan='***'"),
+    # Wire format: PIN appears after + separator in HNSHA segment
+    # e.g., HNSHA:...:...+reference+pin' or +pin:tan'
+    (re.compile(r"(\+[^+:']*\+)([^+:']+)('|\+|:)"), r"\1***\3"),
+]
+
+
+def mask_credentials(text: str) -> str:
+    """Mask sensitive credentials from log output.
+
+    Replaces PIN and TAN values with '***' to prevent credential leakage.
+
+    Args:
+        text: Log message text that may contain credentials
+
+    Returns:
+        Text with credentials masked
+    """
+    result = text
+    for pattern, replacement in _CREDENTIAL_PATTERNS:
+        result = pattern.sub(replacement, result)
+    return result
 
 
 class Password(str):
@@ -75,5 +105,5 @@ class LogConfiguration(threading.local):
 log_configuration = LogConfiguration()
 
 
-__all__ = ["LogConfiguration", "Password", "log_configuration"]
+__all__ = ["LogConfiguration", "Password", "log_configuration", "mask_credentials"]
 

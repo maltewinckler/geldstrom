@@ -9,7 +9,11 @@ from dataclasses import dataclass
 
 import requests
 
-from geldstrom.infrastructure.fints.dialog.logging import Password, log_configuration
+from geldstrom.infrastructure.fints.dialog.logging import (
+    Password,
+    log_configuration,
+    mask_credentials,
+)
 from geldstrom.infrastructure.fints.dialog.message import (
     FinTSInstituteMessage,
     FinTSMessage,
@@ -119,11 +123,13 @@ class HTTPSDialogConnection:
             log_msg = _reduce_message_for_log(msg)
             log_msg.print_nested(stream=log_out, prefix="\t")
             abbrev = "(abbrv.)" if log_configuration.reduced else ""
+            # Mask any credentials that may appear in the log output
+            masked_output = mask_credentials(log_out.getvalue())
             logger.debug(
                 "Sending %s>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n%s\n"
                 ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n",
                 abbrev,
-                log_out.getvalue(),
+                masked_output,
             )
             log_out.truncate(0)
 
@@ -136,11 +142,13 @@ class HTTPSDialogConnection:
             log_msg = _reduce_message_for_log(retval)
             log_msg.print_nested(stream=log_out, prefix="\t")
             abbrev = "(abbrv.)" if log_configuration.reduced else ""
+            # Mask any credentials that may appear in the log output
+            masked_output = mask_credentials(log_out.getvalue())
             logger.debug(
                 "Received %s<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n%s\n"
                 "<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n",
                 abbrev,
-                log_out.getvalue(),
+                masked_output,
             )
 
         return retval

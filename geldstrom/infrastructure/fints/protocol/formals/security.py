@@ -235,6 +235,8 @@ class UserDefinedSignature(FinTSDataElementGroup):
     Contains PIN and optional TAN for PIN/TAN authentication.
 
     Source: FinTS 3.0 Sicherheitsverfahren PIN/TAN
+
+    Note: __repr__ always masks PIN/TAN to prevent credential leakage in logs.
     """
 
     pin: FinTSAlphanumeric = Field(
@@ -246,6 +248,15 @@ class UserDefinedSignature(FinTSDataElementGroup):
         max_length=99,
         description="TAN",
     )
+
+    def __repr__(self) -> str:
+        """Mask sensitive fields in representation to prevent credential leakage."""
+        tan_repr = "'***'" if self.tan else "None"
+        return f"UserDefinedSignature(pin='***', tan={tan_repr})"
+
+    def __str__(self) -> str:
+        """Mask sensitive fields in string representation."""
+        return self.__repr__()
 
 
 __all__ = [

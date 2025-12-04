@@ -24,6 +24,7 @@ from geldstrom.infrastructure.fints.dialog import (
     ProcessedResponse,
     ResponseProcessor,
 )
+from geldstrom.infrastructure.fints.dialog.logging import mask_credentials
 from geldstrom.infrastructure.fints.protocol import ParameterStore
 
 
@@ -303,4 +304,73 @@ class TestResponseProcessor:
 
         processor.remove_callback(callback)
         assert callback not in processor._callbacks
+
+
+# ---------------------------------------------------------------------------
+# Credential Masking Tests
+# ---------------------------------------------------------------------------
+
+
+class TestMaskCredentials:
+    """Tests for credential masking in log output."""
+
+    def test_masks_pin_single_quotes(self):
+        """Should mask pin='value' format."""
+        text = "UserDefinedSignature(pin='mysecretpin', tan=None)"
+        result = mask_credentials(text)
+        assert "mysecretpin" not in result
+        assert "pin='***'" in result
+
+    def test_masks_pin_double_quotes(self):
+        """Should mask pin=\"value\" format."""
+        text = 'UserDefinedSignature(pin="supersecret123", tan=None)'
+        result = mask_credentials(text)
+        assert "supersecret123" not in result
+        assert "pin='***'" in result
+
+    def test_masks_tan_single_quotes(self):
+        """Should mask tan='value' format."""
+        text = "UserDefinedSignature(pin='***', tan='123456')"
+        result = mask_credentials(text)
+        assert "123456" not in result
+        assert "tan='***'" in result
+
+    def test_masks_tan_double_quotes(self):
+        """Should mask tan=\"value\" format."""
+        text = 'UserDefinedSignature(pin="***", tan="mytan")'
+        result = mask_credentials(text)
+        assert "mytan" not in result
+        assert "tan='***'" in result
+
+    def test_masks_both_pin_and_tan(self):
+        """Should mask both PIN and TAN together."""
+        text = "UserDefinedSignature(pin='secret123', tan='tan456')"
+        result = mask_credentials(text)
+        assert "secret123" not in result
+        assert "tan456" not in result
+        assert "***" in result
+
+    def test_preserves_non_sensitive_content(self):
+        """Should not modify non-sensitive content."""
+        text = "HKSAL:5:6+123456789::280:12345678+EUR"
+        result = mask_credentials(text)
+        assert "HKSAL" in result
+        assert "123456789" in result
+        assert "12345678" in result
+
+    def test_case_insensitive(self):
+        """Should mask regardless of case."""
+        text = "PIN='secret' TAN='mytan'"
+        result = mask_credentials(text)
+        assert "secret" not in result
+        assert "mytan" not in result
+
+    def test_empty_string(self):
+        """Should handle empty string."""
+        assert mask_credentials("") == ""
+
+    def test_no_credentials(self):
+        """Should return unchanged text when no credentials present."""
+        text = "Just some regular log message with numbers 12345"
+        assert mask_credentials(text) == text
 
