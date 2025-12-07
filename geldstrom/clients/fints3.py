@@ -20,11 +20,13 @@ from geldstrom.domain import (
     TransactionFeed,
 )
 from geldstrom.domain.connection import ChallengeHandler, InteractiveChallengeHandler
+from geldstrom.domain.model.tan import TANMethod
 from geldstrom.infrastructure.fints import GatewayCredentials
 from geldstrom.infrastructure.fints.adapters import (
     FinTSAccountDiscovery,
     FinTSBalanceAdapter,
     FinTSSessionAdapter,
+    FinTSTANMethodsAdapter,
     FinTSTransactionHistory,
 )
 from geldstrom.infrastructure.fints.session import FinTSSessionState
@@ -156,6 +158,7 @@ class FinTS3Client(BankClient):
         self._account_adapter: FinTSAccountDiscovery | None = None
         self._balance_adapter: FinTSBalanceAdapter | None = None
         self._transaction_adapter: FinTSTransactionHistory | None = None
+        self._tan_methods_adapter: FinTSTANMethodsAdapter | None = None
 
         # Cached data
         self._accounts: Sequence[Account] = ()
@@ -361,6 +364,37 @@ class FinTS3Client(BankClient):
             include_pending=include_pending,
         )
 
+    # --- TAN methods operations ---
+
+    def get_tan_methods(self) -> Sequence[TANMethod]:
+        """
+        Get available TAN authentication methods.
+
+        Returns the TAN methods available for this bank connection,
+        extracted from the bank's BPD (Bank Parameter Data).
+
+        **Important**: This method does NOT require TAN approval. It uses
+        the sync dialog (one-step auth) to fetch BPD if not already cached.
+        This allows discovering available TAN methods before choosing one.
+
+        If already connected, uses cached BPD. Otherwise, performs a
+        lightweight sync to fetch BPD without triggering 2FA.
+
+        Returns:
+            Sequence of TANMethod objects describing available 2FA methods
+
+        Example:
+            # Can be called before connect() to discover TAN methods
+            for method in client.get_tan_methods():
+                print(f"{method.code}: {method.name}")
+                if method.is_decoupled:
+                    print(f"  (App-based, max {method.decoupled_max_polls} polls)")
+        """
+        adapter = self._get_tan_methods_adapter()
+        # Pass session state if available (may have cached BPD)
+        # The adapter will do a sync dialog if needed (no TAN required)
+        return adapter.get_tan_methods(self._session_state)
+
     # --- Properties ---
 
     @property
@@ -441,6 +475,16 @@ class FinTS3Client(BankClient):
                 challenge_handler=self._challenge_handler,
             )
         return self._transaction_adapter
+
+    def _get_tan_methods_adapter(self) -> FinTSTANMethodsAdapter:
+        """Lazy-create TAN methods adapter."""
+        if self._tan_methods_adapter is None:
+            self._tan_methods_adapter = FinTSTANMethodsAdapter(
+                self._credentials,
+                tan_config=self._tan_config,
+                challenge_handler=self._challenge_handler,
+            )
+        return self._tan_methods_adapter
 
 
 __all__ = ["FinTS3Client"]

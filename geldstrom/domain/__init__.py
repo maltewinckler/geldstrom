@@ -24,6 +24,8 @@ from .model import (
     BankRoute,
     PaymentConfirmation,
     PaymentInstruction,
+    TANMethod,
+    TANMethodType,
     TransactionEntry,
     TransactionFeed,
 )
@@ -51,6 +53,8 @@ __all__ = [
     "SessionHandle",
     "SessionToken",
     "TANConfig",
+    "TANMethod",
+    "TANMethodType",
     "TransactionEntry",
     "TransactionFeed",
 ]

@@ -17,6 +17,7 @@ from geldstrom.domain import (
     SessionToken,
     TransactionFeed,
 )
+from geldstrom.domain.model.tan import TANMethod
 
 
 class BankClient(Protocol):
@@ -50,6 +51,10 @@ class BankClient(Protocol):
         end_date: date | None = None,
     ) -> TransactionFeed:
         """Fetch transaction history for an account."""
+        ...
+
+    def get_tan_methods(self) -> Sequence[TANMethod]:
+        """Get available TAN authentication methods."""
         ...
 
     @property

@@ -33,6 +33,8 @@ from geldstrom.domain import (
     BankRoute,
     SessionHandle,
     SessionToken,
+    TANMethod,
+    TANMethodType,
     TransactionEntry,
     TransactionFeed,
 )
@@ -59,6 +61,8 @@ __all__ = [
     "BankRoute",
     "SessionHandle",
     "SessionToken",
+    "TANMethod",
+    "TANMethodType",
     "TransactionEntry",
     "TransactionFeed",
     # Advanced (for from_gateway_credentials)
