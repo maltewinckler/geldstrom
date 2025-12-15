@@ -6,7 +6,7 @@
 Access your German bank accounts programmatically. Geldstrom is a Python client for FinTS 3.0, the standardized banking protocol used by Sparkassen, Volksbanken, Deutsche Bank, DKB, and most other German financial institutions.
 
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
-[![License: BUSL 1.1](https://img.shields.io/badge/License-BUSL%201.1-blue.svg)](https://mariadb.com/bsl11/)
+[![License: LGPL v3](https://img.shields.io/badge/License-LGPL%20v3-blue.svg)](https://www.gnu.org/licenses/lgpl-3.0.en.html)
 
 ## Features
 
@@ -445,8 +445,4 @@ Geldstrom builds on the foundation laid by [python-fints](https://github.com/rap
 
 ## License
 
-Business Source License 1.1 (BUSL-1.1)
-
-This software is source-available but not open source. You may use it for non-production purposes. Production use requires a commercial license.
-
-On January 1, 2029, this software will be released under the Apache License 2.0.
+GNU Lesser General Public License v3.0 or later (LGPL-3.0-or-later). See `LICENSE`.

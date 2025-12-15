@@ -7,14 +7,14 @@ name = "geldstrom"
 dynamic = ["version"]
 description = "German banking API client for account data and transactions"
 readme = "README.md"
-license = "BUSL-1.1"
+license = { file = "LICENSE" }
 authors = [{ name = "Malte Winckler", email = "malte@nichts-ist-einfach.de" }]
 keywords = ["banking", "fints", "hbci", "german-banking", "transactions"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "Intended Audience :: Other Audience",
-    "License :: Other/Proprietary License",
+    "License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
