@@ -1,5 +1,8 @@
 # Geldstrom
 
+!!!! Under Construction !!!!
+!!!! Note: Description is AI generated !!!!
+
 Access your German bank accounts programmatically. Geldstrom is a Python client for FinTS 3.0, the standardized banking protocol used by Sparkassen, Volksbanken, Deutsche Bank, DKB, and most other German financial institutions.
 
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
