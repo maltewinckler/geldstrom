@@ -1,0 +1,7 @@
+{
+  "venvPath": ".",
+  "venv": ".venv",
+  "pythonVersion": "3.11",
+  "include": ["packages", "apps"],
+  "exclude": ["proto/generated", "apps/admin-ui"]
+}

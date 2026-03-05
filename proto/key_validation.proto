@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package geldstrom.internal.v1;
+
+service KeyValidationService {
+  rpc ValidateKey (KeyRequest) returns (KeyResponse);
+}
+
+message KeyRequest {
+  string key_hash = 1;
+}
+
+message KeyResponse {
+  bool is_valid = 1;
+  string account_id = 2;
+}

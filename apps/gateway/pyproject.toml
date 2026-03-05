@@ -1,0 +1,18 @@
+[project]
+name = "gateway"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.111",
+    "uvicorn[standard]>=0.29",
+    "redis>=5.0",
+    "grpcio>=1.62",
+    "geldstrom",
+]
+
+[tool.uv.sources]
+geldstrom = { workspace = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
