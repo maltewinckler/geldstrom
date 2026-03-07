@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package geldstrom.internal.v1;
+
+service BankDirectoryService {
+  rpc GetBankEndpoint (GetBankEndpointRequest) returns (BankEndpointResponse);
+}
+
+message GetBankEndpointRequest {
+  string bank_code = 1;
+}
+
+message BankEndpointResponse {
+  string bank_code = 1;
+  string protocol = 2;
+  string server_url = 3;
+  // FinTS-specific fields (empty for other protocols)
+  string fints_product_id = 4;
+  string fints_product_version = 5;
+  string fints_country_code = 6;
+  map<string, string> metadata = 7;
+}

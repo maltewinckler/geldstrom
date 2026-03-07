@@ -10,6 +10,8 @@ dependencies = [
     "alembic>=1.13",
     "grpcio>=1.62",
     "httpx>=0.27",
+    "argon2-cffi>=23.1",
+    "cryptography>=42.0",
 ]
 
 [build-system]

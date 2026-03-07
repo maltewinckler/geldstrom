@@ -1,0 +1,1 @@
+"""FinTS protocol infrastructure adapters."""

@@ -1,0 +1,16 @@
+Generic single-database configuration with async PostgreSQL support.
+
+This Alembic environment is configured to:
+- Use async SQLAlchemy engine
+- Read DATABASE_URL from environment variable
+- Support autogenerate from ORM models
+
+Usage:
+    # Generate a new migration (from apps/admin directory)
+    DATABASE_URL=postgresql+asyncpg://... alembic revision --autogenerate -m "description"
+
+    # Run migrations
+    DATABASE_URL=postgresql+asyncpg://... alembic upgrade head
+
+    # Downgrade
+    DATABASE_URL=postgresql+asyncpg://... alembic downgrade -1
