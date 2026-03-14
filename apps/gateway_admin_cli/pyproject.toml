@@ -1,0 +1,25 @@
+[build-system]
+requires = ["hatchling>=1.27.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "gateway-admin-cli"
+version = "0.0.1"
+description = "Administrative CLI for the Geldstrom gateway"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "gateway",
+    "typer>=0.15",
+    "rich>=13.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["gateway_admin_cli"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/gateway_admin_cli",
+    "/README.md",
+    "/pyproject.toml",
+]

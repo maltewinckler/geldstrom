@@ -5,7 +5,7 @@
 
 Access your German bank accounts programmatically. Geldstrom is a Python client for FinTS 3.0, the standardized banking protocol used by Sparkassen, Volksbanken, Deutsche Bank, DKB, and most other German financial institutions.
 
-[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.13+](https://img.shields.io/badge/python-3.13+-blue.svg)](https://www.python.org/downloads/)
 [![License: LGPL v3](https://img.shields.io/badge/License-LGPL%20v3-blue.svg)](https://www.gnu.org/licenses/lgpl-3.0.en.html)
 
 ## Features
@@ -22,10 +22,10 @@ Access your German bank accounts programmatically. Geldstrom is a Python client 
 pip install geldstrom
 ```
 
-Or with Poetry:
+Or with uv:
 
 ```bash
-poetry add geldstrom
+uv add geldstrom
 ```
 
 ## Quick Start
@@ -422,21 +422,25 @@ FINTS_PRODUCT_ID=YOUR_PRODUCT_ID
 
 ## Development
 
+```bash
+uv sync --dev
+```
+
 ### Running Tests
 
 ```bash
 # Unit tests
-poetry run pytest tests/unit/
+uv run pytest tests/unit/
 
 # Integration tests (requires credentials in .env)
-poetry run pytest tests/integration/ --run-integration
+uv run pytest tests/integration/ --run-integration
 ```
 
 ### Code Quality
 
 ```bash
-poetry run ruff check geldstrom/
-poetry run ruff format geldstrom/
+uv run ruff check packages tests
+uv run ruff format packages tests
 ```
 
 ## Credits

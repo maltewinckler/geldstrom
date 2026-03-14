@@ -1,0 +1,1 @@
+"""Domain tests for gateway."""
