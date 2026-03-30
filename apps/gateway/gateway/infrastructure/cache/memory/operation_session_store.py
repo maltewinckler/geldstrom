@@ -6,10 +6,14 @@ import asyncio
 from datetime import datetime
 
 from gateway.application.common import InternalError
-from gateway.domain.banking_gateway import PendingOperationSession
+from gateway.domain.banking_gateway import (
+    OperationSessionStore,
+    OperationStatus,
+    PendingOperationSession,
+)
 
 
-class InMemoryOperationSessionStore:
+class InMemoryOperationSessionStore(OperationSessionStore):
     """Stores pending operation sessions in a bounded in-memory dictionary."""
 
     def __init__(self, *, max_sessions: int = 10_000) -> None:
@@ -39,11 +43,16 @@ class InMemoryOperationSessionStore:
             self._sessions.pop(operation_id, None)
 
     async def expire_stale(self, now: datetime) -> int:
+        _terminal = {
+            OperationStatus.COMPLETED,
+            OperationStatus.FAILED,
+            OperationStatus.EXPIRED,
+        }
         async with self._lock:
             stale_operation_ids = [
                 operation_id
                 for operation_id, session in self._sessions.items()
-                if session.expires_at <= now
+                if session.expires_at <= now and session.status in _terminal
             ]
             for operation_id in stale_operation_ids:
                 self._sessions.pop(operation_id, None)

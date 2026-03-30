@@ -4,9 +4,11 @@ from __future__ import annotations
 
 from typing import Protocol
 
+from gateway.domain.banking_gateway import (
+    FinTSInstituteRepository,
+    FinTSProductRegistrationRepository,
+)
 from gateway.domain.consumer_access import ApiConsumerRepository
-from gateway.domain.institution_catalog import FinTSInstituteRepository
-from gateway.domain.product_registration import FinTSProductRegistrationRepository
 
 
 class RepositoryFactory(Protocol):

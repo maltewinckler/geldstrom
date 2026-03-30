@@ -7,10 +7,12 @@ dependencies = [
     "geldstrom",
     "gateway",
     "gateway-admin-cli",
+    "gateway-contracts",
 ]
 
 [dependency-groups]
 dev = [
+    "geldstrom-cli",
     "httpx>=0.28.1",
     "pytest>=7.0,<8.0",
     "ruff>=0.8,<1.0",
@@ -25,6 +27,8 @@ package = false
 geldstrom = { workspace = true }
 gateway = { workspace = true }
 gateway-admin-cli = { workspace = true }
+gateway-contracts = { workspace = true }
+geldstrom-cli = { workspace = true }
 
 [tool.uv.workspace]
 members = ["packages/*", "apps/*"]
@@ -56,7 +60,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["geldstrom", "gateway", "gateway_admin_cli"]
+known-first-party = ["geldstrom", "gateway", "gateway_admin_cli", "geldstrom_cli"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*" = ["ARG", "B", "SIM"]
@@ -74,4 +78,6 @@ markers = [
     "integration: marks tests as integration tests (require bank credentials)",
     "live_bank: marks tests that hit real FinTS bank backends and cannot run via testcontainers",
     "slow: marks tests as slow running",
+    "e2e: end-to-end tests against real banking APIs — use --run-e2e to enable",
+    "e2e_tan: e2e tests that deliberately trigger 2FA (200-day window) — use --run-e2e-tan to enable",
 ]

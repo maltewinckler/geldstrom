@@ -1,7 +1,7 @@
 """Domain objects describing banks and their capabilities."""
 from __future__ import annotations
 
-from typing import FrozenSet, Mapping
+from collections.abc import Mapping
 
 from pydantic import BaseModel, field_validator
 
@@ -27,7 +27,7 @@ class BankRoute(BaseModel, frozen=True):
 class BankCapabilities(BaseModel, frozen=True):
     """Describes which FinTS operations the bank exposes to this user."""
 
-    supported_operations: FrozenSet[str] = frozenset()
+    supported_operations: frozenset[str] = frozenset()
     supported_formats: Mapping[str, tuple[str, ...]] = {}
 
     def supports(self, operation: str) -> bool:

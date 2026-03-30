@@ -5,10 +5,11 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Protocol
 
-from gateway.domain.institution_catalog import FinTSInstitute
+from gateway.domain.banking_gateway.value_objects import FinTSInstitute
 
 from .operations import (
     AccountsResult,
+    BalancesResult,
     PendingOperationSession,
     ResumeResult,
     TanMethodsResult,
@@ -35,6 +36,12 @@ class BankingConnector(Protocol):
         end_date: date,
     ) -> TransactionsResult: ...
 
+    async def get_balances(
+        self,
+        institute: FinTSInstitute,
+        credentials: PresentedBankCredentials,
+    ) -> BalancesResult: ...
+
     async def get_tan_methods(
         self,
         institute: FinTSInstitute,
@@ -56,3 +63,5 @@ class OperationSessionStore(Protocol):
     async def delete(self, operation_id: str) -> None: ...
 
     async def expire_stale(self, now: datetime) -> int: ...
+
+    async def list_all(self) -> list[PendingOperationSession]: ...

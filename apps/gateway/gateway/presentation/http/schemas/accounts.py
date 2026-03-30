@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, SecretStr
+from pydantic import BaseModel, Field, SecretStr
 
 
 class ListAccountsRequest(BaseModel):
@@ -13,8 +13,10 @@ class ListAccountsRequest(BaseModel):
 
     protocol: str
     blz: str
-    user_id: str
+    user_id: str = Field(max_length=64)
     password: SecretStr
+    tan_method: str | None = Field(default=None, max_length=64)
+    tan_medium: str | None = Field(default=None, max_length=64)
 
 
 class AccountsCompletedResponse(BaseModel):

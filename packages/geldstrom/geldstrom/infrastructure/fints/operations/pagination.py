@@ -7,9 +7,9 @@ with a pointer to continue fetching more results.
 from __future__ import annotations
 
 import logging
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Callable, Generic, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
 if TYPE_CHECKING:
     from geldstrom.infrastructure.fints.dialog import Dialog, ProcessedResponse
@@ -20,7 +20,7 @@ T = TypeVar("T")
 
 
 @dataclass
-class PaginatedResult(Generic[T]):
+class PaginatedResult(Generic[T]):  # noqa: UP046
     """Result of a paginated fetch operation."""
 
     items: Sequence[T]

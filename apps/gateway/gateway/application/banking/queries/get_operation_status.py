@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Self
 
-from gateway.application.auth.queries.authenticate_consumer import (
-    AuthenticateConsumerQuery,
-)
 from gateway.application.common import (
     ForbiddenError,
     IdProvider,
     OperationNotFoundError,
+)
+from gateway.application.consumer.queries.authenticate_consumer import (
+    AuthenticateConsumerQuery,
 )
 from gateway.domain.banking_gateway import OperationSessionStore, OperationStatus
 
@@ -49,7 +49,7 @@ class GetOperationStatusQuery:
         if session is None:
             raise OperationNotFoundError(f"No operation found for id {operation_id}")
 
-        if session.consumer_id != authenticated_consumer.consumer_id:
+        if session.consumer_id != authenticated_consumer:
             raise ForbiddenError(
                 "Operation does not belong to the authenticated consumer"
             )
@@ -74,10 +74,19 @@ class GetOperationStatusQuery:
             )
 
         if session.status is OperationStatus.FAILED:
+            await self._session_store.delete(operation_id)
             return OperationStatusEnvelope(
                 status=session.status,
                 operation_id=operation_id,
                 failure_reason=session.failure_reason,
+                expires_at=session.expires_at,
+            )
+
+        if session.status is OperationStatus.EXPIRED:
+            await self._session_store.delete(operation_id)
+            return OperationStatusEnvelope(
+                status=session.status,
+                operation_id=operation_id,
                 expires_at=session.expires_at,
             )
 

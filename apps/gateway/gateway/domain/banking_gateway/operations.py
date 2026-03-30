@@ -6,11 +6,17 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
 from typing import Any
+from uuid import UUID
 
-from gateway.domain.consumer_access import ConsumerId
-from gateway.domain.shared import BankProtocol, DomainError
+from gateway.domain import DomainError
 
-_ALLOWED_OPERATION_TYPES = ("accounts", "transactions", "tan_methods")
+_ALLOWED_OPERATION_TYPES = ("accounts", "balances", "transactions", "tan_methods")
+
+
+class BankProtocol(StrEnum):
+    """Externally selectable banking protocols supported by the gateway."""
+
+    FINTS = "fints"
 
 
 class OperationStatus(StrEnum):
@@ -42,7 +48,7 @@ class PendingOperationSession:
     """Ephemeral runtime state for a decoupled bank operation."""
 
     operation_id: str
-    consumer_id: ConsumerId
+    consumer_id: UUID
     protocol: BankProtocol
     operation_type: str
     session_state: bytes
@@ -108,6 +114,25 @@ class TransactionsResult:
 
     status: OperationStatus
     transactions: list[dict[str, Any]] = field(default_factory=list)
+    session_state: bytes = b""
+    expires_at: datetime | None = None
+    failure_reason: str | None = None
+
+    def __post_init__(self) -> None:
+        _validate_connector_result(
+            status=self.status,
+            session_state=self.session_state,
+            expires_at=self.expires_at,
+            failure_reason=self.failure_reason,
+        )
+
+
+@dataclass
+class BalancesResult:
+    """Connector result for balance query flows."""
+
+    status: OperationStatus
+    balances: list[dict[str, Any]] = field(default_factory=list)
     session_state: bytes = b""
     expires_at: datetime | None = None
     failure_reason: str | None = None

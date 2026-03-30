@@ -4,10 +4,15 @@ from __future__ import annotations
 
 import asyncio
 
-from gateway.domain.institution_catalog import BankLeitzahl, FinTSInstitute
+from gateway.domain.banking_gateway import (
+    BankLeitzahl,
+    FinTSInstitute,
+    FinTSInstituteRepository,
+    InstituteCacheLoader,
+)
 
 
-class InMemoryFinTSInstituteCache:
+class InMemoryFinTSInstituteCache(FinTSInstituteRepository, InstituteCacheLoader):
     """Stores canonical institutes keyed by BLZ in process memory."""
 
     def __init__(self) -> None:
@@ -17,6 +22,10 @@ class InMemoryFinTSInstituteCache:
     async def get_by_blz(self, blz: BankLeitzahl) -> FinTSInstitute | None:
         async with self._lock:
             return self._institutes.get(str(blz))
+
+    async def list_all(self) -> list[FinTSInstitute]:
+        async with self._lock:
+            return list(self._institutes.values())
 
     async def load(self, institutes: list[FinTSInstitute]) -> None:
         async with self._lock:

@@ -1,8 +1,9 @@
 """Protocol-agnostic session abstractions for bank connections."""
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Any, Mapping, Protocol, runtime_checkable
+from collections.abc import Mapping
+from datetime import UTC, datetime
+from typing import Any, Protocol, runtime_checkable
 
 from pydantic import BaseModel, Field
 
@@ -54,7 +55,7 @@ class SessionHandle(BaseModel, frozen=True):
     route: BankRoute
     user_id: str
     token: bytes
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     @property
     def is_valid(self) -> bool:
@@ -77,7 +78,7 @@ class SessionHandle(BaseModel, frozen=True):
         }
 
     @classmethod
-    def from_dict(cls, data: Mapping[str, Any]) -> "SessionHandle":
+    def from_dict(cls, data: Mapping[str, Any]) -> SessionHandle:
         route = BankRoute(
             country_code=data["route"]["country_code"],
             bank_code=data["route"]["bank_code"],

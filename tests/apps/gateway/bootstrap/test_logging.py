@@ -28,7 +28,7 @@ def test_json_formatter_emits_valid_json() -> None:
     assert payload["level"] == "INFO"
 
 
-def test_forbidden_fields_are_dropped() -> None:
+def test_forbidden_fields_are_redacted() -> None:
     from gateway.logging_config import _SecretScrubFilter
 
     scrub = _SecretScrubFilter()
@@ -43,7 +43,12 @@ def test_forbidden_fields_are_dropped() -> None:
             exc_info=None,
         )
         setattr(record, field, "secret-value")
-        assert not scrub.filter(record), f"field {field!r} should have been scrubbed"
+        assert scrub.filter(record), (
+            f"field {field!r} should keep the record (redact, not drop)"
+        )
+        assert getattr(record, field) == "[REDACTED]", (
+            f"field {field!r} should be redacted"
+        )
 
 
 def test_allowed_extra_fields_pass_through() -> None:

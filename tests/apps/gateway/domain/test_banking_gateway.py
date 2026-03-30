@@ -1,31 +1,26 @@
 """Tests for the banking gateway domain."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
+from uuid import UUID
 
 import pytest
-from pydantic import SecretStr
 
+from gateway.domain import DomainError
 from gateway.domain.banking_gateway import (
-    BankRequestSanitizationPolicy,
+    BankProtocol,
     OperationStatus,
     PendingOperationSession,
     PresentedBankCredentials,
-    PresentedBankPassword,
-    PresentedBankUserId,
     RequestedIban,
 )
-from gateway.domain.consumer_access import ConsumerId
-from gateway.domain.shared import BankProtocol, DomainError
 
 
-def test_bank_request_sanitization_policy_rejects_empty_secret_fields() -> None:
-    credentials = PresentedBankCredentials(
-        user_id=PresentedBankUserId(SecretStr("   ")),
-        password=PresentedBankPassword(SecretStr("123456")),
-    )
-
-    with pytest.raises(DomainError, match="user id"):
-        BankRequestSanitizationPolicy.sanitize(credentials)
+def test_presented_bank_credentials_rejects_blank_user_id() -> None:
+    with pytest.raises(Exception, match="blank"):
+        PresentedBankCredentials(
+            user_id="   ",
+            password="123456",
+        )
 
 
 def test_requested_iban_normalizes_and_validates_checksum() -> None:
@@ -40,10 +35,10 @@ def test_requested_iban_rejects_invalid_values() -> None:
 
 
 def test_pending_operation_session_constructs_with_pending_state() -> None:
-    created_at = datetime.now(tz=timezone.utc)
+    created_at = datetime.now(tz=UTC)
     session = PendingOperationSession(
         operation_id="operation-123",
-        consumer_id=ConsumerId.from_string("12345678-1234-5678-1234-567812345678"),
+        consumer_id=UUID("12345678-1234-5678-1234-567812345678"),
         protocol=BankProtocol.FINTS,
         operation_type="transactions",
         session_state=b"opaque-session-state",

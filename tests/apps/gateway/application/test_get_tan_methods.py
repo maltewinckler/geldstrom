@@ -6,35 +6,32 @@ import asyncio
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
-from gateway.application.auth.queries.authenticate_consumer import (
-    AuthenticateConsumerQuery,
-)
 from gateway.application.banking.commands.get_tan_methods import (
     GetTanMethodsCommand,
     GetTanMethodsInput,
 )
-from gateway.domain.banking_gateway import OperationStatus, TanMethod, TanMethodsResult
+from gateway.application.consumer.queries.authenticate_consumer import (
+    AuthenticateConsumerQuery,
+)
+from gateway.domain.banking_gateway import (
+    BankLeitzahl,
+    BankProtocol,
+    FinTSInstitute,
+    OperationStatus,
+    TanMethod,
+    TanMethodsResult,
+)
 from gateway.domain.consumer_access import (
     ApiConsumer,
     ApiKeyHash,
-    ConsumerId,
     ConsumerStatus,
-    EmailAddress,
 )
-from gateway.domain.institution_catalog import (
-    BankLeitzahl,
-    Bic,
-    FinTSInstitute,
-    InstituteEndpoint,
-)
-from gateway.domain.shared import BankProtocol
 from tests.apps.gateway.fakes import (
     FakeBankingConnector,
     FakeConsumerCache,
     FakeIdProvider,
     FakeInstituteCache,
     FakeOperationSessionStore,
-    FakeProductKeyProvider,
 )
 
 
@@ -104,17 +101,43 @@ def test_get_tan_methods_creates_pending_session_for_decoupled_flow() -> None:
     assert stored_session.operation_type == "tan_methods"
 
 
+def test_get_tan_methods_session_expires_at_is_capped_by_gateway_ttl() -> None:
+    now = datetime(2026, 3, 7, 12, 0, tzinfo=UTC)
+    session_store = FakeOperationSessionStore()
+    use_case, _, _ = _build_use_case(
+        connector=FakeBankingConnector(
+            tan_methods_results=[
+                TanMethodsResult(
+                    status=OperationStatus.PENDING_CONFIRMATION,
+                    session_state=b"state",
+                    expires_at=now + timedelta(minutes=10),
+                )
+            ]
+        ),
+        session_store=session_store,
+        id_provider=FakeIdProvider(now_value=now, operation_ids=["op-ttl"]),
+        ttl_seconds=120,
+    )
+
+    result = asyncio.run(use_case(_request(), presented_api_key="api-key-1"))
+    stored_session = asyncio.run(session_store.get("op-ttl"))
+
+    assert result.expires_at == now + timedelta(seconds=120)
+    assert stored_session is not None
+    assert stored_session.expires_at == now + timedelta(seconds=120)
+
+
 def _build_use_case(
     *,
     institute_cache: FakeInstituteCache | None = None,
-    product_key_provider: FakeProductKeyProvider | None = None,
     connector: FakeBankingConnector | None = None,
     session_store: FakeOperationSessionStore | None = None,
     id_provider: FakeIdProvider | None = None,
+    ttl_seconds: int = 600,
 ) -> tuple[GetTanMethodsCommand, FakeOperationSessionStore, FakeBankingConnector]:
     consumer = ApiConsumer(
-        consumer_id=ConsumerId(UUID("12345678-1234-5678-1234-567812345678")),
-        email=EmailAddress("consumer@example.com"),
+        consumer_id=UUID("12345678-1234-5678-1234-567812345678"),
+        email="consumer@example.com",
         api_key_hash=ApiKeyHash("api-key-1"),
         status=ConsumerStatus.ACTIVE,
         created_at=datetime.now(UTC),
@@ -123,9 +146,6 @@ def _build_use_case(
         FakeConsumerCache([consumer]), StubApiKeyVerifier()
     )
     resolved_institute_cache = institute_cache or FakeInstituteCache([_institute()])
-    resolved_product_key_provider = product_key_provider or FakeProductKeyProvider(
-        "product-key-1"
-    )
     resolved_connector = connector or FakeBankingConnector(
         tan_methods_results=[TanMethodsResult(status=OperationStatus.COMPLETED)]
     )
@@ -138,10 +158,10 @@ def _build_use_case(
         GetTanMethodsCommand(
             authenticate_consumer=authenticate_consumer,
             institute_catalog=resolved_institute_cache,
-            current_product_key_provider=resolved_product_key_provider,
             connector=resolved_connector,
             session_store=resolved_session_store,
             id_provider=resolved_id_provider,
+            ttl_seconds=ttl_seconds,
         ),
         resolved_session_store,
         resolved_connector,
@@ -160,11 +180,11 @@ def _request() -> GetTanMethodsInput:
 def _institute() -> FinTSInstitute:
     return FinTSInstitute(
         blz=BankLeitzahl("12345678"),
-        bic=Bic("GENODEF1ABC"),
+        bic="GENODEF1ABC",
         name="Example Bank",
         city="Berlin",
         organization="Example Org",
-        pin_tan_url=InstituteEndpoint("https://bank.example/fints"),
+        pin_tan_url="https://bank.example/fints",
         fints_version="3.0",
         last_source_update=datetime(2026, 3, 7, tzinfo=UTC).date(),
         source_row_checksum="checksum-1",

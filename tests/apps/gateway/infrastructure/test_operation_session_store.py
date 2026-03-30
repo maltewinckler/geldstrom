@@ -11,11 +11,10 @@ import pytest
 
 from gateway.application.common import InternalError
 from gateway.domain.banking_gateway import (
+    BankProtocol,
     OperationStatus,
     PendingOperationSession,
 )
-from gateway.domain.consumer_access import ConsumerId
-from gateway.domain.shared import BankProtocol
 from gateway.infrastructure.cache.memory import InMemoryOperationSessionStore
 
 
@@ -37,7 +36,12 @@ def test_operation_session_store_create_get_update_and_delete() -> None:
 
 def test_operation_session_store_expires_stale_sessions() -> None:
     store = InMemoryOperationSessionStore()
-    stale_session = _session(expires_at=datetime(2026, 3, 7, 12, 5, tzinfo=UTC))
+    # EXPIRED terminal session — should be purged
+    stale_session = _session(
+        expires_at=datetime(2026, 3, 7, 12, 5, tzinfo=UTC),
+        status=OperationStatus.EXPIRED,
+    )
+    # PENDING session with a future TTL — should not be touched
     fresh_session = _session(
         operation_id="op-2",
         expires_at=datetime(2026, 3, 7, 12, 30, tzinfo=UTC),
@@ -52,6 +56,19 @@ def test_operation_session_store_expires_stale_sessions() -> None:
     assert expired_count == 1
     assert asyncio.run(store.get(stale_session.operation_id)) is None
     assert asyncio.run(store.get(fresh_session.operation_id)) == fresh_session
+
+
+def test_operation_session_store_does_not_expire_pending_sessions() -> None:
+    store = InMemoryOperationSessionStore()
+    stale_pending = _session(expires_at=datetime(2026, 3, 7, 12, 5, tzinfo=UTC))
+    asyncio.run(store.create(stale_pending))
+
+    expired_count = asyncio.run(
+        store.expire_stale(datetime(2026, 3, 7, 12, 10, tzinfo=UTC))
+    )
+
+    assert expired_count == 0
+    assert asyncio.run(store.get(stale_pending.operation_id)) is not None
 
 
 def test_operation_session_store_lists_all_sessions() -> None:
@@ -78,14 +95,15 @@ def _session(
     *,
     operation_id: str = "op-1",
     expires_at: datetime = datetime(2026, 3, 7, 12, 15, tzinfo=UTC),
+    status: OperationStatus = OperationStatus.PENDING_CONFIRMATION,
 ) -> PendingOperationSession:
     return PendingOperationSession(
         operation_id=operation_id,
-        consumer_id=ConsumerId(UUID("12345678-1234-5678-1234-567812345678")),
+        consumer_id=UUID("12345678-1234-5678-1234-567812345678"),
         protocol=BankProtocol.FINTS,
         operation_type="accounts",
         session_state=b"session-state",
-        status=OperationStatus.PENDING_CONFIRMATION,
+        status=status,
         created_at=datetime(2026, 3, 7, 12, 0, tzinfo=UTC),
         expires_at=expires_at,
     )

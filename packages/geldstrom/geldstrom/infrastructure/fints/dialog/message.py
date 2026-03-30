@@ -1,7 +1,7 @@
 """FinTS message types for dialog communication."""
 
 from enum import Enum
-from typing import Any, ClassVar, Optional
+from typing import Any, ClassVar
 
 from geldstrom.infrastructure.fints.protocol import HIRMS2, SegmentSequence
 from geldstrom.infrastructure.fints.protocol.base import FinTSSegment
@@ -23,7 +23,7 @@ class FinTSMessage(SegmentSequence):
     - Response lookup
     """
 
-    DIRECTION: ClassVar[Optional[MessageDirection]] = None
+    DIRECTION: ClassVar[MessageDirection | None] = None
 
     # Non-model fields (excluded from Pydantic)
     model_config = {"arbitrary_types_allowed": True}

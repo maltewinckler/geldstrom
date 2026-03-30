@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from gateway.domain.institution_catalog import BankLeitzahl, FinTSInstitute
+from gateway.domain.banking_gateway import BankLeitzahl, FinTSInstitute
 
 
 class FakeInstituteCache:

@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 from unittest.mock import AsyncMock, patch
 
-from gateway.lifecycle import run_resume_worker, shutdown, startup
+from gateway.presentation.http.lifecycle import run_resume_worker, shutdown, startup
 
 # ---------------------------------------------------------------------------
 # startup / shutdown — delegation to factory
@@ -15,7 +15,7 @@ from gateway.lifecycle import run_resume_worker, shutdown, startup
 def test_startup_delegates_to_factory() -> None:
     factory = AsyncMock()
 
-    with patch("gateway.lifecycle.get_factory", return_value=factory):
+    with patch("gateway.presentation.http.lifecycle.get_factory", return_value=factory):
         asyncio.run(startup())
 
     factory.startup.assert_awaited_once()
@@ -24,7 +24,7 @@ def test_startup_delegates_to_factory() -> None:
 def test_shutdown_delegates_to_factory() -> None:
     factory = AsyncMock()
 
-    with patch("gateway.lifecycle.get_factory", return_value=factory):
+    with patch("gateway.presentation.http.lifecycle.get_factory", return_value=factory):
         asyncio.run(shutdown())
 
     factory.shutdown.assert_awaited_once()
@@ -52,8 +52,10 @@ def test_run_resume_worker_stops_on_cancellation() -> None:
         except asyncio.CancelledError:
             pass
 
-    with patch("gateway.lifecycle.get_factory"):
-        with patch.object(ResumePendingOperationsCommand, "from_factory", return_value=use_case):
+    with patch("gateway.presentation.http.lifecycle.get_factory"):
+        with patch.object(
+            ResumePendingOperationsCommand, "from_factory", return_value=use_case
+        ):
             asyncio.run(_run())
 
     assert use_case.await_count >= 1

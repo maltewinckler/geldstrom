@@ -19,16 +19,15 @@ from geldstrom.infrastructure.fints.dialog import (
     StandaloneEncryptionMechanism,
 )
 from geldstrom.infrastructure.fints.protocol import (
-    BankIdentifier,
     HKSYN3,
-    HISYN4,
+    BankIdentifier,
     ParameterStore,
     SynchronizationMode,
 )
 from geldstrom.infrastructure.fints.protocol.segments.pintan import TwoStepParameters7
 from geldstrom.infrastructure.fints.session import FinTSSessionState
 
-from .connection import FinTSConnectionHelper, SYSTEM_ID_UNASSIGNED
+from .connection import SYSTEM_ID_UNASSIGNED, FinTSConnectionHelper
 
 logger = logging.getLogger(__name__)
 

@@ -20,11 +20,11 @@ from dataclasses import dataclass
 from typing import Any
 
 from geldstrom.domain.connection import ChallengeHandler, TANConfig
-from geldstrom.infrastructure.fints.credentials import GatewayCredentials
 from geldstrom.infrastructure.fints.adapters.serialization import (
     compress_datablob,
     decompress_datablob,
 )
+from geldstrom.infrastructure.fints.credentials import GatewayCredentials
 from geldstrom.infrastructure.fints.dialog import (
     SYSTEM_ID_UNASSIGNED,
     ConnectionConfig,

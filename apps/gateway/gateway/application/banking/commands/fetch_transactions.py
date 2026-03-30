@@ -6,36 +6,29 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import TYPE_CHECKING, Self
 
-from pydantic import SecretStr
-
-from gateway.application.auth.queries.authenticate_consumer import (
-    AuthenticateConsumerQuery,
-)
 from gateway.application.common import (
     IdProvider,
     InstitutionNotFoundError,
     UnsupportedProtocolError,
     ValidationError,
+    cap_session_expires_at,
 )
-from gateway.application.product_registration.ports.current_product_key import (
-    CurrentProductKeyProvider,
+from gateway.application.consumer.queries.authenticate_consumer import (
+    AuthenticateConsumerQuery,
 )
 from gateway.domain.banking_gateway import (
     BankingConnector,
-    BankRequestSanitizationPolicy,
+    BankLeitzahl,
+    BankProtocol,
+    FinTSInstituteRepository,
     OperationSessionStore,
     OperationStatus,
     PendingOperationSession,
     PresentedBankCredentials,
-    PresentedBankPassword,
-    PresentedBankUserId,
     RequestedIban,
 )
-from gateway.domain.institution_catalog import BankLeitzahl
-from gateway.domain.shared import BankProtocol
 
 from ..dtos.fetch_transactions import TransactionsResultEnvelope
-from ..ports.institute_catalog import InstituteCatalogPort
 
 if TYPE_CHECKING:
     from gateway.application.ports import ApplicationFactory
@@ -52,6 +45,8 @@ class FetchTransactionsInput:
     iban: str
     start_date: date | None = None
     end_date: date | None = None
+    tan_method: str | None = None
+    tan_medium: str | None = None
 
 
 class FetchTransactionsCommand:
@@ -60,28 +55,28 @@ class FetchTransactionsCommand:
     def __init__(
         self,
         authenticate_consumer: AuthenticateConsumerQuery,
-        institute_catalog: InstituteCatalogPort,
-        current_product_key_provider: CurrentProductKeyProvider,
+        institute_catalog: FinTSInstituteRepository,
         connector: BankingConnector,
         session_store: OperationSessionStore,
         id_provider: IdProvider,
+        ttl_seconds: int = 120,
     ) -> None:
         self._authenticate_consumer = authenticate_consumer
         self._institute_catalog = institute_catalog
-        self._current_product_key_provider = current_product_key_provider
         self._connector = connector
         self._session_store = session_store
         self._id_provider = id_provider
+        self._ttl_seconds = ttl_seconds
 
     @classmethod
     def from_factory(cls, factory: ApplicationFactory) -> Self:
         return cls(
             authenticate_consumer=AuthenticateConsumerQuery.from_factory(factory),
             institute_catalog=factory.caches.institute,
-            current_product_key_provider=factory.caches.product_key,
             connector=factory.banking_connector,
             session_store=factory.caches.session_store,
             id_provider=factory.id_provider,
+            ttl_seconds=factory.operation_session_ttl_seconds,
         )
 
     async def __call__(
@@ -96,16 +91,16 @@ class FetchTransactionsCommand:
 
         authenticated_consumer = await self._authenticate_consumer(presented_api_key)
         credentials = PresentedBankCredentials(
-            user_id=PresentedBankUserId(SecretStr(request.user_id)),
-            password=PresentedBankPassword(SecretStr(request.password)),
+            user_id=request.user_id,
+            password=request.password,
+            tan_method=request.tan_method,
+            tan_medium=request.tan_medium,
         )
-        BankRequestSanitizationPolicy.sanitize(credentials)
 
         institute = await self._institute_catalog.get_by_blz(request.blz)
         if institute is None:
             raise InstitutionNotFoundError(f"No institute found for BLZ {request.blz}")
 
-        await self._current_product_key_provider.require_current()
         start_date, end_date = self._resolve_date_range(request)
         result = await self._connector.fetch_transactions(
             institute,
@@ -118,21 +113,24 @@ class FetchTransactionsCommand:
         if result.status is OperationStatus.PENDING_CONFIRMATION:
             operation_id = self._id_provider.new_operation_id()
             created_at = self._id_provider.now()
+            expires_at = cap_session_expires_at(
+                result.expires_at, created_at, self._ttl_seconds
+            )
             session = PendingOperationSession(
                 operation_id=operation_id,
-                consumer_id=authenticated_consumer.consumer_id,
+                consumer_id=authenticated_consumer,
                 protocol=request.protocol,
                 operation_type="transactions",
                 session_state=result.session_state,
                 status=OperationStatus.PENDING_CONFIRMATION,
                 created_at=created_at,
-                expires_at=result.expires_at,
+                expires_at=expires_at,
             )
             await self._session_store.create(session)
             return TransactionsResultEnvelope(
                 status=result.status,
                 operation_id=operation_id,
-                expires_at=result.expires_at,
+                expires_at=expires_at,
             )
 
         return TransactionsResultEnvelope(
@@ -141,11 +139,11 @@ class FetchTransactionsCommand:
             failure_reason=result.failure_reason,
         )
 
-    def _resolve_date_range(
-        self, request: FetchTransactionsInput
-    ) -> tuple[date, date]:
+    def _resolve_date_range(self, request: FetchTransactionsInput) -> tuple[date, date]:
         end_date = request.end_date or self._id_provider.now().date()
         start_date = request.start_date or (end_date - timedelta(days=90))
         if start_date > end_date:
             raise ValidationError("start_date must be on or before end_date")
+        if (end_date - start_date).days > 365:
+            raise ValidationError("Date range must not exceed 365 days")
         return start_date, end_date

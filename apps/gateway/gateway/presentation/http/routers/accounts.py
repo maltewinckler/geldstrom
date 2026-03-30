@@ -9,8 +9,7 @@ from gateway.application.banking.commands.list_accounts import (
     ListAccountsCommand,
     ListAccountsInput,
 )
-from gateway.domain.banking_gateway import OperationStatus
-from gateway.domain.shared import BankProtocol
+from gateway.domain.banking_gateway import BankProtocol, OperationStatus
 
 from ..dependencies import ApiKey, Factory
 from ..schemas.accounts import (
@@ -39,6 +38,8 @@ async def list_accounts(
         blz=body.blz,
         user_id=body.user_id,
         password=body.password.get_secret_value(),
+        tan_method=body.tan_method,
+        tan_medium=body.tan_medium,
     )
     result = await ListAccountsCommand.from_factory(factory)(command, presented_api_key)
     if result.status is OperationStatus.COMPLETED:

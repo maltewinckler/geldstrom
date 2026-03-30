@@ -1,6 +1,6 @@
 """Smoke tests for schema bootstrap helpers."""
 
-from gateway.infrastructure.persistence.postgres.schema import (
+from gateway_contracts.schema import (
     create_test_schema,
     drop_test_schema,
 )

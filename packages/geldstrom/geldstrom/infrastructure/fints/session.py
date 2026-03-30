@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from geldstrom.domain.model.bank import BankRoute
@@ -27,7 +27,7 @@ class FinTSSessionState:
     client_blob: bytes
     bpd_version: int | None = None
     upd_version: int | None = None
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     version: str = "1"
 
     # --- SessionToken protocol implementation ---

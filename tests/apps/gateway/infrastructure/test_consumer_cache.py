@@ -9,14 +9,12 @@ from uuid import UUID
 from gateway.domain.consumer_access import (
     ApiConsumer,
     ApiKeyHash,
-    ConsumerId,
     ConsumerStatus,
-    EmailAddress,
 )
 from gateway.infrastructure.cache.memory import InMemoryApiConsumerCache
 
 
-def test_consumer_cache_loads_only_active_consumers() -> None:
+def test_consumer_cache_list_active_returns_only_active_consumers() -> None:
     cache = InMemoryApiConsumerCache()
 
     asyncio.run(cache.load([_consumer("active@example.com"), _disabled_consumer()]))
@@ -24,6 +22,18 @@ def test_consumer_cache_loads_only_active_consumers() -> None:
     loaded = asyncio.run(cache.list_active())
 
     assert loaded == [_consumer("active@example.com")]
+
+
+def test_consumer_cache_list_all_includes_disabled_consumers() -> None:
+    cache = InMemoryApiConsumerCache()
+    active = _consumer("active@example.com")
+    disabled = _disabled_consumer()
+
+    asyncio.run(cache.load([active, disabled]))
+    loaded = asyncio.run(cache.list_all())
+
+    assert active in loaded
+    assert disabled in loaded
 
 
 def test_consumer_cache_evicts_by_id() -> None:
@@ -58,24 +68,20 @@ def test_consumer_cache_removes_non_active_reload() -> None:
     assert asyncio.run(cache.list_active()) == []
 
 
-def _consumer(email: str, *, consumer_id: ConsumerId | None = None) -> ApiConsumer:
+def _consumer(email: str, *, consumer_id: UUID | None = None) -> ApiConsumer:
     return ApiConsumer(
-        consumer_id=consumer_id
-        or ConsumerId(UUID("12345678-1234-5678-1234-567812345678")),
-        email=EmailAddress(email),
+        consumer_id=consumer_id or UUID("12345678-1234-5678-1234-567812345678"),
+        email=email,
         api_key_hash=ApiKeyHash("hash-1"),
         status=ConsumerStatus.ACTIVE,
         created_at=datetime(2026, 3, 7, 12, 0, tzinfo=UTC),
     )
 
 
-def _disabled_consumer(
-    *, consumer_id: ConsumerId | None = None
-) -> ApiConsumer:
+def _disabled_consumer(*, consumer_id: UUID | None = None) -> ApiConsumer:
     return ApiConsumer(
-        consumer_id=consumer_id
-        or ConsumerId(UUID("87654321-4321-8765-4321-876543218765")),
-        email=EmailAddress("disabled@example.com"),
+        consumer_id=consumer_id or UUID("87654321-4321-8765-4321-876543218765"),
+        email="disabled@example.com",
         api_key_hash=None,
         status=ConsumerStatus.DISABLED,
         created_at=datetime(2026, 3, 7, 12, 0, tzinfo=UTC),

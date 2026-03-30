@@ -1,0 +1,23 @@
+[build-system]
+requires = ["hatchling>=1.27.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "gateway-contracts"
+version = "0.1.0"
+description = "Shared database schema and channel contracts for the Geldstrom gateway"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "sqlalchemy>=2.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["gateway_contracts"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/gateway_contracts",
+    "/README.md",
+    "/pyproject.toml",
+]

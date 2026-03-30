@@ -3,27 +3,30 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
+import logging
+from uuid import UUID
 
 import asyncpg
+from gateway_contracts.channels import (
+    CATALOG_REPLACED_CHANNEL,
+    CONSUMER_UPDATED_CHANNEL,
+)
 from sqlalchemy.engine import URL, make_url
 
-from gateway.domain.consumer_access import ApiConsumerRepository, ConsumerId
-from gateway.domain.institution_catalog import FinTSInstituteRepository
-from gateway.domain.product_registration import FinTSProductRegistrationRepository
+from gateway.domain.banking_gateway import (
+    FinTSInstituteRepository,
+    InstituteCacheLoader,
+)
+from gateway.domain.consumer_access import ApiConsumerRepository, ConsumerCache
 
-from .consumer_cache import InMemoryApiConsumerCache
-from .institute_cache import InMemoryFinTSInstituteCache
-from .product_registration_cache import InMemoryProductRegistrationCache
-
-CONSUMER_UPDATED_CHANNEL = "gw.consumer_updated"
-CATALOG_REPLACED_CHANNEL = "gw.catalog_replaced"
-PRODUCT_REGISTRATION_UPDATED_CHANNEL = "gw.product_registration_updated"
 LISTEN_CHANNELS = (
     CONSUMER_UPDATED_CHANNEL,
     CATALOG_REPLACED_CHANNEL,
-    PRODUCT_REGISTRATION_UPDATED_CHANNEL,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class PostgresNotifyListener:
@@ -34,11 +37,9 @@ class PostgresNotifyListener:
         *,
         database_url: str,
         consumer_repository: ApiConsumerRepository,
-        consumer_cache: InMemoryApiConsumerCache,
+        consumer_cache: ConsumerCache,
         institute_repository: FinTSInstituteRepository,
-        institute_cache: InMemoryFinTSInstituteCache,
-        product_registration_repository: FinTSProductRegistrationRepository,
-        product_registration_cache: InMemoryProductRegistrationCache,
+        institute_cache: InstituteCacheLoader,
         reconnect_backoff_seconds: float = 1.0,
         max_reconnect_backoff_seconds: float = 30.0,
     ) -> None:
@@ -47,8 +48,6 @@ class PostgresNotifyListener:
         self._consumer_cache = consumer_cache
         self._institute_repository = institute_repository
         self._institute_cache = institute_cache
-        self._product_registration_repository = product_registration_repository
-        self._product_registration_cache = product_registration_cache
         self._base_backoff_seconds = max(reconnect_backoff_seconds, 0.1)
         self._max_backoff_seconds = max(
             max_reconnect_backoff_seconds, self._base_backoff_seconds
@@ -110,12 +109,11 @@ class PostgresNotifyListener:
                     startup_future.set_exception(exc)
                 if self._stop_event.is_set():
                     break
-                try:
+                with contextlib.suppress(TimeoutError):
                     await asyncio.wait_for(
-                        self._stop_event.wait(), timeout=backoff_seconds
+                        self._stop_event.wait(),
+                        timeout=backoff_seconds,
                     )
-                except TimeoutError:
-                    pass
                 backoff_seconds = min(backoff_seconds * 2, self._max_backoff_seconds)
 
     async def _listen_until_disconnect(self) -> None:
@@ -128,9 +126,7 @@ class PostgresNotifyListener:
             port=self._database_url.port,
         )
         self._connection = connection
-        connection.add_termination_listener(
-            lambda terminated_connection: disconnected.set()
-        )
+        connection.add_termination_listener(lambda _: disconnected.set())
         try:
             for channel in LISTEN_CHANNELS:
                 await connection.add_listener(channel, self._handle_notification)
@@ -144,7 +140,9 @@ class PostgresNotifyListener:
             try:
                 if not connection.is_closed():
                     for channel in LISTEN_CHANNELS:
-                        await connection.remove_listener(channel, self._handle_notification)
+                        await connection.remove_listener(
+                            channel, self._handle_notification
+                        )
                     await connection.close()
             finally:
                 if self._connection is connection:
@@ -168,9 +166,14 @@ class PostgresNotifyListener:
     def _finalize_handler_task(self, task: asyncio.Task[None]) -> None:
         self._handler_tasks.discard(task)
         try:
-            task.exception()
+            exc = task.exception()
         except asyncio.CancelledError:
             return
+        if exc is not None:
+            logger.error(
+                "Cache refresh handler failed",
+                exc_info=exc,
+            )
 
     async def _dispatch_notification(self, channel: str, payload: str) -> None:
         data = _parse_payload(payload)
@@ -180,28 +183,20 @@ class PostgresNotifyListener:
         if channel == CATALOG_REPLACED_CHANNEL:
             await self._refresh_catalog()
             return
-        if channel == PRODUCT_REGISTRATION_UPDATED_CHANNEL:
-            await self._refresh_product_registration()
 
     async def _refresh_consumer(self, payload: dict[str, object]) -> None:
         raw_consumer_id = payload.get("consumer_id")
         if not isinstance(raw_consumer_id, str):
             return
-        consumer = await self._consumer_repository.get_by_id(
-            ConsumerId.from_string(raw_consumer_id)
-        )
+        consumer = await self._consumer_repository.get_by_id(UUID(raw_consumer_id))
         if consumer is None:
-            await self._consumer_cache.evict(ConsumerId.from_string(raw_consumer_id))
+            await self._consumer_cache.evict(UUID(raw_consumer_id))
             return
         await self._consumer_cache.reload_one(consumer)
 
     async def _refresh_catalog(self) -> None:
         institutes = await self._institute_repository.list_all()
         await self._institute_cache.load(institutes)
-
-    async def _refresh_product_registration(self) -> None:
-        registration = await self._product_registration_repository.get_current()
-        await self._product_registration_cache.set_current(registration)
 
 
 def _normalize_database_url(database_url: str) -> URL:

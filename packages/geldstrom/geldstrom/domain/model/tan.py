@@ -1,12 +1,12 @@
 """Domain objects describing TAN authentication methods."""
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
 
-class TANMethodType(str, Enum):
+class TANMethodType(StrEnum):
     """Types of TAN authentication methods."""
 
     DECOUPLED = "decoupled"  # App-based approval (SecureGo+, etc.)

@@ -1,39 +1,15 @@
 """Tests for the product registration domain."""
 
 from datetime import UTC, datetime
-from uuid import UUID
 
-import pytest
-
-from gateway.domain.product_registration import (
-    EncryptedProductKey,
-    FinTSProductRegistration,
-    KeyVersion,
-    ProductVersion,
-)
-from gateway.domain.shared import DomainError, EntityId
+from gateway.domain.banking_gateway import FinTSProductRegistration
 
 
-def test_product_registration_constructs_with_encrypted_key_material() -> None:
+def test_product_registration_constructs_with_plain_product_key() -> None:
     registration = FinTSProductRegistration(
-        registration_id=EntityId(UUID("12345678-1234-5678-1234-567812345678")),
-        encrypted_product_key=EncryptedProductKey(b"ciphertext"),
-        product_version=ProductVersion("1.0.0"),
-        key_version=KeyVersion("2026-03"),
+        product_key="my-product-key",
+        product_version="1.0.0",
         updated_at=datetime.now(UTC),
     )
 
-    assert registration.encrypted_product_key.value == b"ciphertext"
-
-
-def test_encrypted_product_key_must_not_be_empty() -> None:
-    with pytest.raises(DomainError, match="must not be empty"):
-        EncryptedProductKey(b"")
-
-
-def test_version_value_objects_must_not_be_empty() -> None:
-    with pytest.raises(DomainError, match="ProductVersion"):
-        ProductVersion(" ")
-
-    with pytest.raises(DomainError, match="KeyVersion"):
-        KeyVersion("")
+    assert registration.product_key == "my-product-key"

@@ -8,22 +8,23 @@ from uuid import UUID
 
 import pytest
 
-from gateway.application.auth.queries.authenticate_consumer import (
-    AuthenticateConsumerQuery,
-)
 from gateway.application.banking.queries.get_operation_status import (
     GetOperationStatusQuery,
 )
 from gateway.application.common import ForbiddenError, OperationNotFoundError
-from gateway.domain.banking_gateway import OperationStatus, PendingOperationSession
+from gateway.application.consumer.queries.authenticate_consumer import (
+    AuthenticateConsumerQuery,
+)
+from gateway.domain.banking_gateway import (
+    BankProtocol,
+    OperationStatus,
+    PendingOperationSession,
+)
 from gateway.domain.consumer_access import (
     ApiConsumer,
     ApiKeyHash,
-    ConsumerId,
     ConsumerStatus,
-    EmailAddress,
 )
-from gateway.domain.shared import BankProtocol
 from tests.apps.gateway.fakes import (
     FakeConsumerCache,
     FakeIdProvider,
@@ -34,6 +35,43 @@ from tests.apps.gateway.fakes import (
 class StubApiKeyVerifier:
     def verify(self, presented_key: str, stored_hash: ApiKeyHash) -> bool:
         return presented_key == stored_hash.value
+
+
+def test_get_operation_status_deletes_failed_session_on_read() -> None:
+    use_case, session_store = _build_use_case(
+        sessions=[
+            _session(
+                operation_id="op-1",
+                status=OperationStatus.FAILED,
+                failure_reason="bank rejected",
+            )
+        ]
+    )
+
+    result = asyncio.run(use_case("op-1", presented_api_key="api-key-1"))
+    stored_session = asyncio.run(session_store.get("op-1"))
+
+    assert result.status is OperationStatus.FAILED
+    assert result.failure_reason == "bank rejected"
+    assert stored_session is None
+
+
+def test_get_operation_status_deletes_expired_session_on_read() -> None:
+    """Sessions marked EXPIRED by the resume worker are cleaned up on poll."""
+    use_case, session_store = _build_use_case(
+        sessions=[
+            _session(
+                operation_id="op-1",
+                status=OperationStatus.EXPIRED,
+            )
+        ]
+    )
+
+    result = asyncio.run(use_case("op-1", presented_api_key="api-key-1"))
+    stored_session = asyncio.run(session_store.get("op-1"))
+
+    assert result.status is OperationStatus.EXPIRED
+    assert stored_session is None
 
 
 def test_get_operation_status_rejects_access_from_other_consumer() -> None:
@@ -109,8 +147,8 @@ def _consumer(
     api_key_hash: str = "api-key-1",
 ) -> ApiConsumer:
     return ApiConsumer(
-        consumer_id=ConsumerId(UUID(consumer_id)),
-        email=EmailAddress(email),
+        consumer_id=UUID(consumer_id),
+        email=email,
         api_key_hash=ApiKeyHash(api_key_hash),
         status=ConsumerStatus.ACTIVE,
         created_at=datetime.now(UTC),
@@ -128,7 +166,7 @@ def _session(
     now = datetime(2026, 3, 7, 12, 0, tzinfo=UTC)
     return PendingOperationSession(
         operation_id=operation_id,
-        consumer_id=ConsumerId(UUID(consumer_id)),
+        consumer_id=UUID(consumer_id),
         protocol=BankProtocol.FINTS,
         operation_type="accounts",
         session_state=b"opaque-state",

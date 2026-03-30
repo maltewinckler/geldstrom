@@ -10,10 +10,10 @@ returning the raw protocol value.
 """
 from __future__ import annotations
 
-from enum import Enum
+from enum import Enum, StrEnum
 
 
-class FinTSEnum(str, Enum):
+class FinTSEnum(StrEnum):
     """Base class for FinTS string enums that returns value from __str__.
 
     This ensures compatibility with legacy field parsing which expects

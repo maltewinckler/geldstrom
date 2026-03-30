@@ -11,12 +11,11 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(
         env_prefix="GATEWAY_",
-        env_file=".env",
+        env_file="config/gateway.env",
         extra="ignore",
     )
 
     database_url: SecretStr
-    product_master_key: SecretStr
     argon2_time_cost: int = 2
     argon2_memory_cost: int = 65_536
     argon2_parallelism: int = 2
@@ -25,4 +24,3 @@ class Settings(BaseSettings):
     rate_limit_requests_per_minute: int = 60
     notify_reconnect_backoff_seconds: float = 1.0
     fints_product_version: str = "1.0.0"
-    product_key_version: str = "v1"

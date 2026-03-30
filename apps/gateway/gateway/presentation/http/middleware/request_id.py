@@ -11,11 +11,21 @@ from starlette.responses import Response
 _HEADER = "X-Request-ID"
 
 
+def _valid_request_id(value: str) -> bool:
+    """Return True only if *value* is a well-formed UUID string."""
+    try:
+        uuid.UUID(value)
+        return True
+    except ValueError:
+        return False
+
+
 class RequestIDMiddleware(BaseHTTPMiddleware):
-    """Echo the incoming ``X-Request-ID`` or attach a freshly generated UUID."""
+    """Echo the incoming ``X-Request-ID`` (if it is a valid UUID) or generate a fresh one."""
 
     async def dispatch(self, request: Request, call_next: object) -> Response:
-        request_id = request.headers.get(_HEADER) or str(uuid.uuid4())
+        raw = request.headers.get(_HEADER, "")
+        request_id = raw if _valid_request_id(raw) else str(uuid.uuid4())
         response: Response = await call_next(request)  # type: ignore[arg-type]
         response.headers[_HEADER] = request_id
         return response

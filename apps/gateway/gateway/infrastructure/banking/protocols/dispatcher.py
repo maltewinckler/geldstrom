@@ -3,8 +3,7 @@
 from __future__ import annotations
 
 from gateway.application.common import UnsupportedProtocolError
-from gateway.domain.banking_gateway import BankingConnector
-from gateway.domain.shared import BankProtocol
+from gateway.domain.banking_gateway import BankingConnector, BankProtocol
 
 
 class BankingConnectorDispatcher:

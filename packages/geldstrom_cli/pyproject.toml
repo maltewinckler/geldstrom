@@ -1,0 +1,28 @@
+[build-system]
+requires = ["hatchling>=1.27.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "geldstrom-cli"
+version = "0.1.0"
+description = "Interactive developer CLI for manual testing of the geldstrom banking gateway"
+requires-python = ">=3.13"
+dependencies = [
+    "typer>=0.15",
+    "httpx>=0.28",
+    "rich>=13.0",
+    "python-dotenv>=1.0",
+]
+
+[project.scripts]
+geldstrom-cli = "geldstrom_cli.cli:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["geldstrom_cli"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/geldstrom_cli",
+    "/README.md",
+    "/pyproject.toml",
+]

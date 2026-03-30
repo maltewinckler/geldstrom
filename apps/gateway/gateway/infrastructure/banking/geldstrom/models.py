@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Protocol
 
-from geldstrom.domain import Account, SessionToken, TransactionFeed
+from geldstrom.domain import Account, BalanceSnapshot, SessionToken, TransactionFeed
 from geldstrom.domain import TANMethod as GeldstromTanMethod
 from geldstrom.infrastructure.fints.credentials import GatewayCredentials
 from geldstrom.infrastructure.fints.session import FinTSSessionState
@@ -16,6 +16,8 @@ class GeldstromClient(Protocol):
     """Minimal Geldstrom client surface the gateway depends on."""
 
     def list_accounts(self) -> list[Account]: ...
+
+    def get_balances(self) -> list[BalanceSnapshot]: ...
 
     def get_transactions(
         self,

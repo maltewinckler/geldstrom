@@ -12,14 +12,14 @@ from pathlib import Path
 from typing import TypeVar
 
 import pytest
+from gateway_contracts.schema import (
+    create_test_schema,
+    drop_test_schema,
+)
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from gateway.infrastructure.persistence.postgres.connection import build_engine
-from gateway.infrastructure.persistence.postgres.schema import (
-    create_test_schema,
-    drop_test_schema,
-)
 
 
 def _ensure_docker_host() -> None:

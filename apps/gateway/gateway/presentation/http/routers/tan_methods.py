@@ -11,8 +11,7 @@ from gateway.application.banking.commands.get_tan_methods import (
     GetTanMethodsCommand,
     GetTanMethodsInput,
 )
-from gateway.domain.banking_gateway import OperationStatus
-from gateway.domain.shared import BankProtocol
+from gateway.domain.banking_gateway import BankProtocol, OperationStatus
 
 from ..dependencies import ApiKey, Factory
 from ..schemas.tan_methods import (
@@ -41,8 +40,12 @@ async def get_tan_methods(
         blz=body.blz,
         user_id=body.user_id,
         password=body.password.get_secret_value(),
+        tan_method=body.tan_method,
+        tan_medium=body.tan_medium,
     )
-    result = await GetTanMethodsCommand.from_factory(factory)(command, presented_api_key)
+    result = await GetTanMethodsCommand.from_factory(factory)(
+        command, presented_api_key
+    )
     if result.status is OperationStatus.COMPLETED:
         methods: list[dict[str, Any]] = [
             {"method_id": m.method_id, "display_name": m.display_name}

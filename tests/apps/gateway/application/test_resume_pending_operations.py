@@ -10,12 +10,11 @@ from gateway.application.banking.commands.resume_pending_operations import (
     ResumePendingOperationsCommand,
 )
 from gateway.domain.banking_gateway import (
+    BankProtocol,
     OperationStatus,
     PendingOperationSession,
     ResumeResult,
 )
-from gateway.domain.consumer_access import ConsumerId
-from gateway.domain.shared import BankProtocol
 from tests.apps.gateway.fakes import (
     FakeBankingConnector,
     FakeIdProvider,
@@ -103,6 +102,33 @@ def test_resume_pending_operations_transitions_pending_to_expired() -> None:
     assert stored_session.session_state == b"cleared"
 
 
+def test_resume_pending_operations_purges_stale_terminal_sessions() -> None:
+    """expire_stale() is called after the loop, removing sessions past their TTL."""
+    now = datetime(2026, 3, 7, 12, 0, tzinfo=UTC)
+    # A COMPLETED session whose expires_at is already in the past (never polled)
+    stale_session = PendingOperationSession(
+        operation_id="op-stale",
+        consumer_id=UUID("12345678-1234-5678-1234-567812345678"),
+        protocol=BankProtocol.FINTS,
+        operation_type="accounts",
+        session_state=b"cleared",
+        status=OperationStatus.COMPLETED,
+        created_at=now - timedelta(minutes=10),
+        expires_at=now - timedelta(minutes=5),
+        result_payload={"accounts": []},
+    )
+    session_store = FakeOperationSessionStore([stale_session])
+    use_case = ResumePendingOperationsCommand(
+        session_store=session_store,
+        connector=FakeBankingConnector(),
+        id_provider=FakeIdProvider(now_value=now, operation_ids=["unused"]),
+    )
+
+    asyncio.run(use_case())
+
+    assert asyncio.run(session_store.get("op-stale")) is None
+
+
 def _session(
     operation_id: str,
     *,
@@ -111,7 +137,7 @@ def _session(
 ) -> PendingOperationSession:
     return PendingOperationSession(
         operation_id=operation_id,
-        consumer_id=ConsumerId(UUID("12345678-1234-5678-1234-567812345678")),
+        consumer_id=UUID("12345678-1234-5678-1234-567812345678"),
         protocol=BankProtocol.FINTS,
         operation_type="accounts",
         session_state=b"opaque-state",

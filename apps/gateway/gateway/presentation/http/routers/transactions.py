@@ -9,8 +9,7 @@ from gateway.application.banking.commands.fetch_transactions import (
     FetchTransactionsCommand,
     FetchTransactionsInput,
 )
-from gateway.domain.banking_gateway import OperationStatus
-from gateway.domain.shared import BankProtocol
+from gateway.domain.banking_gateway import BankProtocol, OperationStatus
 
 from ..dependencies import ApiKey, Factory
 from ..schemas.transactions import (
@@ -42,8 +41,12 @@ async def fetch_transactions(
         iban=body.iban,
         start_date=body.start_date,
         end_date=body.end_date,
+        tan_method=body.tan_method,
+        tan_medium=body.tan_medium,
     )
-    result = await FetchTransactionsCommand.from_factory(factory)(command, presented_api_key)
+    result = await FetchTransactionsCommand.from_factory(factory)(
+        command, presented_api_key
+    )
     if result.status is OperationStatus.COMPLETED:
         return JSONResponse(
             status_code=200,

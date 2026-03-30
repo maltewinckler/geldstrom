@@ -138,13 +138,6 @@ from .parser import (
     FinTSSerializer,
 )
 
-
-# Segment class lookup (use FinTSSegment.get_segment_class() directly)
-def get_segment_class(segment_type: str, version: int):
-    """Get segment class by type and version (convenience wrapper)."""
-    return FinTSSegment.get_segment_class(segment_type, version)
-
-
 # Segments - All
 # Segments - Business operations
 from .segments import (
@@ -288,6 +281,13 @@ from .types import (
     serialize_fints_numeric,
     serialize_fints_time,
 )
+
+
+# Segment class lookup (use FinTSSegment.get_segment_class() directly)
+def get_segment_class(segment_type: str, version: int):
+    """Get segment class by type and version (convenience wrapper)."""
+    return FinTSSegment.get_segment_class(segment_type, version)
+
 
 __all__ = [
     # Parameter management

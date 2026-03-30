@@ -6,20 +6,12 @@ import asyncio
 from datetime import UTC, date, datetime
 from decimal import Decimal
 
-from pydantic import SecretStr
-
 from gateway.domain.banking_gateway import (
+    BankLeitzahl,
+    FinTSInstitute,
     OperationStatus,
     PresentedBankCredentials,
-    PresentedBankPassword,
-    PresentedBankUserId,
     RequestedIban,
-)
-from gateway.domain.institution_catalog import (
-    BankLeitzahl,
-    Bic,
-    FinTSInstitute,
-    InstituteEndpoint,
 )
 from gateway.infrastructure.banking.geldstrom.connector import GeldstromBankingConnector
 from gateway.infrastructure.banking.geldstrom.exceptions import (
@@ -29,6 +21,8 @@ from geldstrom.domain import (
     Account,
     AccountCapabilities,
     AccountOwner,
+    BalanceAmount,
+    BalanceSnapshot,
     BankRoute,
     TANMethodType,
     TransactionEntry,
@@ -38,7 +32,6 @@ from geldstrom.domain import (
     TANMethod as GeldstromTanMethod,
 )
 from geldstrom.infrastructure.fints.session import FinTSSessionState
-from tests.apps.gateway.fakes import FakeProductKeyProvider
 
 
 class StubClientFactory:
@@ -57,12 +50,14 @@ class StubClient:
         self,
         *,
         accounts: list[Account] | None = None,
+        balances: list[BalanceSnapshot] | None = None,
         feed: TransactionFeed | None = None,
         tan_methods: list[GeldstromTanMethod] | None = None,
         pending_on: str | None = None,
         session_state: FinTSSessionState | None = None,
     ) -> None:
         self._accounts = accounts or []
+        self._balances = balances or []
         self._feed = feed
         self._tan_methods = tan_methods or []
         self._pending_on = pending_on
@@ -77,6 +72,14 @@ class StubClient:
                 datetime(2026, 3, 7, 12, 5, tzinfo=UTC),
             )
         return self._accounts
+
+    def get_balances(self) -> list[BalanceSnapshot]:
+        if self._pending_on == "balances":
+            raise GeldstromPendingConfirmation(
+                self._session_state or _session_state(),
+                datetime(2026, 3, 7, 12, 5, tzinfo=UTC),
+            )
+        return self._balances
 
     def get_transactions(
         self, account, start_date=None, end_date=None
@@ -104,7 +107,7 @@ class StubClient:
 
 def test_connector_maps_completed_account_listing() -> None:
     connector = GeldstromBankingConnector(
-        FakeProductKeyProvider("product-key-1"),
+        "product-key-1",
         product_version="0.0.1",
         client_factory=StubClientFactory([StubClient(accounts=[_account()])]),
     )
@@ -136,7 +139,7 @@ def test_connector_maps_completed_account_listing() -> None:
 
 def test_connector_serializes_pending_transactions_for_resume() -> None:
     connector = GeldstromBankingConnector(
-        FakeProductKeyProvider("product-key-1"),
+        "product-key-1",
         product_version="0.0.1",
         client_factory=StubClientFactory(
             [
@@ -188,7 +191,7 @@ def test_connector_serializes_pending_transactions_for_resume() -> None:
 
 def test_connector_maps_tan_methods() -> None:
     connector = GeldstromBankingConnector(
-        FakeProductKeyProvider("product-key-1"),
+        "product-key-1",
         product_version="0.0.1",
         client_factory=StubClientFactory(
             [
@@ -212,21 +215,93 @@ def test_connector_maps_tan_methods() -> None:
     assert [method.method_id for method in result.methods] == ["942"]
 
 
+def test_connector_maps_completed_balance_query() -> None:
+    connector = GeldstromBankingConnector(
+        "product-key-1",
+        product_version="0.0.1",
+        client_factory=StubClientFactory([StubClient(balances=[_balance_snapshot()])]),
+    )
+
+    result = asyncio.run(connector.get_balances(_institute(), _credentials()))
+
+    assert result.status is OperationStatus.COMPLETED
+    assert result.balances == [
+        {
+            "account_id": "acc-1",
+            "as_of": "2026-03-20T12:00:00+00:00",
+            "booked_amount": "1234.56",
+            "booked_currency": "EUR",
+            "pending_amount": "10.00",
+            "pending_currency": "EUR",
+            "available_amount": None,
+            "available_currency": None,
+        }
+    ]
+
+
+def test_connector_serializes_pending_balances_for_resume() -> None:
+    connector = GeldstromBankingConnector(
+        "product-key-1",
+        product_version="0.0.1",
+        client_factory=StubClientFactory(
+            [
+                StubClient(pending_on="balances", session_state=_session_state()),
+                StubClient(
+                    balances=[_balance_snapshot()], session_state=_session_state()
+                ),
+            ]
+        ),
+    )
+
+    first = asyncio.run(connector.get_balances(_institute(), _credentials()))
+    resumed = asyncio.run(connector.resume_operation(first.session_state))
+
+    assert first.status is OperationStatus.PENDING_CONFIRMATION
+    assert resumed.status is OperationStatus.COMPLETED
+    assert resumed.result_payload == {
+        "balances": [
+            {
+                "account_id": "acc-1",
+                "as_of": "2026-03-20T12:00:00+00:00",
+                "booked_amount": "1234.56",
+                "booked_currency": "EUR",
+                "pending_amount": "10.00",
+                "pending_currency": "EUR",
+                "available_amount": None,
+                "available_currency": None,
+            }
+        ]
+    }
+
+
+def test_connector_returns_empty_balances_list() -> None:
+    connector = GeldstromBankingConnector(
+        "product-key-1",
+        product_version="0.0.1",
+        client_factory=StubClientFactory([StubClient(balances=[])]),
+    )
+
+    result = asyncio.run(connector.get_balances(_institute(), _credentials()))
+
+    assert result.status is OperationStatus.COMPLETED
+    assert result.balances == []
+
+
 def _credentials() -> PresentedBankCredentials:
     return PresentedBankCredentials(
-        user_id=PresentedBankUserId(SecretStr("bank-user")),
-        password=PresentedBankPassword(SecretStr("bank-password")),
+        user_id="bank-user",
+        password="bank-password",
     )
 
 
 def _institute() -> FinTSInstitute:
     return FinTSInstitute(
         blz=BankLeitzahl("12345678"),
-        bic=Bic("GENODEF1ABC"),
+        bic="GENODEF1ABC",
         name="Example Bank",
         city="Berlin",
         organization="Example Org",
-        pin_tan_url=InstituteEndpoint("https://bank.example/fints"),
+        pin_tan_url="https://bank.example/fints",
         fints_version="3.0",
         last_source_update=date(2026, 3, 7),
         source_row_checksum="checksum-1",
@@ -276,4 +351,13 @@ def _session_state() -> FinTSSessionState:
         user_id="bank-user",
         system_id="system-1",
         client_blob=b"blob",
+    )
+
+
+def _balance_snapshot() -> BalanceSnapshot:
+    return BalanceSnapshot(
+        account_id="acc-1",
+        as_of=datetime(2026, 3, 20, 12, 0, tzinfo=UTC),
+        booked=BalanceAmount(amount=Decimal("1234.56"), currency="EUR"),
+        pending=BalanceAmount(amount=Decimal("10.00"), currency="EUR"),
     )

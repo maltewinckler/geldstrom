@@ -7,6 +7,8 @@ from datetime import date
 
 from gateway.domain.banking_gateway import (
     AccountsResult,
+    BalancesResult,
+    FinTSInstitute,
     ResumeResult,
     TanMethodsResult,
     TransactionsResult,
@@ -15,7 +17,6 @@ from gateway.domain.banking_gateway.value_objects import (
     PresentedBankCredentials,
     RequestedIban,
 )
-from gateway.domain.institution_catalog import FinTSInstitute
 
 
 class FakeBankingConnector:
@@ -25,11 +26,13 @@ class FakeBankingConnector:
         self,
         *,
         accounts_results: list[AccountsResult] | None = None,
+        balances_results: list[BalancesResult] | None = None,
         transactions_results: list[TransactionsResult] | None = None,
         tan_methods_results: list[TanMethodsResult] | None = None,
         resume_results: list[ResumeResult] | None = None,
     ) -> None:
         self._accounts_results = deque(accounts_results or [])
+        self._balances_results = deque(balances_results or [])
         self._transactions_results = deque(transactions_results or [])
         self._tan_methods_results = deque(tan_methods_results or [])
         self._resume_results = deque(resume_results or [])
@@ -44,6 +47,16 @@ class FakeBankingConnector:
             ("list_accounts", {"institute": institute, "credentials": credentials})
         )
         return self._pop_result(self._accounts_results, "list_accounts")
+
+    async def get_balances(
+        self,
+        institute: FinTSInstitute,
+        credentials: PresentedBankCredentials,
+    ) -> BalancesResult:
+        self.calls.append(
+            ("get_balances", {"institute": institute, "credentials": credentials})
+        )
+        return self._pop_result(self._balances_results, "get_balances")
 
     async def fetch_transactions(
         self,
@@ -83,6 +96,9 @@ class FakeBankingConnector:
     async def resume_operation(self, session_state: bytes) -> ResumeResult:
         self.calls.append(("resume_operation", session_state))
         return self._pop_result(self._resume_results, "resume_operation")
+
+    def queue_balances_result(self, result: BalancesResult) -> None:
+        self._balances_results.append(result)
 
     def queue_accounts_result(self, result: AccountsResult) -> None:
         self._accounts_results.append(result)

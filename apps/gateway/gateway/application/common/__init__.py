@@ -13,11 +13,12 @@ from .errors import (
     UnsupportedProtocolError,
     ValidationError,
 )
-from .time import IdProvider
+from .time import IdProvider, cap_session_expires_at
 
 __all__ = [
     "ApplicationError",
     "BankUpstreamUnavailableError",
+    "cap_session_expires_at",
     "ForbiddenError",
     "GatewayErrorCode",
     "IdProvider",

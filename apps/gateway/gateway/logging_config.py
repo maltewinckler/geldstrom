@@ -25,10 +25,13 @@ _FORBIDDEN_LOG_FIELDS: frozenset[str] = frozenset(
 
 
 class _SecretScrubFilter(logging.Filter):
-    """Drop any log record that carries a forbidden field in its ``extra`` dict."""
+    """Redact forbidden fields on any log record rather than dropping it."""
 
     def filter(self, record: logging.LogRecord) -> bool:
-        return all(not hasattr(record, field) for field in _FORBIDDEN_LOG_FIELDS)
+        for field in _FORBIDDEN_LOG_FIELDS:
+            if hasattr(record, field):
+                object.__setattr__(record, field, "[REDACTED]")
+        return True
 
 
 class _JsonFormatter(logging.Formatter):

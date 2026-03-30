@@ -1,6 +1,6 @@
 """Tests for banking connector protocol dispatch."""
 
-from gateway.domain.shared import BankProtocol
+from gateway.domain.banking_gateway import BankProtocol
 from gateway.infrastructure.banking.protocols import BankingConnectorDispatcher
 
 

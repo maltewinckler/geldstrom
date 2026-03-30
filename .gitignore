@@ -11,3 +11,6 @@ env
 
 .env
 .venv/
+config/*.env
+
+docs/_deprecated/

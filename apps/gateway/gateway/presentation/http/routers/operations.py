@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from uuid import UUID
+
 from fastapi import APIRouter
 
 from gateway.application.banking.queries.get_operation_status import (
@@ -16,11 +18,13 @@ router = APIRouter(prefix="/v1/banking", tags=["banking"])
 
 @router.get("/operations/{operation_id}", response_model=OperationStatusResponse)
 async def get_operation_status(
-    operation_id: str,
+    operation_id: UUID,
     presented_api_key: ApiKey,
     factory: Factory,
 ) -> OperationStatusResponse:
-    result = await GetOperationStatusQuery.from_factory(factory)(operation_id, presented_api_key)
+    result = await GetOperationStatusQuery.from_factory(factory)(
+        str(operation_id), presented_api_key
+    )
     return OperationStatusResponse(
         status=result.status,
         operation_id=result.operation_id,

@@ -2,16 +2,13 @@
 
 from __future__ import annotations
 
-from gateway.application.banking.commands.list_accounts import ListAccountsCommand
-from gateway.application.health.queries.evaluate_health import EvaluateHealthQuery
 from gateway.config import Settings
-from gateway.infrastructure.banking.geldstrom import GeldstromBankingConnector
 from gateway.infrastructure.cache.memory import (
     InMemoryApiConsumerCache,
     InMemoryOperationSessionStore,
     PostgresNotifyListener,
 )
-from gateway.infrastructure.crypto import Argon2ApiKeyService, ProductKeyService
+from gateway.infrastructure.crypto import Argon2ApiKeyService
 from gateway.infrastructure.gateway_factory import GatewayApplicationFactory
 from gateway.presentation.http.dependencies import get_factory, get_settings
 
@@ -26,14 +23,12 @@ def test_settings_load_from_environment(monkeypatch) -> None:
         "GATEWAY_DATABASE_URL",
         "postgresql+asyncpg://gateway:secret@localhost:5432/gateway",
     )
-    monkeypatch.setenv("GATEWAY_PRODUCT_MASTER_KEY", "master-key")
     monkeypatch.setenv("GATEWAY_ARGON2_TIME_COST", "3")
     _reset()
 
     settings = get_settings()
 
     assert settings.database_url.get_secret_value().endswith("/gateway")
-    assert settings.product_master_key.get_secret_value() == "master-key"
     assert settings.argon2_time_cost == 3
 
 
@@ -42,7 +37,6 @@ def test_settings_apply_default_values(monkeypatch) -> None:
         "GATEWAY_DATABASE_URL",
         "postgresql+asyncpg://gateway:secret@localhost:5432/gateway",
     )
-    monkeypatch.setenv("GATEWAY_PRODUCT_MASTER_KEY", "master-key")
     _reset()
 
     settings = Settings()
@@ -55,7 +49,6 @@ def test_settings_apply_default_values(monkeypatch) -> None:
     assert settings.rate_limit_requests_per_minute == 60
     assert settings.notify_reconnect_backoff_seconds == 1.0
     assert settings.fints_product_version == "1.0.0"
-    assert settings.product_key_version == "v1"
 
 
 def test_factory_is_singleton_and_deps_are_cached(monkeypatch) -> None:
@@ -63,7 +56,6 @@ def test_factory_is_singleton_and_deps_are_cached(monkeypatch) -> None:
         "GATEWAY_DATABASE_URL",
         "postgresql+asyncpg://gateway:secret@localhost:5432/gateway",
     )
-    monkeypatch.setenv("GATEWAY_PRODUCT_MASTER_KEY", "master-key")
     _reset()
 
     factory = get_factory()
@@ -75,20 +67,4 @@ def test_factory_is_singleton_and_deps_are_cached(monkeypatch) -> None:
     assert isinstance(factory.caches.session_store, InMemoryOperationSessionStore)
     assert factory.caches.session_store is factory.caches.session_store
     assert isinstance(factory.api_key_service, Argon2ApiKeyService)
-    assert isinstance(factory.product_key_encryptor, ProductKeyService)
-    assert isinstance(ListAccountsCommand.from_factory(factory), ListAccountsCommand)
-    assert isinstance(EvaluateHealthQuery.from_factory(factory), EvaluateHealthQuery)
     assert isinstance(factory._notify_listener, PostgresNotifyListener)
-
-
-def test_container_builds_geldstrom_connector_dependencies(monkeypatch) -> None:
-    monkeypatch.setenv(
-        "GATEWAY_DATABASE_URL",
-        "postgresql+asyncpg://gateway:secret@localhost:5432/gateway",
-    )
-    monkeypatch.setenv("GATEWAY_PRODUCT_MASTER_KEY", "master-key")
-    _reset()
-
-    connector = get_factory().banking_connector
-
-    assert isinstance(connector, GeldstromBankingConnector)

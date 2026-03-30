@@ -1,7 +1,8 @@
 """Balance retrieval port."""
 from __future__ import annotations
 
-from typing import Protocol, Sequence
+from collections.abc import Sequence
+from typing import Protocol
 
 from geldstrom.domain import BalanceSnapshot, SessionToken
 

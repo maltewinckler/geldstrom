@@ -15,9 +15,6 @@ Organization:
 """
 from __future__ import annotations
 
-# Constants
-CUSTOMER_ID_ANONYMOUS = '9999999999'
-
 from .amounts import (
     Amount,
     Balance,
@@ -119,6 +116,9 @@ from .transactions import (
     SupportedMessageTypes,
     SupportedSEPAPainMessages,
 )
+
+# Constants
+CUSTOMER_ID_ANONYMOUS = '9999999999'
 
 __all__ = [
     # Base enum classes

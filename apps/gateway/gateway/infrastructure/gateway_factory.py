@@ -3,28 +3,22 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Mapping
 from datetime import UTC, datetime
 from functools import cached_property
 from uuid import uuid4
 
-from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from gateway.application.common import IdProvider, InternalError
-from gateway.application.health.ports.readiness_check import ReadinessCheck
+from gateway.application.common import IdProvider
 from gateway.infrastructure.banking.geldstrom import GeldstromBankingConnector
 from gateway.infrastructure.cache.memory import (
     InMemoryApiConsumerCache,
-    InMemoryCurrentProductKeyProvider,
     InMemoryFinTSInstituteCache,
     InMemoryOperationSessionStore,
-    InMemoryProductRegistrationCache,
     PostgresNotifyListener,
 )
-from gateway.infrastructure.crypto import Argon2ApiKeyService, ProductKeyService
-from gateway.infrastructure.persistence.csv.institute_csv_reader import (
-    InstituteCsvReader,
+from gateway.infrastructure.crypto import (
+    Argon2ApiKeyService,
 )
 from gateway.infrastructure.persistence.postgres import (
     PostgresApiConsumerRepository,
@@ -78,14 +72,6 @@ class _InMemoryCacheFactory:
         return InMemoryFinTSInstituteCache()
 
     @cached_property
-    def product_key(self) -> InMemoryCurrentProductKeyProvider:
-        return InMemoryCurrentProductKeyProvider()
-
-    @cached_property
-    def product_registration(self) -> InMemoryProductRegistrationCache:
-        return InMemoryProductRegistrationCache()
-
-    @cached_property
     def session_store(self) -> InMemoryOperationSessionStore:
         return InMemoryOperationSessionStore(max_sessions=self._max_sessions)
 
@@ -99,6 +85,7 @@ class GatewayApplicationFactory:
 
     def __init__(self, settings) -> None:  # type: ignore[no-untyped-def]
         self._settings = settings
+        self._loaded_product_key: str | None = None
 
     # ---------- Sub-factories ----------
     @cached_property
@@ -123,19 +110,14 @@ class GatewayApplicationFactory:
     def api_key_verifier(self) -> Argon2ApiKeyService:
         return self.api_key_service
 
-    @cached_property
-    def _product_key_service(self) -> ProductKeyService:
-        return ProductKeyService(self._settings.product_master_key.get_secret_value())
-
-    @property
-    def product_key_encryptor(self) -> ProductKeyService:
-        return self._product_key_service
-
     # ---------- Banking ----------
     @cached_property
     def banking_connector(self) -> GeldstromBankingConnector:
+        assert self._loaded_product_key is not None, (
+            "Product key not loaded — call startup() first"
+        )
         return GeldstromBankingConnector(
-            self.caches.product_key,
+            self._loaded_product_key,
             product_version=self._settings.fints_product_version,
         )
 
@@ -144,21 +126,9 @@ class GatewayApplicationFactory:
     def id_provider(self) -> _RuntimeIdProvider:
         return _RuntimeIdProvider()
 
-    @cached_property
-    def institute_csv_reader(self) -> InstituteCsvReader:
-        return InstituteCsvReader()
-
-    # ---------- Health ----------
     @property
-    def readiness_checks(self) -> Mapping[str, ReadinessCheck]:
-        return {
-            "postgres": self._check_postgres,
-            "consumer_cache": self._check_consumer_cache,
-            "institute_cache": self._check_institute_cache,
-            "product_registration_cache": self._check_product_registration_cache,
-            "product_key_material": self._check_product_key_material,
-            "operation_session_runtime": self._check_operation_session_runtime,
-        }
+    def operation_session_ttl_seconds(self) -> int:
+        return self._settings.operation_session_ttl_seconds
 
     # ---------- Private: engine ----------
     @cached_property
@@ -175,46 +145,15 @@ class GatewayApplicationFactory:
             consumer_cache=self.caches.consumer,
             institute_repository=self.repos.institute,
             institute_cache=self.caches.institute,
-            product_registration_repository=self.repos.product_registration,
-            product_registration_cache=self.caches.product_registration,
             reconnect_backoff_seconds=s.notify_reconnect_backoff_seconds,
         )
-
-    # ---------- Health check implementations ----------
-    async def _check_postgres(self) -> bool:
-        try:
-            async with self._engine.connect() as connection:
-                await connection.execute(text("SELECT 1"))
-        except Exception:
-            return False
-        return True
-
-    async def _check_consumer_cache(self) -> bool:
-        await self.caches.consumer.list_active()
-        return True
-
-    async def _check_institute_cache(self) -> bool:
-        return self.caches.institute is not None
-
-    async def _check_product_registration_cache(self) -> bool:
-        return self.caches.product_registration is not None
-
-    async def _check_product_key_material(self) -> bool:
-        try:
-            await self.caches.product_key.require_current()
-        except InternalError:
-            return False
-        return True
-
-    async def _check_operation_session_runtime(self) -> bool:
-        return self.caches.session_store is not None
 
     # ---------- Lifecycle ----------
     async def startup(self) -> None:
         """Warm all runtime caches and start background workers."""
+        await self._warm_product_key()
         await self._warm_consumer_cache()
         await self._warm_institute_cache()
-        await self._warm_product_registration()
         await self._start_notify_listener()
         _logger.info("gateway startup complete")
 
@@ -223,6 +162,15 @@ class GatewayApplicationFactory:
         await self._stop_notify_listener()
         await self._close_db_engine()
         _logger.info("gateway shutdown complete")
+
+    async def _warm_product_key(self) -> None:
+        from gateway.application.common import InternalError
+
+        registration = await self.repos.product_registration.get_current()
+        if registration is None:
+            raise InternalError("No product registration found in the database")
+        self._loaded_product_key = registration.product_key
+        _logger.info("product key loaded")
 
     async def _warm_consumer_cache(self) -> None:
         consumers = await self.repos.consumer.list_all_active()
@@ -233,26 +181,6 @@ class GatewayApplicationFactory:
         institutes = await self.repos.institute.list_all()
         await self.caches.institute.load(institutes)
         _logger.info("institute cache warmed", extra={"count": len(institutes)})
-
-    async def _warm_product_registration(self) -> None:
-        registration = await self.repos.product_registration.get_current()
-        await self.caches.product_registration.set_current(registration)
-        if registration is not None:
-            try:
-                plaintext = self._product_key_service.decrypt(
-                    registration.encrypted_product_key
-                )
-                await self.caches.product_key.load_current(plaintext)
-                _logger.info("product key material loaded")
-            except Exception:
-                _logger.warning(
-                    "product key decryption failed during startup — "
-                    "readiness check will report not_ready"
-                )
-        else:
-            _logger.info(
-                "no product registration found — readiness check will report not_ready"
-            )
 
     async def _start_notify_listener(self) -> None:
         await self._notify_listener.start()

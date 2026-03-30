@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
-from typing import Callable
 
 from geldstrom.infrastructure.fints.dialog.message import FinTSInstituteMessage
 from geldstrom.infrastructure.fints.protocol import (

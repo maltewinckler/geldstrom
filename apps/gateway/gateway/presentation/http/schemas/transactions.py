@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Any
 
-from pydantic import BaseModel, SecretStr
+from pydantic import BaseModel, Field, SecretStr
 
 
 class FetchTransactionsRequest(BaseModel):
@@ -13,11 +13,13 @@ class FetchTransactionsRequest(BaseModel):
 
     protocol: str
     blz: str
-    user_id: str
+    user_id: str = Field(max_length=64)
     password: SecretStr
     iban: str
     start_date: date | None = None
     end_date: date | None = None
+    tan_method: str | None = Field(default=None, max_length=64)
+    tan_medium: str | None = Field(default=None, max_length=64)
 
 
 class TransactionsCompletedResponse(BaseModel):

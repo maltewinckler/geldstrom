@@ -2,28 +2,38 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import datetime
+from uuid import UUID
 
-from gateway.domain.shared import DomainError
+from pydantic import BaseModel, EmailStr, field_validator, model_validator
 
-from .value_objects import ApiKeyHash, ConsumerId, ConsumerStatus, EmailAddress
+from gateway.domain import DomainError
+
+from .value_objects import ApiKeyHash, ConsumerStatus
 
 
-@dataclass
-class ApiConsumer:
+class ApiConsumer(BaseModel):
     """Aggregate root representing one API consumer."""
 
-    consumer_id: ConsumerId
-    email: EmailAddress
+    consumer_id: UUID
+    email: EmailStr
     api_key_hash: ApiKeyHash | None
     status: ConsumerStatus
     created_at: datetime
     rotated_at: datetime | None = None
 
-    def __post_init__(self) -> None:
+    @field_validator("email", mode="before")
+    @classmethod
+    def _normalize_email(cls, value: object) -> object:
+        if isinstance(value, str):
+            return value.strip().casefold()
+        return value
+
+    @model_validator(mode="after")
+    def _check_active_has_hash(self) -> ApiConsumer:
         if self.status is ConsumerStatus.ACTIVE and self.api_key_hash is None:
-            raise DomainError("Active ApiConsumer instances must have an ApiKeyHash")
+            raise ValueError("Active ApiConsumer instances must have an ApiKeyHash")
+        return self
 
     def disable(self) -> None:
         self.status = ConsumerStatus.DISABLED

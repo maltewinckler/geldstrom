@@ -8,15 +8,20 @@ from typing import TYPE_CHECKING, Self
 from gateway.application.common import IdProvider
 from gateway.domain.banking_gateway import (
     BankingConnector,
+    OperationSessionStore,
     OperationStatus,
 )
 
 from ..dtos.resume_pending_operations import ResumeSummary
-from ..ports.pending_operation_store import PendingOperationRuntimeStore
 
 if TYPE_CHECKING:
     from gateway.application.ports import ApplicationFactory
 
+# Sentinel written to session_state when a session is finished.
+# The FinTS session state (which may contain credential material) is cleared
+# as soon as the operation reaches a terminal state (COMPLETED, FAILED, EXPIRED).
+# The bytes value satisfies the non-empty `session_state: bytes` domain invariant
+# while signalling to any reader that there is no live session remaining.
 _CLEARED_SESSION_STATE = b"cleared"
 
 
@@ -25,7 +30,7 @@ class ResumePendingOperationsCommand:
 
     def __init__(
         self,
-        session_store: PendingOperationRuntimeStore,
+        session_store: OperationSessionStore,
         connector: BankingConnector,
         id_provider: IdProvider,
     ) -> None:
@@ -44,6 +49,11 @@ class ResumePendingOperationsCommand:
     async def __call__(self) -> ResumeSummary:
         summary = ResumeSummary()
         now = self._id_provider.now()
+
+        # Purge terminal sessions from previous passes before processing new ones.
+        # Running this first ensures clients can still poll a session that was just
+        # marked EXPIRED/COMPLETED in the current pass.
+        await self._session_store.expire_stale(now)
 
         for session in await self._session_store.list_all():
             if session.status is not OperationStatus.PENDING_CONFIRMATION:

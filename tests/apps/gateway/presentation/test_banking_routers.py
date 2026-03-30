@@ -11,11 +11,13 @@ from starlette.testclient import TestClient
 from gateway.application.banking.commands.fetch_transactions import (
     FetchTransactionsCommand,
 )
+from gateway.application.banking.commands.get_balances import GetBalancesCommand
 from gateway.application.banking.commands.get_tan_methods import GetTanMethodsCommand
 from gateway.application.banking.commands.list_accounts import ListAccountsCommand
 from gateway.application.banking.dtos.fetch_transactions import (
     TransactionsResultEnvelope,
 )
+from gateway.application.banking.dtos.get_balances import BalancesResultEnvelope
 from gateway.application.banking.dtos.get_operation_status import (
     OperationStatusEnvelope,
 )
@@ -25,9 +27,10 @@ from gateway.application.banking.queries.get_operation_status import (
     GetOperationStatusQuery,
 )
 from gateway.domain.banking_gateway import OperationStatus, TanMethod
-from gateway.presentation.http.dependencies import get_factory_dep
+from gateway.presentation.http.dependencies import get_factory
 from gateway.presentation.http.routers import (
     accounts,
+    balances,
     operations,
     tan_methods,
     transactions,
@@ -41,7 +44,7 @@ _FUTURE = datetime(2030, 1, 1, tzinfo=UTC)
 def _make_app(router) -> FastAPI:
     app = FastAPI()
     app.include_router(router)
-    app.dependency_overrides[get_factory_dep] = lambda: MagicMock()
+    app.dependency_overrides[get_factory] = lambda: MagicMock()
     return app
 
 
@@ -162,7 +165,9 @@ def test_get_tan_methods_returns_200_when_completed() -> None:
     use_case = AsyncMock(return_value=envelope)
     with patch.object(GetTanMethodsCommand, "from_factory", return_value=use_case):
         client = TestClient(_make_app(tan_methods.router))
-        resp = client.post("/v1/banking/tan-methods", json=_TAN_METHODS_BODY, headers=_AUTH)
+        resp = client.post(
+            "/v1/banking/tan-methods", json=_TAN_METHODS_BODY, headers=_AUTH
+        )
 
     assert resp.status_code == 200
     body = resp.json()
@@ -178,7 +183,9 @@ def test_get_tan_methods_returns_202_when_pending() -> None:
     use_case = AsyncMock(return_value=envelope)
     with patch.object(GetTanMethodsCommand, "from_factory", return_value=use_case):
         client = TestClient(_make_app(tan_methods.router))
-        resp = client.post("/v1/banking/tan-methods", json=_TAN_METHODS_BODY, headers=_AUTH)
+        resp = client.post(
+            "/v1/banking/tan-methods", json=_TAN_METHODS_BODY, headers=_AUTH
+        )
 
     assert resp.status_code == 202
     assert resp.json()["operation_id"] == "op-3"
@@ -190,23 +197,87 @@ def test_get_tan_methods_returns_202_when_pending() -> None:
 
 
 def test_get_operation_status_returns_200() -> None:
+    op_uuid = "12345678-1234-5678-1234-567812345678"
     envelope = OperationStatusEnvelope(
         status=OperationStatus.COMPLETED,
-        operation_id="op-4",
+        operation_id=op_uuid,
         result_payload={"accounts": []},
     )
     use_case = AsyncMock(return_value=envelope)
     with patch.object(GetOperationStatusQuery, "from_factory", return_value=use_case):
         client = TestClient(_make_app(operations.router))
-        resp = client.get("/v1/banking/operations/op-4", headers=_AUTH)
+        resp = client.get(f"/v1/banking/operations/{op_uuid}", headers=_AUTH)
 
     assert resp.status_code == 200
     body = resp.json()
     assert body["status"] == "completed"
-    assert body["operation_id"] == "op-4"
+    assert body["operation_id"] == op_uuid
 
 
 def test_get_operation_status_returns_401_without_auth() -> None:
     client = TestClient(_make_app(operations.router), raise_server_exceptions=False)
-    resp = client.get("/v1/banking/operations/op-4")
+    op_uuid = "12345678-1234-5678-1234-567812345678"
+    resp = client.get(f"/v1/banking/operations/{op_uuid}")
+    assert resp.status_code == 401
+
+
+# ---------------------------------------------------------------------------
+# Balances router
+# ---------------------------------------------------------------------------
+
+_BALANCES_BODY = {
+    "protocol": "fints",
+    "blz": "20070024",
+    "user_id": "testuser",
+    "password": "secret",
+}
+
+_BALANCE_ENTRY = {
+    "account_id": "acc-1",
+    "as_of": "2026-03-20T12:00:00+00:00",
+    "booked_amount": "500.00",
+    "booked_currency": "EUR",
+    "pending_amount": None,
+    "pending_currency": None,
+    "available_amount": None,
+    "available_currency": None,
+}
+
+
+def test_get_balances_returns_200_when_completed() -> None:
+    envelope = BalancesResultEnvelope(
+        status=OperationStatus.COMPLETED,
+        balances=[_BALANCE_ENTRY],
+    )
+    use_case = AsyncMock(return_value=envelope)
+    with patch.object(GetBalancesCommand, "from_factory", return_value=use_case):
+        client = TestClient(_make_app(balances.router))
+        resp = client.post("/v1/banking/balances", json=_BALANCES_BODY, headers=_AUTH)
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["status"] == "completed"
+    assert body["balances"] == [_BALANCE_ENTRY]
+
+
+def test_get_balances_returns_202_when_pending() -> None:
+    envelope = BalancesResultEnvelope(
+        status=OperationStatus.PENDING_CONFIRMATION,
+        operation_id="op-5",
+        expires_at=_FUTURE,
+    )
+    use_case = AsyncMock(return_value=envelope)
+    with patch.object(GetBalancesCommand, "from_factory", return_value=use_case):
+        client = TestClient(_make_app(balances.router))
+        resp = client.post("/v1/banking/balances", json=_BALANCES_BODY, headers=_AUTH)
+
+    assert resp.status_code == 202
+    body = resp.json()
+    assert body["status"] == "pending_confirmation"
+    assert body["operation_id"] == "op-5"
+
+
+def test_get_balances_returns_401_without_auth() -> None:
+    client = TestClient(_make_app(balances.router), raise_server_exceptions=False)
+    resp = client.post("/v1/banking/balances", json=_BALANCES_BODY)
     assert resp.status_code == 401

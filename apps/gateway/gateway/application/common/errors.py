@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 
 
-class GatewayErrorCode(str, Enum):
+class GatewayErrorCode(StrEnum):
     """Stable error codes exposed by gateway use cases."""
 
     UNAUTHORIZED = "unauthorized"
