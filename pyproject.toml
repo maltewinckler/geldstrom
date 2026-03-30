@@ -1,50 +1,42 @@
-[build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
-
 [project]
-name = "geldstrom"
-dynamic = ["version"]
-description = "German banking API client for account data and transactions"
-readme = "README.md"
-license = { file = "LICENSE" }
-authors = [{ name = "Malte Winckler", email = "malte@nichts-ist-einfach.de" }]
-keywords = ["banking", "fints", "hbci", "german-banking", "transactions"]
-classifiers = [
-    "Development Status :: 4 - Beta",
-    "Intended Audience :: Developers",
-    "Intended Audience :: Other Audience",
-    "License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
+name = "geldstrom-workspace"
+version = "0.0.0"
+description = "uv workspace for the geldstrom monorepo"
+requires-python = ">=3.13"
+dependencies = [
+    "geldstrom",
+    "gateway",
+    "gateway-admin-cli",
+    "gateway-contracts",
 ]
-requires-python = ">=3.9"
 
-[tool.poetry]
-version = "0.0.1"
-packages = [{ include = "geldstrom" }]
+[dependency-groups]
+dev = [
+    "geldstrom-cli",
+    "httpx>=0.28.1",
+    "pytest>=7.0,<8.0",
+    "ruff>=0.8,<1.0",
+    "testcontainers>=4.9,<5.0",
+]
 
-[tool.poetry.dependencies]
-python = ">=3.9,<4.0"
-bleach = "^5.0"
-mt-940 = "^4.0"
-pydantic = "^2.0"
-requests = "^2.25"
-sepaxml = "~2.1"
-enum-tools = "~0.12"
-dotenv = "^0.9.9"
+[tool.uv]
+default-groups = ["dev"]
+package = false
 
-[tool.poetry.group.dev.dependencies]
-pytest = "^7.0"
-ruff = "^0.8"
+[tool.uv.sources]
+geldstrom = { workspace = true }
+gateway = { workspace = true }
+gateway-admin-cli = { workspace = true }
+gateway-contracts = { workspace = true }
+geldstrom-cli = { workspace = true }
+
+[tool.uv.workspace]
+members = ["packages/*", "apps/*"]
 
 [tool.ruff]
-target-version = "py39"
+target-version = "py313"
 line-length = 88
+src = ["packages", "apps", "tests"]
 
 [tool.ruff.lint]
 select = [
@@ -68,11 +60,10 @@ ignore = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["geldstrom"]
+known-first-party = ["geldstrom", "gateway", "gateway_admin_cli", "geldstrom_cli"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*" = ["ARG", "B", "SIM"]
-"geldstrom/formals.py" = ["E501"]  # Legacy file with long lines
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -85,5 +76,8 @@ filterwarnings = [
 ]
 markers = [
     "integration: marks tests as integration tests (require bank credentials)",
+    "live_bank: marks tests that hit real FinTS bank backends and cannot run via testcontainers",
     "slow: marks tests as slow running",
+    "e2e: end-to-end tests against real banking APIs — use --run-e2e to enable",
+    "e2e_tan: e2e tests that deliberately trigger 2FA (200-day window) — use --run-e2e-tan to enable",
 ]

@@ -1,0 +1,4 @@
+Nr.;BLZ;BIC;Institut;Ort;RZ;Organisation;HBCI-Zugang DNS;HBCI- Zugang     IP-Adresse;HBCI-Version;DDV;RDH-1;RDH-2;RDH-3;RDH-4;RDH-5;RDH-6;RDH-7;RDH-8;RDH-9;RDH-10;RAH-7;RAH-9;RAH-10;PIN/TAN-Zugang URL;Version;Datum letzte Änderung
+1;10010010;PBNKDEFFXXX;Postbank;Berlin;eigenes Rechenzentrum;BdB;;;;;;;;;;;;;;;;;;https://hbci.postbank.de/banking/hbci.do;FinTS V3.0;04.02.2022
+2;10010010;PBNKDEFFXXX;Postbank Filiale;Potsdam;eigenes Rechenzentrum;BdB;;;;;;;;;;;;;;;;;;https://hbci.postbank.de/banking/hbci.do;FinTS V3.0;05.02.2022
+3;10020200;BHFBDEFF100;BHF-Bank AG;Berlin;Bank-Verlag GmbH;BdB;hbciserver.bankverlag.de;nicht unterstuetzt;3.0;;ja;;ja;;ja;;;;;;;;;https://www.bv-activebanking.de/hbciTunnel/hbciTransfer.jsp;FinTS V3.0;

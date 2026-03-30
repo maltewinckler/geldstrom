@@ -1,0 +1,41 @@
+name: geldstrom publishing to PyPI
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "packages/geldstrom/**"
+
+# OIDC token is required for Trusted Publishing (no API token needed).
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  publish:
+    name: Build and publish
+    runs-on: ubuntu-latest
+    environment: pypi
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: uv sync --frozen --all-packages
+
+      - name: Build geldstrom package
+        run: uv build --package geldstrom --out-dir dist/
+
+      - name: Publish to PyPI (Trusted Publishing / OIDC)
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/
+          # Setting this to true turns a "version already exists" error into a
+          # warning so a spurious re-trigger of this workflow doesn't break the
+          # pipeline. Remove if you prefer a hard failure.
+          skip-existing: true

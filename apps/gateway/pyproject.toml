@@ -1,0 +1,35 @@
+[build-system]
+requires = ["hatchling>=1.27.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "gateway"
+version = "0.0.1"
+description = "Gateway service app for Geldstrom"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "geldstrom",
+    "gateway-contracts",
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "sqlalchemy[asyncio]>=2.0",
+    "asyncpg>=0.29",
+    "argon2-cffi>=23.1",
+    "cryptography>=42.0",
+    "pydantic[email]>=2.0,<3.0",
+    "pydantic-settings>=2.0,<3.0",
+]
+
+[project.scripts]
+gateway-server = "gateway.main:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["gateway"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/gateway",
+    "/README.md",
+    "/pyproject.toml",
+]

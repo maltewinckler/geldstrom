@@ -1,0 +1,72 @@
+name: geldstrom CI
+
+on:
+  pull_request:
+    paths:
+      - "packages/geldstrom/**"
+      - "tests/packages/geldstrom/**"
+
+jobs:
+  lint:
+    name: Ruff lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: uv sync --frozen --all-packages
+
+      - name: Run ruff check
+        run: uv run ruff check packages/geldstrom/
+
+  test:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: uv sync --frozen --all-packages
+
+      - name: Run unit tests
+        run: uv run pytest tests/packages/geldstrom/unit/ -v --tb=short
+
+  version-check:
+    name: Version bump check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify version is bumped relative to main
+        run: |
+          PR_VERSION=$(python3 -c "
+          import tomllib
+          with open('packages/geldstrom/pyproject.toml', 'rb') as f:
+              print(tomllib.load(f)['project']['version'])
+          ")
+
+          git fetch origin main --depth=1
+          MAIN_VERSION=$(git show origin/main:packages/geldstrom/pyproject.toml | python3 -c "
+          import sys, tomllib
+          print(tomllib.loads(sys.stdin.read())['project']['version'])
+          ")
+
+          echo "main branch version : $MAIN_VERSION"
+          echo "PR version          : $PR_VERSION"
+
+          if [ "$PR_VERSION" = "$MAIN_VERSION" ]; then
+            echo "::error file=packages/geldstrom/pyproject.toml::Version has not been bumped (still $MAIN_VERSION). Update [project].version before merging."
+            exit 1
+          fi
+
+          echo "Version bumped: $MAIN_VERSION → $PR_VERSION ✓"
