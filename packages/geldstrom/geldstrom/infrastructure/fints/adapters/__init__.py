@@ -3,6 +3,7 @@
 These adapters implement the domain ports using the FinTS 3.0 protocol.
 They use the new dialog/operations infrastructure for all bank communication.
 """
+
 from __future__ import annotations
 
 from .accounts import FinTSAccountDiscovery

@@ -1,4 +1,5 @@
 """Abstract retry response for domain layer."""
+
 from __future__ import annotations
 
 from abc import ABCMeta, abstractmethod

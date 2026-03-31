@@ -5,7 +5,6 @@ from uuid import UUID
 
 import pytest
 
-from gateway.domain import DomainError
 from gateway.domain.consumer_access import (
     ApiConsumer,
     ApiKeyHash,

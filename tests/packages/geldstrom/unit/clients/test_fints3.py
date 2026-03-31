@@ -28,7 +28,6 @@ from geldstrom.domain import (
 from geldstrom.infrastructure.fints import GatewayCredentials
 from geldstrom.infrastructure.fints.session import FinTSSessionState
 
-
 # =============================================================================
 # Fixtures
 # =============================================================================
@@ -588,4 +587,3 @@ class TestProperties:
 
         client._connected = True
         assert client.is_connected
-

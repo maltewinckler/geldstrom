@@ -3,6 +3,7 @@
 This module contains Pydantic models for BPD (Bank Parameter Data)
 and UPD (User Parameter Data) related structures.
 """
+
 from __future__ import annotations
 
 from pydantic import Field
@@ -262,4 +263,3 @@ __all__ = [
     # SEPA
     "GetSEPAAccountParameter",
 ]
-

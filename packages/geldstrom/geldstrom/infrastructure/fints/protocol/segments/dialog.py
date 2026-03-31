@@ -6,6 +6,7 @@ These segments handle dialog management including:
 - Synchronization (HKSYN, HISYN)
 - Dialog end (HKEND)
 """
+
 from __future__ import annotations
 
 from typing import ClassVar
@@ -261,4 +262,3 @@ __all__ = [
     "HKEND1",
     "HKEND_VERSIONS",
 ]
-

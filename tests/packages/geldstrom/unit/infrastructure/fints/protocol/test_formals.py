@@ -7,43 +7,39 @@ Tests cover:
 - Security DEGs
 - Response DEGs
 """
+
 from __future__ import annotations
 
 from datetime import date, time
 from decimal import Decimal
 
-import pytest
-
 from geldstrom.infrastructure.fints.protocol.formals import (
-    # Enums
-    CreditDebit,
-    SecurityMethod,
-    IdentifiedRole,
-    DateTimeType,
-    SecurityRole,
-    KeyType,
-    OperationMode,
-    # Identifiers
-    BankIdentifier,
-    AccountIdentifier,
-    AccountInternational,
     COUNTRY_ALPHA_TO_NUMERIC,
     COUNTRY_NUMERIC_TO_ALPHA,
+    AccountIdentifier,
+    AccountInternational,
     # Amounts
     Amount,
     Balance,
-    Timestamp,
-    # Security
-    SecurityProfile,
-    SecurityIdentificationDetails,
-    SecurityDateTime,
+    # Identifiers
+    BankIdentifier,
+    # Enums
+    CreditDebit,
+    DateTimeType,
+    IdentifiedRole,
     KeyName,
-    UserDefinedSignature,
+    KeyType,
+    ReferenceMessage,
     # Responses
     Response,
-    ReferenceMessage,
+    SecurityDateTime,
+    SecurityIdentificationDetails,
+    SecurityMethod,
+    # Security
+    SecurityProfile,
+    Timestamp,
+    UserDefinedSignature,
 )
-
 
 # =============================================================================
 # Enum Tests
@@ -167,11 +163,13 @@ class TestAccountIdentifier:
 
     def test_from_wire_list(self):
         """Parse AccountIdentifier from wire list."""
-        account = AccountIdentifier.from_wire_list([
-            "1234567890",
-            "00",
-            ["280", "12345678"],
-        ])
+        account = AccountIdentifier.from_wire_list(
+            [
+                "1234567890",
+                "00",
+                ["280", "12345678"],
+            ]
+        )
         assert account.account_number == "1234567890"
         assert account.subaccount_number == "00"
         assert account.bank_identifier.bank_code == "12345678"
@@ -284,11 +282,13 @@ class TestBalance:
 
     def test_from_wire_list(self):
         """Parse Balance from wire list."""
-        balance = Balance.from_wire_list([
-            "C",
-            ["1000,00", "EUR"],
-            "20231225",
-        ])
+        balance = Balance.from_wire_list(
+            [
+                "C",
+                ["1000,00", "EUR"],
+                "20231225",
+            ]
+        )
         assert balance.credit_debit == CreditDebit.CREDIT
         assert balance.amount.amount == Decimal("1000.00")
         assert balance.date == date(2023, 12, 25)
@@ -379,7 +379,9 @@ class TestKeyName:
     def test_creation(self):
         """Create KeyName."""
         key = KeyName(
-            bank_identifier=BankIdentifier(country_identifier="280", bank_code="12345678"),
+            bank_identifier=BankIdentifier(
+                country_identifier="280", bank_code="12345678"
+            ),
             user_id="testuser",
             key_type=KeyType.S,
             key_number=0,
@@ -494,4 +496,3 @@ class TestReferenceMessage:
         ref = ReferenceMessage(dialog_id="ABC123", message_number=1)
         assert ref.dialog_id == "ABC123"
         assert ref.message_number == 1
-

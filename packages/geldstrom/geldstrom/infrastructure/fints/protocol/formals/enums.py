@@ -8,6 +8,7 @@ matching the behavior of legacy RepresentableEnum. This is required for
 compatibility with legacy FinTS field parsing which relies on str(enum)
 returning the raw protocol value.
 """
+
 from __future__ import annotations
 
 from enum import Enum, StrEnum
@@ -47,10 +48,11 @@ class SecurityMethod(FinTSEnum):
 
     Source: FinTS 3.0 Formals, Sicherheitsverfahren
     """
-    DDV = "DDV"   # DDV (Chip card)
-    RAH = "RAH"   # RAH (RSA/AES Hybrid)
-    RDH = "RDH"   # RDH (RSA/DES Hybrid)
-    PIN = "PIN"   # PIN/TAN
+
+    DDV = "DDV"  # DDV (Chip card)
+    RAH = "RAH"  # RAH (RSA/AES Hybrid)
+    RDH = "RDH"  # RDH (RSA/DES Hybrid)
+    PIN = "PIN"  # PIN/TAN
 
 
 class IdentifiedRole(FinTSEnum):
@@ -58,6 +60,7 @@ class IdentifiedRole(FinTSEnum):
 
     Source: FinTS 3.0 Formals
     """
+
     MS = "1"  # Message Sender
     MR = "2"  # Message Receiver
 
@@ -67,6 +70,7 @@ class DateTimeType(FinTSEnum):
 
     Source: FinTS 3.0 Formals
     """
+
     STS = "1"  # Sicherheitszeitstempel (Security Timestamp)
     CRT = "6"  # Certificate Revocation Time
 
@@ -76,6 +80,7 @@ class SecurityRole(FinTSEnum):
 
     Source: FinTS 3.0 Sicherheitsverfahren HBCI
     """
+
     ISS = "1"  # Erfasser, Erstsignatur (Issuer, First Signature)
     CON = "3"  # Unterstützer, Zweitsignatur (Cosigner, Second Signature)
     WIT = "4"  # Zeuge/Übermittler (Witness/Transmitter)
@@ -86,6 +91,7 @@ class SecurityApplicationArea(FinTSEnum):
 
     Source: FinTS 3.0 Sicherheitsverfahren HBCI
     """
+
     SHM = "1"  # Signaturkopf und HBCI-Nutzdaten
     SHT = "2"  # Von Signaturkopf bis Signaturabschluss
 
@@ -95,15 +101,16 @@ class CompressionFunction(FinTSEnum):
 
     Source: FinTS 3.0 Sicherheitsverfahren HBCI
     """
-    NULL = "0"    # Keine Kompression
-    LZW = "1"     # Lempel, Ziv, Welch
-    COM = "2"     # Optimized LZW
-    LZSS = "3"    # Lempel, Ziv
-    LZHuf = "4"   # LZ + Huffman Coding
-    ZIP = "5"     # PKZIP
-    GZIP = "6"    # deflate (gzip)
-    BZIP2 = "7"   # bzip2
-    ZZZ = "999"   # Gegenseitig vereinbart (Mutually agreed)
+
+    NULL = "0"  # Keine Kompression
+    LZW = "1"  # Lempel, Ziv, Welch
+    COM = "2"  # Optimized LZW
+    LZSS = "3"  # Lempel, Ziv
+    LZHuf = "4"  # LZ + Huffman Coding
+    ZIP = "5"  # PKZIP
+    GZIP = "6"  # deflate (gzip)
+    BZIP2 = "7"  # bzip2
+    ZZZ = "999"  # Gegenseitig vereinbart (Mutually agreed)
 
 
 class KeyType(FinTSEnum):
@@ -111,6 +118,7 @@ class KeyType(FinTSEnum):
 
     Source: FinTS 3.0 Formals
     """
+
     D = "D"  # Schlüssel zur Erzeugung digitaler Signaturen
     S = "S"  # Signierschlüssel (Signing Key)
     V = "V"  # Chiffrierschlüssel (Cipher Key)
@@ -121,6 +129,7 @@ class UsageEncryption(FinTSEnum):
 
     Source: FinTS 3.0 Formals
     """
+
     OSY = "2"  # Owner Symmetric
 
 
@@ -129,12 +138,13 @@ class OperationMode(FinTSEnum):
 
     Source: FinTS 3.0 Formals
     """
-    CBC = "2"               # Cipher Block Chaining
-    ISO_9796_1 = "16"       # ISO 9796-1 (bei RDH)
+
+    CBC = "2"  # Cipher Block Chaining
+    ISO_9796_1 = "16"  # ISO 9796-1 (bei RDH)
     ISO_9796_2_RANDOM = "17"  # ISO 9796-2 mit Zufallszahl
-    PKCS1V15 = "18"         # RSASSA-PKCS#1 V1.5
-    PSS = "19"              # RSASSA-PSS
-    ZZZ = "999"             # Gegenseitig vereinbart (DDV: Retail-MAC)
+    PKCS1V15 = "18"  # RSASSA-PKCS#1 V1.5
+    PSS = "19"  # RSASSA-PSS
+    ZZZ = "999"  # Gegenseitig vereinbart (DDV: Retail-MAC)
 
 
 class EncryptionAlgorithmCoded(FinTSEnum):
@@ -142,8 +152,9 @@ class EncryptionAlgorithmCoded(FinTSEnum):
 
     Source: FinTS 3.0 Formals
     """
+
     TWOKEY3DES = "13"  # 2-Key-Triple-DES
-    AES256 = "14"      # AES-256
+    AES256 = "14"  # AES-256
 
 
 class AlgorithmParameterName(FinTSEnum):
@@ -151,6 +162,7 @@ class AlgorithmParameterName(FinTSEnum):
 
     Source: FinTS 3.0 Formals
     """
+
     KYE = "5"  # Symmetrischer Schlüssel, verschlüsselt mit symmetrischem Schlüssel
     KYP = "6"  # Symmetrischer Schlüssel, verschlüsselt mit öffentlichem Schlüssel
 
@@ -160,6 +172,7 @@ class AlgorithmParameterIVName(FinTSEnum):
 
     Source: FinTS 3.0 Formals
     """
+
     IVC = "1"  # Initialization value, clear text
 
 
@@ -168,8 +181,9 @@ class CreditDebit(FinTSEnum):
 
     Source: FinTS 3.0 Messages - Multibankfähige Geschäftsvorfälle
     """
+
     CREDIT = "C"  # Haben (Credit)
-    DEBIT = "D"   # Soll (Debit)
+    DEBIT = "D"  # Soll (Debit)
 
 
 class SynchronizationMode(FinTSEnum):
@@ -177,9 +191,10 @@ class SynchronizationMode(FinTSEnum):
 
     Source: FinTS 3.0 Formals
     """
-    NEW_SYSTEM_ID = "0"   # Neue Kundensystem-ID zurückmelden
-    LAST_MESSAGE = "1"    # Letzte verarbeitete Nachrichtennummer
-    SIGNATURE_ID = "2"    # Signatur-ID zurückmelden
+
+    NEW_SYSTEM_ID = "0"  # Neue Kundensystem-ID zurückmelden
+    LAST_MESSAGE = "1"  # Letzte verarbeitete Nachrichtennummer
+    SIGNATURE_ID = "2"  # Signatur-ID zurückmelden
 
 
 class SystemIDStatus(FinTSEnum):
@@ -187,8 +202,9 @@ class SystemIDStatus(FinTSEnum):
 
     Source: FinTS 3.0 Formals
     """
+
     ID_UNNECESSARY = "0"  # Kundensystem-ID wird nicht benötigt
-    ID_NECESSARY = "1"    # Kundensystem-ID wird benötigt
+    ID_NECESSARY = "1"  # Kundensystem-ID wird benötigt
 
 
 class UPDUsage(FinTSEnum):
@@ -196,8 +212,9 @@ class UPDUsage(FinTSEnum):
 
     Source: FinTS 3.0 Formals
     """
-    UPD_CONCLUSIVE = "0"     # Nicht aufgeführte GV sind gesperrt
-    UPD_INCONCLUSIVE = "1"   # Keine Aussage über nicht aufgeführte GV
+
+    UPD_CONCLUSIVE = "0"  # Nicht aufgeführte GV sind gesperrt
+    UPD_INCONCLUSIVE = "1"  # Keine Aussage über nicht aufgeführte GV
 
 
 class Language(FinTSEnum):
@@ -205,10 +222,11 @@ class Language(FinTSEnum):
 
     Source: FinTS 3.0 Formals
     """
+
     DEFAULT = "0"  # Standard
-    DE = "1"       # Deutsch
-    EN = "2"       # Englisch
-    FR = "3"       # Französisch
+    DE = "1"  # Deutsch
+    EN = "2"  # Englisch
+    FR = "3"  # Französisch
 
 
 class ServiceType(FinTSIntEnum):
@@ -216,9 +234,10 @@ class ServiceType(FinTSIntEnum):
 
     Source: FinTS 3.0 Formals
     """
-    T_ONLINE = 1   # T-Online
-    TCP_IP = 2     # TCP/IP (SLIP/PPP)
-    HTTPS = 3      # HTTPS
+
+    T_ONLINE = 1  # T-Online
+    TCP_IP = 2  # TCP/IP (SLIP/PPP)
+    HTTPS = 3  # HTTPS
 
 
 class TANMediaType(FinTSEnum):
@@ -226,9 +245,10 @@ class TANMediaType(FinTSEnum):
 
     Source: FinTS 3.0 Sicherheitsverfahren PIN/TAN
     """
-    ALL = "0"       # Alle
-    ACTIVE = "1"    # Aktiv
-    AVAILABLE = "2" # Verfügbar
+
+    ALL = "0"  # Alle
+    ACTIVE = "1"  # Aktiv
+    AVAILABLE = "2"  # Verfügbar
 
 
 class TANMediaClass(FinTSEnum):
@@ -236,12 +256,13 @@ class TANMediaClass(FinTSEnum):
 
     Source: FinTS 3.0 Sicherheitsverfahren PIN/TAN
     """
-    ALL = "A"       # Alle Medien
-    LIST = "L"      # Liste
-    GENERATOR = "G" # TAN-Generator
-    MOBILE = "M"    # Mobiltelefon mit mobileTAN
-    SECODER = "S"   # Secoder
-    BILATERAL = "B" # Bilateral vereinbart
+
+    ALL = "A"  # Alle Medien
+    LIST = "L"  # Liste
+    GENERATOR = "G"  # TAN-Generator
+    MOBILE = "M"  # Mobiltelefon mit mobileTAN
+    SECODER = "S"  # Secoder
+    BILATERAL = "B"  # Bilateral vereinbart
 
 
 class TANMediumStatus(FinTSEnum):
@@ -249,10 +270,11 @@ class TANMediumStatus(FinTSEnum):
 
     Source: FinTS 3.0 Sicherheitsverfahren PIN/TAN
     """
-    ACTIVE = "1"              # Aktiv
-    AVAILABLE = "2"           # Verfügbar
-    ACTIVE_SUCCESSOR = "3"    # Aktiv Folgekarte
-    AVAILABLE_SUCCESSOR = "4" # Verfügbar Folgekarte
+
+    ACTIVE = "1"  # Aktiv
+    AVAILABLE = "2"  # Verfügbar
+    ACTIVE_SUCCESSOR = "3"  # Aktiv Folgekarte
+    AVAILABLE_SUCCESSOR = "4"  # Verfügbar Folgekarte
 
 
 class TANTimeDialogAssociation(FinTSEnum):
@@ -260,9 +282,10 @@ class TANTimeDialogAssociation(FinTSEnum):
 
     Source: FinTS 3.0 Sicherheitsverfahren PIN/TAN
     """
-    NOT_ALLOWED = "1"     # TAN nicht zeitversetzt/dialogübergreifend erlaubt
-    ALLOWED = "2"         # TAN zeitversetzt/dialogübergreifend erlaubt
-    BOTH = "3"            # Beide Verfahren unterstützt
+
+    NOT_ALLOWED = "1"  # TAN nicht zeitversetzt/dialogübergreifend erlaubt
+    ALLOWED = "2"  # TAN zeitversetzt/dialogübergreifend erlaubt
+    BOTH = "3"  # Beide Verfahren unterstützt
     NOT_APPLICABLE = "4"  # Nicht zutreffend
 
 
@@ -271,7 +294,8 @@ class AllowedFormat(FinTSEnum):
 
     Source: FinTS 3.0 Sicherheitsverfahren PIN/TAN
     """
-    NUMERIC = "1"       # Numerisch
+
+    NUMERIC = "1"  # Numerisch
     ALPHANUMERIC = "2"  # Alphanumerisch
 
 
@@ -280,9 +304,12 @@ class TANUsageOption(FinTSEnum):
 
     Source: FinTS 3.0 Sicherheitsverfahren PIN/TAN
     """
-    ALL_ACTIVE = "0"          # Kunde kann alle "aktiven" Medien parallel nutzen
-    EXACTLY_ONE = "1"         # Kunde kann genau ein Medium zu einer Zeit nutzen
-    MOBILE_AND_GENERATOR = "2"  # Kunde kann Mobiltelefon und TAN-Generator parallel nutzen
+
+    ALL_ACTIVE = "0"  # Kunde kann alle "aktiven" Medien parallel nutzen
+    EXACTLY_ONE = "1"  # Kunde kann genau ein Medium zu einer Zeit nutzen
+    MOBILE_AND_GENERATOR = (
+        "2"  # Kunde kann Mobiltelefon und TAN-Generator parallel nutzen
+    )
 
 
 class TANListNumberRequired(FinTSEnum):
@@ -290,9 +317,10 @@ class TANListNumberRequired(FinTSEnum):
 
     Source: FinTS 3.0 Sicherheitsverfahren PIN/TAN
     """
+
     MUST_NOT = "0"  # TAN-Listennummer darf nicht angegeben werden
-    CAN = "1"       # TAN-Listennummer kann angegeben werden
-    MUST = "2"      # TAN-Listennummer muss angegeben werden
+    CAN = "1"  # TAN-Listennummer kann angegeben werden
+    MUST = "2"  # TAN-Listennummer muss angegeben werden
 
 
 class InitializationMode(FinTSEnum):
@@ -300,9 +328,10 @@ class InitializationMode(FinTSEnum):
 
     Source: FinTS 3.0 Sicherheitsverfahren PIN/TAN
     """
-    CLEARTEXT_PIN = "00"        # Klartext-PIN ohne TAN
-    ENCRYPTED_PIN = "01"        # Verschlüsselte PIN und target/cleartext TAN
-    RESERVED_02 = "02"          # Reserviert
+
+    CLEARTEXT_PIN = "00"  # Klartext-PIN ohne TAN
+    ENCRYPTED_PIN = "01"  # Verschlüsselte PIN und target/cleartext TAN
+    RESERVED_02 = "02"  # Reserviert
 
 
 class DescriptionRequired(FinTSEnum):
@@ -310,9 +339,10 @@ class DescriptionRequired(FinTSEnum):
 
     Source: FinTS 3.0 Sicherheitsverfahren PIN/TAN
     """
+
     MUST_NOT = "0"  # Bezeichnung des TAN-Mediums darf nicht angegeben werden
-    MAY = "1"       # Bezeichnung des TAN-Mediums kann angegeben werden
-    MUST = "2"      # Bezeichnung des TAN-Mediums muss angegeben werden
+    MAY = "1"  # Bezeichnung des TAN-Mediums kann angegeben werden
+    MUST = "2"  # Bezeichnung des TAN-Mediums muss angegeben werden
 
 
 class SMSChargeAccountRequired(FinTSEnum):
@@ -320,9 +350,10 @@ class SMSChargeAccountRequired(FinTSEnum):
 
     Source: FinTS 3.0 Sicherheitsverfahren PIN/TAN
     """
+
     MUST_NOT = "0"  # SMS-Abbuchungskonto darf nicht angegeben werden
-    MAY = "1"       # SMS-Abbuchungskonto kann angegeben werden
-    MUST = "2"      # SMS-Abbuchungskonto muss angegeben werden
+    MAY = "1"  # SMS-Abbuchungskonto kann angegeben werden
+    MUST = "2"  # SMS-Abbuchungskonto muss angegeben werden
 
 
 class PrincipalAccountRequired(FinTSEnum):
@@ -330,8 +361,9 @@ class PrincipalAccountRequired(FinTSEnum):
 
     Source: FinTS 3.0 Sicherheitsverfahren PIN/TAN
     """
+
     MUST_NOT = "0"  # Auftraggeberkonto darf nicht angegeben werden
-    MUST = "2"      # Auftraggeberkonto muss angegeben werden
+    MUST = "2"  # Auftraggeberkonto muss angegeben werden
 
 
 class TaskHashAlgorithm(FinTSEnum):
@@ -339,9 +371,10 @@ class TaskHashAlgorithm(FinTSEnum):
 
     Source: FinTS 3.0 Sicherheitsverfahren PIN/TAN
     """
-    NONE = "0"       # Auftrags-Hashwert nicht unterstützt
-    RIPEMD_160 = "1" # RIPEMD-160
-    SHA_1 = "2"      # SHA-1
+
+    NONE = "0"  # Auftrags-Hashwert nicht unterstützt
+    RIPEMD_160 = "1"  # RIPEMD-160
+    SHA_1 = "2"  # SHA-1
 
 
 class Confirmation(FinTSEnum):
@@ -349,8 +382,9 @@ class Confirmation(FinTSEnum):
 
     Source: FinTS 3.0 Messages - Multibankfähige Geschäftsvorfälle
     """
-    NOT_REQUIRED = "0"        # Nicht notwendig
-    CONFIRMED = "1"           # Quittiert
+
+    NOT_REQUIRED = "0"  # Nicht notwendig
+    CONFIRMED = "1"  # Quittiert
     AWAITING_CONFIRMATION = "2"  # Quittierung offen
 
 
@@ -405,4 +439,3 @@ __all__ = [
     "TANMediaClass4",
     "Confirmation",
 ]
-

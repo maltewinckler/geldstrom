@@ -1,4 +1,5 @@
 """Tests for the accounts operations module."""
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock
@@ -73,7 +74,9 @@ class TestAccountOperations:
 
         assert result == []
 
-    def test_fetch_sepa_accounts_extracts_from_hispa(self, mock_dialog, mock_parameters):
+    def test_fetch_sepa_accounts_extracts_from_hispa(
+        self, mock_dialog, mock_parameters
+    ):
         """fetch_sepa_accounts should extract accounts from HISPA response."""
         # Create mock SEPA account
         mock_sepa = SEPAAccount(
@@ -179,4 +182,3 @@ class TestAccountOperations:
 
         assert "tan_method" in str(exc_info.value)
         assert "2FA" in str(exc_info.value)
-

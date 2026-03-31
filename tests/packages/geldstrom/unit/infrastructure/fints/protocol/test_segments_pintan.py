@@ -4,40 +4,37 @@ Tests cover:
 - Bank segments (bank.py)
 - PIN/TAN parameter segments (pintan.py)
 """
+
 from __future__ import annotations
 
-import pytest
-
+from geldstrom.infrastructure.fints.protocol.base import SegmentHeader
+from geldstrom.infrastructure.fints.protocol.formals import (
+    AllowedTransaction,
+    BankIdentifier,
+    CommunicationParameter,
+    Language,
+    ServiceType,
+    UPDUsage,
+)
 from geldstrom.infrastructure.fints.protocol.segments import (
     # Bank segments
     HIBPA3,
-    HIUPA4,
-    HIUPD6,
-    HKKOM4,
     HIKOM4,
     # PIN/TAN segments
     HIPINS1,
     HITANS6,
     HITANS7,
-    # DEGs
-    TransactionTANRequired,
+    HIUPA4,
+    HIUPD6,
+    HKKOM4,
     ParameterPinTan,
-    TwoStepParameters6,
-    TwoStepParameters7,
     ParameterTwostepTAN6,
     ParameterTwostepTAN7,
+    # DEGs
+    TransactionTANRequired,
+    TwoStepParameters6,
+    TwoStepParameters7,
 )
-from geldstrom.infrastructure.fints.protocol.formals import (
-    BankIdentifier,
-    Language,
-    UPDUsage,
-    CommunicationParameter,
-    ServiceType,
-    AccountLimit,
-    AllowedTransaction,
-)
-from geldstrom.infrastructure.fints.protocol.base import SegmentHeader
-
 
 # =============================================================================
 # Bank Segment Tests
@@ -217,7 +214,9 @@ class TestPinTanDegs:
 
     def test_twostep_parameters6(self):
         """Create TwoStepParameters6."""
-        from geldstrom.infrastructure.fints.protocol.formals.enums import TANTimeDialogAssociation
+        from geldstrom.infrastructure.fints.protocol.formals.enums import (
+            TANTimeDialogAssociation,
+        )
 
         param = TwoStepParameters6(
             security_function="920",
@@ -267,7 +266,9 @@ class TestPinTanSegments:
 
     def test_hitans6_creation(self):
         """Create HITANS6 segment."""
-        from geldstrom.infrastructure.fints.protocol.formals.enums import TaskHashAlgorithm
+        from geldstrom.infrastructure.fints.protocol.formals.enums import (
+            TaskHashAlgorithm,
+        )
 
         twostep = TwoStepParameters6(
             security_function="920",
@@ -292,7 +293,9 @@ class TestPinTanSegments:
 
     def test_hitans7_creation(self):
         """Create HITANS7 segment."""
-        from geldstrom.infrastructure.fints.protocol.formals.enums import TaskHashAlgorithm
+        from geldstrom.infrastructure.fints.protocol.formals.enums import (
+            TaskHashAlgorithm,
+        )
 
         twostep = TwoStepParameters7(
             security_function="921",
@@ -318,7 +321,9 @@ class TestPinTanSegments:
 
     def test_hitans7_multiple_tan_methods(self):
         """Create HITANS7 with multiple TAN methods."""
-        from geldstrom.infrastructure.fints.protocol.formals.enums import TaskHashAlgorithm
+        from geldstrom.infrastructure.fints.protocol.formals.enums import (
+            TaskHashAlgorithm,
+        )
 
         methods = [
             TwoStepParameters7(
@@ -351,4 +356,3 @@ class TestPinTanSegments:
         assert len(seg.parameter.twostep_parameters) == 2
         assert seg.parameter.twostep_parameters[0].name == "smsTAN"
         assert seg.parameter.twostep_parameters[1].name == "pushTAN"
-

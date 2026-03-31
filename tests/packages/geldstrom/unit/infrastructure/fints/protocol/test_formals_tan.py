@@ -5,43 +5,40 @@ Tests cover:
 - Transaction DEGs (transactions.py)
 - Parameter DEGs (parameters.py)
 """
+
 from __future__ import annotations
 
 from datetime import date, time
-from decimal import Decimal
-
-import pytest
 
 from geldstrom.infrastructure.fints.protocol.formals import (
+    AccountIdentifier,
+    AccountInformation,
+    AccountLimit,
+    AllowedTransaction,
+    # Identifiers
+    BankIdentifier,
+    BatchTransferParameter,
+    BookedCamtStatements,
+    ChallengeValidUntil,
+    CommunicationParameter,
+    GetSEPAAccountParameter,
+    Language,
+    ParameterChallengeClass,
+    ResponseHHDUC,
+    ServiceType,
+    SupportedHBCIVersions,
+    # Parameter DEGs
+    SupportedLanguages,
+    # Transaction DEGs
+    SupportedMessageTypes,
+    SupportedSEPAPainMessages,
     # TAN DEGs
     TANMedia4,
     TANMedia5,
-    ChallengeValidUntil,
-    ParameterChallengeClass,
-    ResponseHHDUC,
-    # Transaction DEGs
-    SupportedMessageTypes,
-    BookedCamtStatements,
-    SupportedSEPAPainMessages,
-    BatchTransferParameter,
-    # Parameter DEGs
-    SupportedLanguages,
-    SupportedHBCIVersions,
-    CommunicationParameter,
-    AccountLimit,
-    AllowedTransaction,
-    AccountInformation,
-    GetSEPAAccountParameter,
     # Enums
     TANMediaClass,
     TANMediumStatus,
-    Language,
-    ServiceType,
-    # Identifiers
-    BankIdentifier,
-    AccountIdentifier,
 )
-
 
 # =============================================================================
 # TAN DEG Tests
@@ -265,4 +262,3 @@ class TestParameterDegs:
         )
         assert param.single_account_query_allowed is True
         assert param.national_account_allowed is False
-

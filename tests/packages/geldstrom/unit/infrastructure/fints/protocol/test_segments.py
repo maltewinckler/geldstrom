@@ -6,6 +6,7 @@ Tests cover:
 - Transaction segments (HKKAZ, HIKAZ, HKCAZ, HICAZ)
 - Segment version registries
 """
+
 from __future__ import annotations
 
 from datetime import date, time
@@ -23,39 +24,32 @@ from geldstrom.infrastructure.fints.protocol.formals import (
     BalanceSimple,
     BankIdentifier,
     BookedCamtStatements,
-    Confirmation,
     CreditDebit,
     SupportedMessageTypes,
     Timestamp,
 )
 from geldstrom.infrastructure.fints.protocol.segments import (
+    HICAZ1,
+    HIKAZ5,
+    HIKAZ7,
+    HIKAZ_VERSIONS,
+    HISAL5,
+    HISAL6,
+    HISAL7,
+    HISAL_VERSIONS,
+    HISPA1,
+    HKCAZ1,
+    HKKAZ5,
+    HKKAZ7,
+    HKKAZ_VERSIONS,
     # Balance segments
     HKSAL5,
     HKSAL6,
     HKSAL7,
-    HISAL5,
-    HISAL6,
-    HISAL7,
     HKSAL_VERSIONS,
-    HISAL_VERSIONS,
     # Account segments
     HKSPA1,
-    HISPA1,
-    # Transaction segments
-    HKKAZ5,
-    HKKAZ6,
-    HKKAZ7,
-    HKKAZ_VERSIONS,
-    HIKAZ5,
-    HIKAZ6,
-    HIKAZ7,
-    HIKAZ_VERSIONS,
-    HKCAZ1,
-    HKCAZ_VERSIONS,
-    HICAZ1,
-    HICAZ_VERSIONS,
 )
-
 
 # =============================================================================
 # Fixtures
@@ -211,7 +205,9 @@ class TestHKSAL:
 class TestHISAL:
     """Tests for HISAL (balance response) segments."""
 
-    def test_hisal5_creation(self, sample_header, sample_account, sample_balance_simple):
+    def test_hisal5_creation(
+        self, sample_header, sample_account, sample_balance_simple
+    ):
         """Create HISAL5 segment."""
         sample_header.type = "HISAL"
         sample_header.version = 5
@@ -263,7 +259,9 @@ class TestHISAL:
         assert segment.SEGMENT_VERSION == 7
         assert segment.account.iban == "DE89370400440532013000"
 
-    def test_hisal6_with_all_optional_fields(self, sample_header, sample_account, sample_balance, sample_amount):
+    def test_hisal6_with_all_optional_fields(
+        self, sample_header, sample_account, sample_balance, sample_amount
+    ):
         """HISAL6 with all optional fields."""
         sample_header.type = "HISAL"
         sample_header.version = 6
@@ -519,6 +517,3 @@ class TestHICAZ:
             statement_booked=booked,
         )
         assert segment.camt_descriptor.startswith("urn:iso")
-
-
-

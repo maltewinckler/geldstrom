@@ -1,7 +1,8 @@
 """Unit tests covering domain-layer value objects."""
+
 from __future__ import annotations
 
-from datetime import datetime, timezone, date
+from datetime import UTC, date, datetime
 from decimal import Decimal
 
 import pytest
@@ -72,7 +73,7 @@ def test_balance_snapshot_records_all_amounts() -> None:
     credit_limit = BalanceAmount(amount=Decimal("5000.00"), currency="EUR")
     snapshot = BalanceSnapshot(
         account_id="acct",
-        as_of=datetime(2024, 1, 1, tzinfo=timezone.utc),
+        as_of=datetime(2024, 1, 1, tzinfo=UTC),
         booked=booked,
         pending=pending,
         available=available,
@@ -115,7 +116,7 @@ def test_transaction_feed_preserves_entry_bounds() -> None:
 
 
 def test_session_state_serialization_roundtrip(bank_route: BankRoute) -> None:
-    created = datetime(2024, 5, 1, tzinfo=timezone.utc)
+    created = datetime(2024, 5, 1, tzinfo=UTC)
     state = SessionState(
         route=bank_route,
         user_id="user",

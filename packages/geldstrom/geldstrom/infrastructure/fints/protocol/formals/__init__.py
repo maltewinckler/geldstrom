@@ -13,6 +13,7 @@ Organization:
 - transactions: Transaction-related DEGs
 - parameters: BPD/UPD-related DEGs
 """
+
 from __future__ import annotations
 
 from .amounts import (
@@ -118,7 +119,7 @@ from .transactions import (
 )
 
 # Constants
-CUSTOMER_ID_ANONYMOUS = '9999999999'
+CUSTOMER_ID_ANONYMOUS = "9999999999"
 
 __all__ = [
     # Base enum classes
@@ -217,4 +218,3 @@ __all__ = [
     "AccountInformation",
     "GetSEPAAccountParameter",
 ]
-

@@ -48,7 +48,9 @@ class FinTSChallenge(Challenge):
         if hhduc_data:
             self._challenge_data = ChallengeData(
                 mime_type="application/x-hhduc",
-                data=hhduc_data if isinstance(hhduc_data, bytes) else hhduc_data.encode(),
+                data=hhduc_data
+                if isinstance(hhduc_data, bytes)
+                else hhduc_data.encode(),
             )
         else:
             self._challenge_data = None
@@ -99,4 +101,3 @@ class FinTSChallenge(Challenge):
 
 
 __all__ = ["FinTSChallenge"]
-

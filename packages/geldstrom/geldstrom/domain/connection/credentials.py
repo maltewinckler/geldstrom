@@ -1,4 +1,5 @@
 """Protocol-agnostic credentials for bank connections."""
+
 from __future__ import annotations
 
 from pydantic import BaseModel, SecretStr, computed_field

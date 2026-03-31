@@ -16,6 +16,7 @@ Run with: pytest tests/packages/geldstrom/integration/test_parser.py --run-integ
 For maximum debugging output:
     pytest tests/packages/geldstrom/integration/test_parser.py --run-integration -v -s --tb=long
 """
+
 from __future__ import annotations
 
 import json
@@ -60,8 +61,9 @@ def credentials(request: pytest.FixtureRequest) -> GatewayCredentials:
             continue
         key, value = line.split("=", 1)
         value = value.strip()
-        if (value.startswith('"') and value.endswith('"')) or \
-           (value.startswith("'") and value.endswith("'")):
+        if (value.startswith('"') and value.endswith('"')) or (
+            value.startswith("'") and value.endswith("'")
+        ):
             value = value[1:-1]
         env[key.strip()] = value
 
@@ -98,6 +100,7 @@ def credentials(request: pytest.FixtureRequest) -> GatewayCredentials:
 def connection_helper(credentials: GatewayCredentials):
     """Create a FinTSConnectionHelper for low-level testing."""
     from geldstrom.infrastructure.fints.adapters.connection import FinTSConnectionHelper
+
     return FinTSConnectionHelper(credentials)
 
 
@@ -152,24 +155,20 @@ class ParserWarningCollector:
     def warning_messages(self) -> list[str]:
         """Return warning messages from parser."""
         return [
-            r.getMessage()
-            for r in self.log_records
-            if r.levelno >= logging.WARNING
+            r.getMessage() for r in self.log_records if r.levelno >= logging.WARNING
         ]
 
     @property
     def unknown_segment_warnings(self) -> list[str]:
         """Extract unknown segment type warnings."""
-        return [
-            msg for msg in self.warning_messages
-            if "Unknown segment type" in msg
-        ]
+        return [msg for msg in self.warning_messages if "Unknown segment type" in msg]
 
     @property
     def parse_error_warnings(self) -> list[str]:
         """Extract parse error warnings."""
         return [
-            msg for msg in self.warning_messages
+            msg
+            for msg in self.warning_messages
             if "Error parsing" in msg or "Could not parse" in msg
         ]
 
@@ -178,8 +177,7 @@ class ParserWarningCollector:
         if self.warning_messages:
             details = "\n".join(f"  - {m}" for m in self.warning_messages)
             pytest.fail(
-                f"{message}\nParser warnings "
-                f"({len(self.warning_messages)}):\n{details}"
+                f"{message}\nParser warnings ({len(self.warning_messages)}):\n{details}"
             )
 
     def assert_no_critical_warnings(self, message: str = ""):
@@ -291,7 +289,9 @@ class TestStrictParsing:
         if collector.warning_messages:
             print("\n" + collector.report())
 
-        collector.assert_no_critical_warnings("Account fetch produced critical parser warnings")
+        collector.assert_no_critical_warnings(
+            "Account fetch produced critical parser warnings"
+        )
 
     def test_balance_fetch_no_warnings(self, connection_helper):
         """Verify HKSAL/HISAL parsing produces no critical warnings."""
@@ -321,7 +321,9 @@ class TestStrictParsing:
         if collector.warning_messages:
             print("\n" + collector.report())
 
-        collector.assert_no_critical_warnings("Balance fetch produced critical parser warnings")
+        collector.assert_no_critical_warnings(
+            "Balance fetch produced critical parser warnings"
+        )
 
     def test_transaction_fetch_no_warnings(self, connection_helper):
         """Verify HKKAZ/HIKAZ or HKCAZ/HICAZ parsing produces no critical warnings."""
@@ -355,7 +357,9 @@ class TestStrictParsing:
         if collector.warning_messages:
             print("\n" + collector.report())
 
-        collector.assert_no_critical_warnings("Transaction fetch produced critical parser warnings")
+        collector.assert_no_critical_warnings(
+            "Transaction fetch produced critical parser warnings"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -504,12 +508,16 @@ class TestSegmentCoverage:
                 print(f"    {t}v{v}")
 
         if other_missing:
-            print(f"\n⚠ MISSING OTHER (may need implementation) ({len(other_missing)}):")
+            print(
+                f"\n⚠ MISSING OTHER (may need implementation) ({len(other_missing)}):"
+            )
             for t, v in sorted(other_missing):
                 print(f"    {t}v{v}")
 
         if param_segments:
-            print(f"\n○ PARAMETER SEGMENTS (generic fallback OK) ({len(param_segments)}):")
+            print(
+                f"\n○ PARAMETER SEGMENTS (generic fallback OK) ({len(param_segments)}):"
+            )
             for t, v in sorted(param_segments):
                 print(f"    {t}v{v}")
 
@@ -547,14 +555,18 @@ class TestRawResponseCapture:
                 "bpd_version": ctx.parameters.bpd_version,
                 "upd_version": ctx.parameters.upd_version,
                 "bank_name": ctx.parameters.bpd.bank_name,
-                "bpd_segment_types": sorted(set(
-                    f"{s.header.type}v{s.header.version}"
-                    for s in ctx.parameters.bpd.segments.segments
-                )),
-                "upd_segment_types": sorted(set(
-                    f"{s.header.type}v{s.header.version}"
-                    for s in ctx.parameters.upd.segments.segments
-                )),
+                "bpd_segment_types": sorted(
+                    {
+                        f"{s.header.type}v{s.header.version}"
+                        for s in ctx.parameters.bpd.segments.segments
+                    }
+                ),
+                "upd_segment_types": sorted(
+                    {
+                        f"{s.header.type}v{s.header.version}"
+                        for s in ctx.parameters.upd.segments.segments
+                    }
+                ),
                 "accounts": [
                     {
                         "iban": acc.get("iban"),
@@ -581,8 +593,6 @@ class TestRawResponseCapture:
         # Enable debug logging
         caplog.set_level(logging.DEBUG, logger="geldstrom.infrastructure.fints.dialog")
 
-        messages: list[dict] = []
-
         with connection_helper.connect(None) as ctx:
             # Perform some operations to generate traffic
             account_ops = AccountOperations(ctx.dialog, ctx.parameters)
@@ -590,9 +600,7 @@ class TestRawResponseCapture:
 
         # Save captured log messages
         dialog_log = "\n".join(
-            f"[{r.levelname}] {r.message}"
-            for r in caplog.records
-            if "fints" in r.name
+            f"[{r.levelname}] {r.message}" for r in caplog.records if "fints" in r.name
         )
         (debug_output_dir / "dialog.log").write_text(dialog_log)
 
@@ -640,17 +648,19 @@ class TestStrictModeParser:
         # Check that we got most segments (some may be skipped due to validation)
         # Allow up to 10% loss due to validation errors
         min_expected = int(bpd_segment_count * 0.9)
-        assert len(robust_result.segments) >= min_expected, \
+        assert len(robust_result.segments) >= min_expected, (
             f"Expected at least {min_expected} segments (90% of {bpd_segment_count}), got {len(robust_result.segments)}"
+        )
 
         # Find typical parameter segments (these should have 'S' suffix)
         param_segment_types = {
-            s.header.type for s in robust_result.segments
-            if s.header.type.endswith("S")
+            s.header.type for s in robust_result.segments if s.header.type.endswith("S")
         }
         assert len(param_segment_types) > 0, "BPD should contain parameter segments"
 
-        print(f"\nRobust parsing: {len(robust_result.segments)}/{bpd_segment_count} segments")
+        print(
+            f"\nRobust parsing: {len(robust_result.segments)}/{bpd_segment_count} segments"
+        )
         print(f"Parameter segment types: {len(param_segment_types)}")
         print(f"Examples: {list(param_segment_types)[:5]}")
 
@@ -708,8 +718,9 @@ class TestSerializationRoundTrip:
         reparsed = parser.parse_message(reserialized)
 
         # Compare segment counts (exact byte comparison may differ due to formatting)
-        assert len(reparsed.segments) == len(parsed.segments), \
+        assert len(reparsed.segments) == len(parsed.segments), (
             f"Segment count mismatch: {len(parsed.segments)} -> {len(reparsed.segments)}"
+        )
 
         # Compare segment types
         original_types = [s.header.type for s in parsed.segments]

@@ -1,4 +1,5 @@
 """Domain service ports for banking use cases."""
+
 from .accounts import AccountDiscoveryPort
 from .balances import BalancePort
 from .payments import PaymentPort

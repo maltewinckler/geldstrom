@@ -106,4 +106,3 @@ log_configuration = LogConfiguration()
 
 
 __all__ = ["LogConfiguration", "Password", "log_configuration", "mask_credentials"]
-

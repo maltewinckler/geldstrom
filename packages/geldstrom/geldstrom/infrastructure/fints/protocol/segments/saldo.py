@@ -3,6 +3,7 @@
 Request segments (HKSAL) query account balances.
 Response segments (HISAL) contain balance information.
 """
+
 from __future__ import annotations
 
 from typing import ClassVar
@@ -363,4 +364,3 @@ __all__ = [
     "get_hksal_class",
     "get_hisal_class",
 ]
-

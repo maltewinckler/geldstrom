@@ -1,4 +1,5 @@
 """Tests for the balances operations module."""
+
 from __future__ import annotations
 
 from datetime import date
@@ -121,4 +122,3 @@ class TestBalanceOperations:
 
         with pytest.raises(FinTSUnsupportedOperation):
             ops.fetch_balance(account)
-

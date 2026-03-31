@@ -126,4 +126,3 @@ def find_highest_supported_version(
         return None
 
     return version_map.get(highest.header.version)
-

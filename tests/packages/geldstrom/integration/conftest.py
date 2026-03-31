@@ -81,8 +81,7 @@ def pytest_collection_modifyitems(config: pytest.Config, items):
         return
     skip_marker = pytest.mark.skip(
         reason=(
-            "live-bank integration tests disabled "
-            "(use --run-integration to enable)"
+            "live-bank integration tests disabled (use --run-integration to enable)"
         ),
     )
     for item in items:

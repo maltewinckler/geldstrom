@@ -21,7 +21,6 @@ def test_json_formatter_emits_valid_json() -> None:
         logger.info("hello world")
 
     assert handler.records, "expected at least one log record"
-    record = handler.records[0]
     # The formatter should produce parseable JSON.
     payload = json.loads(handler.last_formatted)
     assert payload["message"] == "hello world"

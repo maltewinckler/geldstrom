@@ -1,4 +1,5 @@
 """Protocol-agnostic session abstractions for bank connections."""
+
 from __future__ import annotations
 
 from collections.abc import Mapping

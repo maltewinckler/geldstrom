@@ -21,6 +21,7 @@ Environment variables (configured in .env):
     FINTS_TAN_MEDIUM   - (optional) TAN medium name
     FINTS_TAN_METHOD   - (optional) TAN method code
 """
+
 from __future__ import annotations
 
 import os
@@ -163,7 +164,9 @@ def test_session_reuse(credentials: GatewayCredentials):
     assert session_state.system_id
     assert accounts1
     # Second connection: reuse session
-    client2 = FinTS3Client.from_gateway_credentials(credentials, session_state=session_state)
+    client2 = FinTS3Client.from_gateway_credentials(
+        credentials, session_state=session_state
+    )
     with client2:
         accounts2 = client2.list_accounts()
         assert len(accounts2) == len(accounts1)
@@ -264,7 +267,9 @@ def test_session_state_contains_parameters(credentials: GatewayCredentials):
     assert session_state is not None
     assert session_state.system_id
     # The session should contain parameter data for reuse
-    assert hasattr(session_state, "client_blob") or hasattr(session_state, "bpd_version")
+    assert hasattr(session_state, "client_blob") or hasattr(
+        session_state, "bpd_version"
+    )
 
 
 @pytest.mark.integration
@@ -278,7 +283,9 @@ def test_session_reuse_skips_sync_dialog(credentials: GatewayCredentials):
         system_id = session_state.system_id
 
     # Second connection: should reuse existing system_id
-    client2 = FinTS3Client.from_gateway_credentials(credentials, session_state=session_state)
+    client2 = FinTS3Client.from_gateway_credentials(
+        credentials, session_state=session_state
+    )
     with client2:
         accounts2 = client2.list_accounts()
         # System ID should be the same (no new sync dialog)
@@ -302,6 +309,7 @@ def test_session_state_serialization_roundtrip(credentials: GatewayCredentials):
 
     # Deserialize
     from geldstrom.infrastructure.fints.session import FinTSSessionState
+
     restored_state = FinTSSessionState.deserialize(serialized)
 
     # Use restored state
