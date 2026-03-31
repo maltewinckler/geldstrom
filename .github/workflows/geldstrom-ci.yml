@@ -2,6 +2,7 @@ name: geldstrom version check
 
 # Runs only on PRs that touch the geldstrom library package.
 # Lint and tests are handled by the broader ci.yml workflow.
+# This job is informational only — it never blocks a PR merge.
 on:
   pull_request:
     paths:
@@ -16,7 +17,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Verify version is bumped relative to main
+      - name: Report whether version is bumped relative to main
         run: |
           PR_VERSION=$(python3 -c "
           import tomllib
@@ -34,8 +35,7 @@ jobs:
           echo "PR version          : $PR_VERSION"
 
           if [ "$PR_VERSION" = "$MAIN_VERSION" ]; then
-            echo "::error file=packages/geldstrom/pyproject.toml::Version has not been bumped (still $MAIN_VERSION). Update [project].version before merging."
-            exit 1
+            echo "::warning file=packages/geldstrom/pyproject.toml::Version has not been bumped (still $MAIN_VERSION). A new PyPI release will NOT be published when this PR merges."
+          else
+            echo "Version bumped: $MAIN_VERSION → $PR_VERSION ✓ A new PyPI release will be published on merge."
           fi
-
-          echo "Version bumped: $MAIN_VERSION → $PR_VERSION ✓"
