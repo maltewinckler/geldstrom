@@ -66,10 +66,7 @@ services:
       retries: 5
 
   gateway-admin-cli:
-    image: ${ADMIN_CLI_IMAGE:-geldstrom-admin-cli:latest}
-    build:
-      context: .
-      dockerfile: apps/gateway_admin_cli/Dockerfile
+    image: maltewin/geldstrom-gateway-admin-cli:latest
     container_name: geldstrom_gateway_admin_cli
     restart: "no"
     depends_on:
@@ -82,10 +79,7 @@ services:
     command: ["gw-admin", "db", "init"]
 
   gateway:
-    image: ${GATEWAY_IMAGE:-geldstrom-gateway:latest}
-    build:
-      context: .
-      dockerfile: apps/gateway/Dockerfile
+    image: maltewin/geldstrom-gateway:latest
     container_name: geldstrom_gateway
     restart: unless-stopped
     depends_on:
@@ -99,7 +93,7 @@ services:
     env_file:
       - config/gateway.env
     ports:
-      - 8000:8000
+      - 127.0.0.1:8000:8000
     healthcheck:
       test:
         - "CMD"
