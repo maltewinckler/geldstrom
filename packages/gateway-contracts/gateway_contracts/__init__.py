@@ -5,6 +5,7 @@ from .channels import (
     CONSUMER_UPDATED_CHANNEL,
     PRODUCT_REGISTRATION_UPDATED_CHANNEL,
 )
+from .payloads import ConsumerUpdatedPayload
 from .schema import (
     api_consumers_table,
     create_test_schema,
@@ -17,6 +18,7 @@ from .schema import (
 __all__ = [
     "CATALOG_REPLACED_CHANNEL",
     "CONSUMER_UPDATED_CHANNEL",
+    "ConsumerUpdatedPayload",
     "PRODUCT_REGISTRATION_UPDATED_CHANNEL",
     "api_consumers_table",
     "create_test_schema",

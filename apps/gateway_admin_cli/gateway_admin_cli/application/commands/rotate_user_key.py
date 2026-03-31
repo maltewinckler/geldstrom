@@ -44,7 +44,7 @@ class RotateUserKeyCommand:
         if user.status is UserStatus.DELETED:
             raise ValidationError("Deleted users cannot rotate keys")
 
-        raw_key = self._api_key_service.generate()
+        raw_key = self._api_key_service.generate(str(user.user_id))
         user.api_key_hash = self._api_key_service.hash(raw_key)
         user.rotated_at = self._id_provider.now()
         await self._repository.save(user)

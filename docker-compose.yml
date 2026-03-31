@@ -24,7 +24,7 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # a) Load the FinTS institute catalog:
 #
-#       docker compose run --rm gateway-admin-cli gw-admin catalog sync /tmp/institutes.csv
+#       docker compose run --rm gateway-admin-cli gw-admin catalog sync /data/fints_institute.csv
 #
 # b) Store your FinTS product registration key:
 #
@@ -77,6 +77,8 @@ services:
         condition: service_healthy
     env_file:
       - config/admin_cli.env
+    volumes:
+      - ./data:/data:ro
     command: ["gw-admin", "db", "init"]
 
   gateway:
@@ -103,7 +105,7 @@ services:
         - "CMD"
         - "python"
         - "-c"
-        - "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/live')"
+        - "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/ready')"
       interval: 30s
       timeout: 10s
       start_period: 60s

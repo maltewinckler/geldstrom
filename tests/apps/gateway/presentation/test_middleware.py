@@ -26,6 +26,9 @@ from gateway.presentation.http.middleware.exception_handlers import (
 )
 from gateway.presentation.http.middleware.rate_limit import RateLimitMiddleware
 from gateway.presentation.http.middleware.request_id import RequestIDMiddleware
+from gateway.presentation.http.middleware.security_headers import (
+    SecurityHeadersMiddleware,
+)
 
 # ---------------------------------------------------------------------------
 # exception_handlers
@@ -190,3 +193,56 @@ def test_rate_limit_does_not_apply_to_health_routes() -> None:
     client.get("/v1/banking/accounts")  # exhaust the limit
     resp = client.get("/health/live")
     assert resp.status_code == 200
+
+
+def test_rate_limit_bucket_keys_do_not_contain_raw_api_key() -> None:
+    """Verify that the raw API key is never stored as a dict key."""
+    app = _make_rate_limit_app(requests_per_minute=10)
+    client = TestClient(app)
+    secret = "Bearer super-secret-key-abc123"
+    client.get("/v1/banking/accounts", headers={"Authorization": secret})
+
+    middleware = app.middleware_stack
+    # Walk the middleware chain to find the RateLimitMiddleware instance
+    while middleware is not None and not isinstance(middleware, RateLimitMiddleware):
+        middleware = getattr(middleware, "app", None)
+    assert middleware is not None, "RateLimitMiddleware not found in stack"
+    assert secret not in middleware._buckets, (
+        "Raw API key must not appear as a bucket key"
+    )
+
+
+# ---------------------------------------------------------------------------
+# security_headers
+# ---------------------------------------------------------------------------
+
+
+def _make_security_headers_app() -> FastAPI:
+    app = FastAPI()
+    app.add_middleware(SecurityHeadersMiddleware)
+
+    @app.get("/v1/banking/accounts")
+    def accounts():
+        return {"ok": True}
+
+    @app.get("/health/live")
+    def health():
+        return {"ok": True}
+
+    return app
+
+
+def test_security_headers_are_set_on_api_response() -> None:
+    client = TestClient(_make_security_headers_app())
+    resp = client.get("/v1/banking/accounts")
+    assert resp.headers["X-Content-Type-Options"] == "nosniff"
+    assert resp.headers["X-Frame-Options"] == "DENY"
+    assert resp.headers["Referrer-Policy"] == "no-referrer"
+
+
+def test_security_headers_are_set_on_health_response() -> None:
+    client = TestClient(_make_security_headers_app())
+    resp = client.get("/health/live")
+    assert resp.headers["X-Content-Type-Options"] == "nosniff"
+    assert resp.headers["X-Frame-Options"] == "DENY"
+    assert resp.headers["Referrer-Policy"] == "no-referrer"

@@ -1,4 +1,4 @@
-"""Aggregate for API consumer access control."""
+"""Read-only aggregate for API consumer access control."""
 
 from __future__ import annotations
 
@@ -7,13 +7,13 @@ from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, field_validator, model_validator
 
-from gateway.domain import DomainError
-
 from .value_objects import ApiKeyHash, ConsumerStatus
 
 
 class ApiConsumer(BaseModel):
-    """Aggregate root representing one API consumer."""
+    """Read-only projection of an API consumer used for gateway authentication."""
+
+    model_config = {"frozen": True}
 
     consumer_id: UUID
     email: EmailStr
@@ -29,20 +29,12 @@ class ApiConsumer(BaseModel):
             return value.strip().casefold()
         return value
 
+    def is_disabled(self) -> bool:
+        """Return True when this consumer's access has been revoked."""
+        return self.status is ConsumerStatus.DISABLED
+
     @model_validator(mode="after")
     def _check_active_has_hash(self) -> ApiConsumer:
         if self.status is ConsumerStatus.ACTIVE and self.api_key_hash is None:
             raise ValueError("Active ApiConsumer instances must have an ApiKeyHash")
         return self
-
-    def disable(self) -> None:
-        self.status = ConsumerStatus.DISABLED
-
-    def mark_deleted(self) -> None:
-        self.status = ConsumerStatus.DELETED
-
-    def reactivate(self, api_key_hash: ApiKeyHash) -> None:
-        if self.status is ConsumerStatus.DELETED:
-            raise DomainError("Deleted ApiConsumer instances cannot be reactivated")
-        self.api_key_hash = api_key_hash
-        self.status = ConsumerStatus.ACTIVE

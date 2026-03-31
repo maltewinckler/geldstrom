@@ -1,8 +1,50 @@
 # Getting Started
 
-AI GENERATED!
-
 This guide covers everything needed to run a local instance of the gateway API from scratch.
+
+---
+
+## Post-install checklist (run once after first `docker compose up -d`)
+
+> **These steps are required before the gateway will accept any banking
+> requests.** Without them the gateway starts but every banking call fails.
+
+**1. Set your FinTS product key:**
+
+```bash
+docker compose run --rm gateway-admin-cli \
+  gw-admin product update "<YOUR_PRODUCT_KEY>" --product-version "1.0.0"
+```
+
+**2. Populate the institute catalog:**
+
+```bash
+docker compose run --rm gateway-admin-cli \
+  gw-admin catalog sync /data/fints_institute.csv
+```
+
+**3. Create your first API consumer:**
+
+```bash
+docker compose run --rm gateway-admin-cli \
+  gw-admin users create you@example.com
+```
+
+The raw API key is printed exactly once — copy it immediately.
+
+**4. Verify the gateway is ready:**
+
+```bash
+curl http://localhost:8000/health/ready
+# Expected: {"status":"ready","checks":{"db":"ok","product_key":"loaded","catalog":"ok"}}
+```
+
+If the status is `not_ready`, check which component failed and repeat the
+relevant step above. You can also run:
+
+```bash
+docker compose run --rm gateway-admin-cli gw-admin inspect state
+```
 
 ---
 
@@ -201,3 +243,13 @@ Pending operations expire after `GATEWAY_OPERATION_SESSION_TTL_SECONDS` (default
 curl http://localhost:8000/health/live
 # {"status":"ok"}
 ```
+
+### Readiness check (no auth required)
+
+```bash
+curl http://localhost:8000/health/ready
+# {"status":"ready","checks":{"db":"ok","product_key":"loaded","catalog":"ok"}}
+```
+
+If the status is `not_ready`, see the [Post-install checklist](#post-install-checklist-run-once-after-first-docker-compose-up--d)
+above.

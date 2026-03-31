@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING, Self
 from gateway.application.common import (
     IdProvider,
     InstitutionNotFoundError,
-    UnsupportedProtocolError,
     cap_session_expires_at,
 )
 from gateway.application.consumer.queries.authenticate_consumer import (
@@ -21,6 +20,7 @@ from gateway.domain.banking_gateway import (
     FinTSInstituteRepository,
     OperationSessionStore,
     OperationStatus,
+    OperationType,
     PendingOperationSession,
     PresentedBankCredentials,
 )
@@ -76,11 +76,6 @@ class GetTanMethodsCommand:
     async def __call__(
         self, request: GetTanMethodsInput, presented_api_key: str
     ) -> TanMethodsResultEnvelope:
-        if request.protocol is not BankProtocol.FINTS:
-            raise UnsupportedProtocolError(
-                f"Unsupported banking protocol: {request.protocol.value}"
-            )
-
         authenticated_consumer = await self._authenticate_consumer(presented_api_key)
         credentials = PresentedBankCredentials(
             user_id=request.user_id,
@@ -105,7 +100,7 @@ class GetTanMethodsCommand:
                 operation_id=operation_id,
                 consumer_id=authenticated_consumer,
                 protocol=request.protocol,
-                operation_type="tan_methods",
+                operation_type=OperationType.TAN_METHODS,
                 session_state=result.session_state,
                 status=OperationStatus.PENDING_CONFIRMATION,
                 created_at=created_at,

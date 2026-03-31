@@ -38,7 +38,15 @@ class Settings(BaseSettings):
     gateway_db_user: str = Field(validation_alias="GATEWAY_DB_USER")
     gateway_db_password: SecretStr = Field(validation_alias="GATEWAY_DB_PASSWORD")
 
-    @computed_field  # type: ignore[prop-decorator]
+    # FinTS product registration
+    fints_product_registration_key: str = Field(
+        validation_alias="FINTS_PRODUCT_REGISTRATION_KEY"
+    )
+    fints_product_version: str = Field(
+        default="1.0.0", validation_alias="FINTS_PRODUCT_VERSION"
+    )
+
+    @computed_field
     @property
     def database_url(self) -> str:
         from urllib.parse import quote
@@ -49,7 +57,7 @@ class Settings(BaseSettings):
             f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
         )
 
-    @computed_field  # type: ignore[prop-decorator]
+    @computed_field
     @property
     def maintenance_url(self) -> str:
         """URL pointing to the 'postgres' maintenance database (for CREATE DATABASE)."""

@@ -57,7 +57,6 @@ class GetOperationStatusQuery:
         if session.status is OperationStatus.PENDING_CONFIRMATION:
             now = self._id_provider.now()
             if session.expires_at <= now:
-                await self._session_store.delete(operation_id)
                 return OperationStatusEnvelope(
                     status=OperationStatus.EXPIRED,
                     operation_id=operation_id,
@@ -65,7 +64,6 @@ class GetOperationStatusQuery:
                 )
 
         if session.status is OperationStatus.COMPLETED:
-            await self._session_store.delete(operation_id)
             return OperationStatusEnvelope(
                 status=session.status,
                 operation_id=operation_id,
@@ -74,7 +72,6 @@ class GetOperationStatusQuery:
             )
 
         if session.status is OperationStatus.FAILED:
-            await self._session_store.delete(operation_id)
             return OperationStatusEnvelope(
                 status=session.status,
                 operation_id=operation_id,
@@ -83,7 +80,6 @@ class GetOperationStatusQuery:
             )
 
         if session.status is OperationStatus.EXPIRED:
-            await self._session_store.delete(operation_id)
             return OperationStatusEnvelope(
                 status=session.status,
                 operation_id=operation_id,

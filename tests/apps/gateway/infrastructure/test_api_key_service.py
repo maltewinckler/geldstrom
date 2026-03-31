@@ -1,18 +1,24 @@
 """Tests for the Argon2 API key service."""
 
+from uuid import uuid4
+
 from gateway.domain.consumer_access import ApiKeyHash
 from gateway.infrastructure.crypto import Argon2ApiKeyService
 
 
-def test_generate_produces_unique_values() -> None:
+def test_generate_produces_prefixed_key_with_unique_values() -> None:
     service = Argon2ApiKeyService()
+    consumer_id = uuid4()
 
-    first = service.generate()
-    second = service.generate()
+    first = service.generate(consumer_id)
+    second = service.generate(consumer_id)
 
     assert first != second
     assert first
     assert second
+    prefix = consumer_id.hex[:8]
+    assert first.startswith(f"{prefix}.")
+    assert second.startswith(f"{prefix}.")
 
 
 def test_hash_and_verify_round_trip() -> None:

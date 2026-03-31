@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Protocol
 
+from gateway.domain.banking_gateway.operations import OperationType
 from geldstrom.domain import Account, BalanceSnapshot, SessionToken, TransactionFeed
 from geldstrom.domain import TANMethod as GeldstromTanMethod
 from geldstrom.infrastructure.fints.credentials import GatewayCredentials
@@ -46,7 +47,7 @@ class GeldstromClientFactory(Protocol):
 class SerializedPendingOperation:
     """Opaque connector state needed to resume one bank operation."""
 
-    operation_type: str
+    operation_type: OperationType
     bank_code: str
     endpoint: str
     user_id: str

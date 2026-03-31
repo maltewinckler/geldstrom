@@ -10,7 +10,10 @@ from rich.console import Console
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
+from gateway_admin_cli.application.commands import UpdateProductRegistrationCommand
 from gateway_admin_cli.config import get_settings
+
+from ._common import build_factory
 
 app = typer.Typer(name="db", help="Manage the database schema.")
 console = Console()
@@ -95,6 +98,16 @@ def init_db() -> None:
 
         tables = ", ".join(sorted(metadata.tables))
         console.print(f"[green]Tables ready:[/green] {tables}")
+
+        async with build_factory() as factory:
+            result = await UpdateProductRegistrationCommand.from_factory(
+                factory,
+                product_version=s.fints_product_version,
+            )(s.fints_product_registration_key)
+        console.print(
+            f"[green]Product registration ready.[/green] "
+            f"version={result.product_version}"
+        )
 
     asyncio.run(_run())
 

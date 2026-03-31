@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING, Self
 from gateway.application.common import (
     IdProvider,
     InstitutionNotFoundError,
-    UnsupportedProtocolError,
     cap_session_expires_at,
 )
 from gateway.application.consumer.queries.authenticate_consumer import (
@@ -21,6 +20,7 @@ from gateway.domain.banking_gateway import (
     FinTSInstituteRepository,
     OperationSessionStore,
     OperationStatus,
+    OperationType,
     PendingOperationSession,
     PresentedBankCredentials,
 )
@@ -76,11 +76,6 @@ class ListAccountsCommand:
     async def __call__(
         self, request: ListAccountsInput, presented_api_key: str
     ) -> ListAccountsResultEnvelope:
-        if request.protocol is not BankProtocol.FINTS:
-            raise UnsupportedProtocolError(
-                f"Unsupported banking protocol: {request.protocol.value}"
-            )
-
         authenticated_consumer = await self._authenticate_consumer(presented_api_key)
         credentials = PresentedBankCredentials(
             user_id=request.user_id,
@@ -105,7 +100,7 @@ class ListAccountsCommand:
                 operation_id=operation_id,
                 consumer_id=authenticated_consumer,
                 protocol=request.protocol,
-                operation_type="accounts",
+                operation_type=OperationType.ACCOUNTS,
                 session_state=result.session_state,
                 status=OperationStatus.PENDING_CONFIRMATION,
                 created_at=created_at,

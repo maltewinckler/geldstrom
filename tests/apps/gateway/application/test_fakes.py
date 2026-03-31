@@ -11,6 +11,7 @@ from gateway.domain.banking_gateway import (
     BankProtocol,
     FinTSInstitute,
     OperationStatus,
+    OperationType,
     PendingOperationSession,
     PresentedBankCredentials,
     ResumeResult,
@@ -54,8 +55,6 @@ def test_fake_institute_cache_indexes_by_blz() -> None:
         pin_tan_url="https://bank.example/fints",
         fints_version="3.0",
         last_source_update=date(2026, 3, 7),
-        source_row_checksum="checksum-1",
-        source_payload={"row": 1},
     )
     cache = FakeInstituteCache([institute])
 
@@ -71,8 +70,8 @@ def test_fake_operation_session_store_can_expire_stale_sessions() -> None:
         operation_id="op-1",
         consumer_id=UUID("12345678-1234-5678-1234-567812345678"),
         protocol=BankProtocol.FINTS,
-        operation_type="accounts",
-        session_state=b"cleared",
+        operation_type=OperationType.ACCOUNTS,
+        session_state=None,
         status=OperationStatus.EXPIRED,
         created_at=now - timedelta(minutes=5),
         expires_at=now - timedelta(minutes=1),
@@ -92,7 +91,7 @@ def test_fake_operation_session_store_does_not_expire_pending_sessions() -> None
         operation_id="op-pending",
         consumer_id=UUID("12345678-1234-5678-1234-567812345678"),
         protocol=BankProtocol.FINTS,
-        operation_type="accounts",
+        operation_type=OperationType.ACCOUNTS,
         session_state=b"state",
         status=OperationStatus.PENDING_CONFIRMATION,
         created_at=now - timedelta(minutes=5),
@@ -134,8 +133,6 @@ def test_fake_banking_connector_returns_queued_results_and_records_calls() -> No
         pin_tan_url="https://bank.example/fints",
         fints_version="3.0",
         last_source_update=date(2026, 3, 7),
-        source_row_checksum="checksum-1",
-        source_payload={"row": 1},
     )
 
     accounts_result = _run(connector.list_accounts(institute, credentials))

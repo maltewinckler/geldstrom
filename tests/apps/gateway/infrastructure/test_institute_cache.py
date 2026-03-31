@@ -45,6 +45,4 @@ def _institute(blz: str) -> FinTSInstitute:
         pin_tan_url="https://bank.example/fints",
         fints_version="FinTS V3.0",
         last_source_update=date(2026, 3, 7),
-        source_row_checksum=f"checksum-{blz}",
-        source_payload={"blz": blz},
     )

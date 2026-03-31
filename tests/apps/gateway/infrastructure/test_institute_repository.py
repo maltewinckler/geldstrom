@@ -10,7 +10,7 @@ from gateway.domain.banking_gateway import (
     BankLeitzahl,
     FinTSInstitute,
 )
-from gateway.infrastructure.persistence.postgres import PostgresFinTSInstituteRepository
+from gateway.infrastructure.persistence.sql import SQLFinTSInstituteRepository
 
 
 async def _seed_institutes(engine, *institutes: FinTSInstitute) -> None:
@@ -27,8 +27,8 @@ async def _seed_institutes(engine, *institutes: FinTSInstitute) -> None:
                     "pin_tan_url": inst.pin_tan_url,
                     "fints_version": inst.fints_version,
                     "last_source_update": inst.last_source_update,
-                    "source_row_checksum": inst.source_row_checksum,
-                    "source_payload": inst.source_payload,
+                    "source_row_checksum": "seeded",
+                    "source_payload": {},
                 }
                 for inst in institutes
             ],
@@ -41,7 +41,7 @@ def test_institute_repository_list_all(postgres_engine, async_runner) -> None:
             postgres_engine, _institute("12345678"), _institute("87654321")
         )
     )
-    repository = PostgresFinTSInstituteRepository(postgres_engine)
+    repository = SQLFinTSInstituteRepository(postgres_engine)
 
     institutes = async_runner(repository.list_all())
 
@@ -51,7 +51,7 @@ def test_institute_repository_list_all(postgres_engine, async_runner) -> None:
 def test_institute_repository_get_by_blz(postgres_engine, async_runner) -> None:
     expected = _institute("12345678")
     async_runner(_seed_institutes(postgres_engine, expected))
-    repository = PostgresFinTSInstituteRepository(postgres_engine)
+    repository = SQLFinTSInstituteRepository(postgres_engine)
 
     loaded = async_runner(repository.get_by_blz(BankLeitzahl("12345678")))
 
@@ -61,7 +61,7 @@ def test_institute_repository_get_by_blz(postgres_engine, async_runner) -> None:
 def test_institute_repository_returns_none_for_unknown_blz(
     postgres_engine, async_runner
 ) -> None:
-    repository = PostgresFinTSInstituteRepository(postgres_engine)
+    repository = SQLFinTSInstituteRepository(postgres_engine)
 
     loaded = async_runner(repository.get_by_blz(BankLeitzahl("12345678")))
 
@@ -78,6 +78,4 @@ def _institute(blz: str) -> FinTSInstitute:
         pin_tan_url="https://bank.example/fints",
         fints_version="FinTS V3.0",
         last_source_update=date(2026, 3, 7),
-        source_row_checksum=f"checksum-{blz}",
-        source_payload={"blz": blz},
     )

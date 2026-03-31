@@ -1,4 +1,4 @@
-"""PostgreSQL repository for canonical FinTS institute records."""
+"""SQL repository for canonical FinTS institute records."""
 
 from __future__ import annotations
 
@@ -13,8 +13,8 @@ from gateway.domain.banking_gateway import (
 )
 
 
-class PostgresFinTSInstituteRepository(FinTSInstituteRepository):
-    """Persist canonical institute records in PostgreSQL."""
+class SQLFinTSInstituteRepository(FinTSInstituteRepository):
+    """Persist canonical institute records in a SQL database."""
 
     def __init__(self, engine: AsyncEngine) -> None:
         self._engine = engine
@@ -47,6 +47,4 @@ def _row_to_institute(row: object) -> FinTSInstitute:
         pin_tan_url=mapping["pin_tan_url"],
         fints_version=mapping["fints_version"],
         last_source_update=mapping["last_source_update"],
-        source_row_checksum=mapping["source_row_checksum"],
-        source_payload=dict(mapping["source_payload"]),
     )

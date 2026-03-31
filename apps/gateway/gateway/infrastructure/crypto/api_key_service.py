@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import secrets
+from uuid import UUID
 
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerificationError, VerifyMismatchError
@@ -28,8 +29,10 @@ class Argon2ApiKeyService(ApiKeyVerifier):
             parallelism=parallelism,
         )
 
-    def generate(self) -> str:
-        return secrets.token_urlsafe(self._entropy_bytes)
+    def generate(self, consumer_id: UUID) -> str:
+        prefix = consumer_id.hex[:8]
+        token = secrets.token_urlsafe(self._entropy_bytes)
+        return f"{prefix}.{token}"
 
     def hash(self, raw_key: str) -> ApiKeyHash:
         return ApiKeyHash(self._hasher.hash(raw_key))

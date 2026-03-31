@@ -9,7 +9,8 @@ FROM python:3.13-slim AS builder
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
 ENV UV_COMPILE_BYTECODE=1 \
-    UV_LINK_MODE=copy
+    UV_LINK_MODE=copy \
+    UV_PROJECT_ENVIRONMENT=/app/.venv
 
 WORKDIR /build
 
@@ -17,7 +18,7 @@ COPY uv.lock pyproject.toml ./
 COPY packages/gateway-contracts/ packages/gateway-contracts/
 COPY apps/gateway_admin_cli/     apps/gateway_admin_cli/
 
-RUN uv sync --frozen --no-dev --no-editable --no-install-workspace --package gateway-admin-cli
+RUN uv sync --frozen --no-dev --no-editable --package gateway-admin-cli
 
 
 # =============================================================================
@@ -33,7 +34,7 @@ RUN groupadd --system gw-admin && \
 
 WORKDIR /app
 
-COPY --from=builder --chown=gw-admin:gw-admin /build/.venv /app/.venv
+COPY --from=builder --chown=gw-admin:gw-admin /app/.venv /app/.venv
 
 ENV PATH="/app/.venv/bin:$PATH"
 

@@ -9,7 +9,7 @@ from gateway.application.banking.commands.fetch_transactions import (
     FetchTransactionsCommand,
     FetchTransactionsInput,
 )
-from gateway.domain.banking_gateway import BankProtocol, OperationStatus
+from gateway.domain.banking_gateway import BankLeitzahl, BankProtocol, OperationStatus
 
 from ..dependencies import ApiKey, Factory
 from ..schemas.transactions import (
@@ -34,8 +34,8 @@ async def fetch_transactions(
     factory: Factory,
 ) -> JSONResponse:
     command = FetchTransactionsInput(
-        protocol=BankProtocol(body.protocol),
-        blz=body.blz,
+        protocol=BankProtocol.FINTS,
+        blz=BankLeitzahl(body.blz),
         user_id=body.user_id,
         password=body.password.get_secret_value(),
         iban=body.iban,

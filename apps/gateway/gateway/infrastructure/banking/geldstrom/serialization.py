@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from datetime import date
 
+from gateway.domain.banking_gateway.operations import OperationType
 from geldstrom.infrastructure.fints.session import FinTSSessionState
 
 from .models import SerializedPendingOperation
@@ -12,7 +13,7 @@ from .models import SerializedPendingOperation
 
 def serialize_pending_operation(operation: SerializedPendingOperation) -> bytes:
     payload = {
-        "operation_type": operation.operation_type,
+        "operation_type": operation.operation_type.value,
         "bank_code": operation.bank_code,
         "endpoint": operation.endpoint,
         "user_id": operation.user_id,
@@ -30,7 +31,7 @@ def serialize_pending_operation(operation: SerializedPendingOperation) -> bytes:
 def deserialize_pending_operation(payload: bytes) -> SerializedPendingOperation:
     data = json.loads(payload.decode("utf-8"))
     return SerializedPendingOperation(
-        operation_type=data["operation_type"],
+        operation_type=OperationType(data["operation_type"]),
         bank_code=data["bank_code"],
         endpoint=data["endpoint"],
         user_id=data["user_id"],

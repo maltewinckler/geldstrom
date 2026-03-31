@@ -1,7 +1,8 @@
-"""PostgreSQL repository for API consumer aggregates."""
+"""SQL repository for API consumer aggregates."""
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
 from uuid import UUID
 
 from gateway_contracts.schema import api_consumers_table
@@ -15,9 +16,12 @@ from gateway.domain.consumer_access import (
     ConsumerStatus,
 )
 
+if TYPE_CHECKING:
+    from sqlalchemy.engine import RowMapping
 
-class PostgresApiConsumerRepository(ApiConsumerRepository):
-    """Persist API consumer aggregates in PostgreSQL."""
+
+class SQLApiConsumerRepository(ApiConsumerRepository):
+    """Persist API consumer aggregates in a SQL database."""
 
     def __init__(self, engine: AsyncEngine) -> None:
         self._engine = engine
@@ -28,7 +32,7 @@ class PostgresApiConsumerRepository(ApiConsumerRepository):
         )
         async with self._engine.connect() as connection:
             row = (await connection.execute(statement)).mappings().first()
-        return _row_to_consumer(row) if row is not None else None
+        return _row_to_consumer(row)
 
     async def get_by_email(self, email: str) -> ApiConsumer | None:
         statement = select(api_consumers_table).where(
@@ -36,7 +40,7 @@ class PostgresApiConsumerRepository(ApiConsumerRepository):
         )
         async with self._engine.connect() as connection:
             row = (await connection.execute(statement)).mappings().first()
-        return _row_to_consumer(row) if row is not None else None
+        return _row_to_consumer(row)
 
     async def list_all(self) -> list[ApiConsumer]:
         statement = select(api_consumers_table).order_by(
@@ -55,7 +59,9 @@ class PostgresApiConsumerRepository(ApiConsumerRepository):
         return [_row_to_consumer(row) for row in rows]
 
 
-def _row_to_consumer(row: object) -> ApiConsumer:
+def _row_to_consumer(row: RowMapping | None) -> ApiConsumer | None:
+    if row is None:
+        return None
     mapping = dict(row)
     return ApiConsumer(
         consumer_id=mapping["consumer_id"],

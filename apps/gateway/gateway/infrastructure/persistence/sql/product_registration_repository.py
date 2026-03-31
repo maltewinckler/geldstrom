@@ -1,4 +1,4 @@
-"""PostgreSQL repository for the shared FinTS product registration."""
+"""SQL repository for the shared FinTS product registration."""
 
 from __future__ import annotations
 
@@ -12,8 +12,8 @@ from gateway.domain.banking_gateway import (
 )
 
 
-class PostgresFinTSProductRegistrationRepository(FinTSProductRegistrationRepository):
-    """Persist the singleton product registration in PostgreSQL."""
+class SQLFinTSProductRegistrationRepository(FinTSProductRegistrationRepository):
+    """Persist the singleton product registration in a SQL database."""
 
     def __init__(self, engine: AsyncEngine) -> None:
         self._engine = engine

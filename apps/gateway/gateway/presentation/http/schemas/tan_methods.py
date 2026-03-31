@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, SecretStr
 
@@ -11,8 +11,8 @@ from pydantic import BaseModel, Field, SecretStr
 class GetTanMethodsRequest(BaseModel):
     model_config = {"extra": "forbid"}
 
-    protocol: str
-    blz: str
+    protocol: Literal["fints"]
+    blz: str = Field(min_length=8, max_length=8, pattern=r"^\d{8}$")
     user_id: str = Field(max_length=64)
     password: SecretStr
     tan_method: str | None = Field(default=None, max_length=64)

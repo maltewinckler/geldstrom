@@ -10,8 +10,6 @@ from uuid import UUID
 
 from gateway.domain import DomainError
 
-_ALLOWED_OPERATION_TYPES = ("accounts", "balances", "transactions", "tan_methods")
-
 
 class BankProtocol(StrEnum):
     """Externally selectable banking protocols supported by the gateway."""
@@ -26,6 +24,15 @@ class OperationStatus(StrEnum):
     COMPLETED = "completed"
     FAILED = "failed"
     EXPIRED = "expired"
+
+
+class OperationType(StrEnum):
+    """Supported banking operation types."""
+
+    ACCOUNTS = "accounts"
+    BALANCES = "balances"
+    TRANSACTIONS = "transactions"
+    TAN_METHODS = "tan_methods"
 
 
 @dataclass(frozen=True)
@@ -50,8 +57,8 @@ class PendingOperationSession:
     operation_id: str
     consumer_id: UUID
     protocol: BankProtocol
-    operation_type: str
-    session_state: bytes
+    operation_type: OperationType
+    session_state: bytes | None
     status: OperationStatus
     created_at: datetime
     expires_at: datetime
@@ -62,12 +69,14 @@ class PendingOperationSession:
     def __post_init__(self) -> None:
         if not self.operation_id.strip():
             raise DomainError("PendingOperationSession.operation_id must not be empty")
-        if self.operation_type not in _ALLOWED_OPERATION_TYPES:
+        if (
+            self.status is OperationStatus.PENDING_CONFIRMATION
+            and not self.session_state
+        ):
             raise DomainError(
-                "PendingOperationSession.operation_type must be accounts, transactions, or tan_methods"
+                "PendingOperationSession.session_state must not be empty "
+                "for pending sessions"
             )
-        if not self.session_state:
-            raise DomainError("PendingOperationSession.session_state must not be empty")
         if self.expires_at <= self.created_at:
             raise DomainError(
                 "PendingOperationSession.expires_at must be after created_at"
