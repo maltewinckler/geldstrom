@@ -1,44 +1,13 @@
-name: geldstrom CI
+name: geldstrom version check
 
+# Runs only on PRs that touch the geldstrom library package.
+# Lint and tests are handled by the broader ci.yml workflow.
 on:
   pull_request:
     paths:
       - "packages/geldstrom/**"
-      - "tests/packages/geldstrom/**"
 
 jobs:
-  lint:
-    name: Ruff lint
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: astral-sh/setup-uv@v5
-        with:
-          python-version: "3.13"
-
-      - name: Install dependencies
-        run: uv sync --frozen --all-packages
-
-      - name: Run ruff check
-        run: uv run ruff check packages/geldstrom/
-
-  test:
-    name: Unit tests
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: astral-sh/setup-uv@v5
-        with:
-          python-version: "3.13"
-
-      - name: Install dependencies
-        run: uv sync --frozen --all-packages
-
-      - name: Run unit tests
-        run: uv run pytest tests/packages/geldstrom/unit/ -v --tb=short
-
   version-check:
     name: Version bump check
     runs-on: ubuntu-latest
