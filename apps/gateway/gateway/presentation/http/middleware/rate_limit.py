@@ -2,19 +2,25 @@
 
 from __future__ import annotations
 
+import hashlib
 import time
-from collections import defaultdict, deque
+from collections import deque
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
+# Hard cap on tracked callers to prevent OOM under key-rotation attacks.
+# When reached, the oldest inserted entry is evicted (FIFO).
+_MAX_BUCKETS = 50_000
+
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
     """Reject requests exceeding ``requests_per_minute`` per API key / IP.
 
-    The caller key is the raw ``Authorization`` header value when present
-    (e.g. ``Bearer <token>``), otherwise the client IP address.
+    The caller key is a SHA-256 hash of the ``Authorization`` header value
+    when present (e.g. ``Bearer <token>``), otherwise a hash of the client IP
+    address.  Hashing prevents raw API keys from being stored as dict keys.
 
     Uses a per-caller sliding window — no reset spike at the boundary.
 
@@ -28,28 +34,40 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         super().__init__(app)
         self._limit = requests_per_minute
         self._window: float = 60.0
-        # caller key → deque of monotonic request timestamps within the window
-        self._buckets: defaultdict[str, deque[float]] = defaultdict(deque)
+        # caller key → deque of monotonic request timestamps within the window.
+        # Regular dict so we control membership (no defaultdict auto-recreate).
+        self._buckets: dict[str, deque[float]] = {}
+
+    def _get_auth_key(self, request: Request) -> str:
+        client_host = request.client.host if request.client else "unknown"
+        raw = request.headers.get("Authorization", client_host)
+        return hashlib.sha256(raw.encode()).hexdigest()
 
     async def dispatch(self, request: Request, call_next):  # type: ignore[override]
         if request.url.path.startswith("/health"):
             return await call_next(request)
 
-        key = request.headers.get("Authorization") or (
-            request.client.host if request.client else "unknown"
-        )
+        key = self._get_auth_key(request)
         now = time.monotonic()
-        bucket = self._buckets[key]
         cutoff = now - self._window
 
-        # Trim timestamps that have left the sliding window
-        while bucket and bucket[0] <= cutoff:
-            bucket.popleft()
+        bucket = self._buckets.get(key)
+        if bucket is not None:
+            # Trim timestamps that have left the sliding window.
+            while bucket and bucket[0] <= cutoff:
+                bucket.popleft()
+            # Free empty entries so stale callers don't linger in memory.
+            if not bucket:
+                del self._buckets[key]
+                bucket = None
 
-        # Opportunistically free empty buckets to bound memory usage
-        if not bucket and key in self._buckets:
-            del self._buckets[key]
-            bucket = self._buckets[key]
+        if bucket is None:
+            # Evict the oldest entry when at capacity to bound memory usage.
+            if len(self._buckets) >= _MAX_BUCKETS:
+                oldest_key = next(iter(self._buckets))
+                del self._buckets[oldest_key]
+            bucket = deque()
+            self._buckets[key] = bucket
 
         if len(bucket) >= self._limit:
             return JSONResponse(

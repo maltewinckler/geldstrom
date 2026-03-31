@@ -47,15 +47,14 @@ def test_active_consumer_must_have_hash() -> None:
         )
 
 
-def test_deleted_consumer_cannot_be_reactivated_directly() -> None:
+def test_consumer_is_frozen() -> None:
     consumer = ApiConsumer(
         consumer_id=UUID("12345678-1234-5678-1234-567812345678"),
         email="user@example.com",
         api_key_hash=ApiKeyHash("argon2id$hash"),
-        status=ConsumerStatus.DISABLED,
+        status=ConsumerStatus.ACTIVE,
         created_at=datetime.now(UTC),
     )
-    consumer.mark_deleted()
 
-    with pytest.raises(DomainError, match="cannot be reactivated"):
-        consumer.reactivate(ApiKeyHash("argon2id$new-hash"))
+    with pytest.raises(Exception):
+        consumer.email = "other@example.com"

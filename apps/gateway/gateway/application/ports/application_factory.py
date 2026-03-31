@@ -9,6 +9,7 @@ from gateway.domain.banking_gateway import BankingConnector
 from gateway.domain.consumer_access import ApiKeyVerifier
 
 from .cache_factory import CacheFactory
+from .gateway_readiness_service import GatewayReadinessPort
 from .repository_factory import RepositoryFactory
 
 
@@ -35,3 +36,7 @@ class ApplicationFactory(Protocol):
 
     @property
     def operation_session_ttl_seconds(self) -> int: ...
+
+    # --- Readiness ---
+    @property
+    def readiness_service(self) -> GatewayReadinessPort: ...

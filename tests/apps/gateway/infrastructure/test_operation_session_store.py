@@ -13,6 +13,7 @@ from gateway.application.common import InternalError
 from gateway.domain.banking_gateway import (
     BankProtocol,
     OperationStatus,
+    OperationType,
     PendingOperationSession,
 )
 from gateway.infrastructure.cache.memory import InMemoryOperationSessionStore
@@ -101,7 +102,7 @@ def _session(
         operation_id=operation_id,
         consumer_id=UUID("12345678-1234-5678-1234-567812345678"),
         protocol=BankProtocol.FINTS,
-        operation_type="accounts",
+        operation_type=OperationType.ACCOUNTS,
         session_state=b"session-state",
         status=status,
         created_at=datetime(2026, 3, 7, 12, 0, tzinfo=UTC),

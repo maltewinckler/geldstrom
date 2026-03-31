@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import base64
 import secrets
 
 from argon2 import PasswordHasher
@@ -13,7 +12,12 @@ _KEY_BYTES = 32
 
 
 class Argon2AdminApiKeyService:
-    """Generates cryptographically secure API keys and hashes them with Argon2id."""
+    """Generates cryptographically secure API keys and hashes them with Argon2id.
+
+    Keys are prefixed with the first 8 hex characters of the consumer UUID
+    so the gateway can perform O(1) consumer lookup before running Argon2.
+    Format: ``{prefix}.{token}``
+    """
 
     def __init__(
         self,
@@ -28,12 +32,10 @@ class Argon2AdminApiKeyService:
             parallelism=parallelism,
         )
 
-    def generate(self) -> str:
-        return (
-            base64.urlsafe_b64encode(secrets.token_bytes(_KEY_BYTES))
-            .decode("ascii")
-            .rstrip("=")
-        )
+    def generate(self, consumer_id: str) -> str:
+        prefix = consumer_id.replace("-", "")[:8]
+        token = secrets.token_urlsafe(_KEY_BYTES)
+        return f"{prefix}.{token}"
 
     def hash(self, raw_key: str) -> ApiKeyHash:
         return ApiKeyHash(self._hasher.hash(raw_key))

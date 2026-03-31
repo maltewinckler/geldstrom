@@ -63,7 +63,7 @@ def test_get_tan_methods_filters_to_decoupled_methods() -> None:
         )
     )
 
-    result = asyncio.run(use_case(_request(), presented_api_key="api-key-1"))
+    result = asyncio.run(use_case(_request(), presented_api_key="12345678.api-key-1"))
 
     assert result.status is OperationStatus.COMPLETED
     assert result.methods == [
@@ -91,7 +91,7 @@ def test_get_tan_methods_creates_pending_session_for_decoupled_flow() -> None:
         id_provider=FakeIdProvider(now_value=now, operation_ids=["op-123"]),
     )
 
-    result = asyncio.run(use_case(_request(), presented_api_key="api-key-1"))
+    result = asyncio.run(use_case(_request(), presented_api_key="12345678.api-key-1"))
     stored_session = asyncio.run(resolved_session_store.get("op-123"))
 
     assert result.status is OperationStatus.PENDING_CONFIRMATION
@@ -119,7 +119,7 @@ def test_get_tan_methods_session_expires_at_is_capped_by_gateway_ttl() -> None:
         ttl_seconds=120,
     )
 
-    result = asyncio.run(use_case(_request(), presented_api_key="api-key-1"))
+    result = asyncio.run(use_case(_request(), presented_api_key="12345678.api-key-1"))
     stored_session = asyncio.run(session_store.get("op-ttl"))
 
     assert result.expires_at == now + timedelta(seconds=120)
@@ -138,7 +138,7 @@ def _build_use_case(
     consumer = ApiConsumer(
         consumer_id=UUID("12345678-1234-5678-1234-567812345678"),
         email="consumer@example.com",
-        api_key_hash=ApiKeyHash("api-key-1"),
+        api_key_hash=ApiKeyHash("12345678.api-key-1"),
         status=ConsumerStatus.ACTIVE,
         created_at=datetime.now(UTC),
     )
@@ -187,6 +187,4 @@ def _institute() -> FinTSInstitute:
         pin_tan_url="https://bank.example/fints",
         fints_version="3.0",
         last_source_update=datetime(2026, 3, 7, tzinfo=UTC).date(),
-        source_row_checksum="checksum-1",
-        source_payload={"row": 1},
     )

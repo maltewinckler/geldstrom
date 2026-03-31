@@ -9,7 +9,6 @@ from gateway.application.common import ForbiddenError, UnauthorizedError
 from gateway.domain.consumer_access import (
     ApiKeyVerifier,
     ConsumerCache,
-    ConsumerStatus,
 )
 
 if TYPE_CHECKING:
@@ -32,15 +31,21 @@ class AuthenticateConsumerQuery:
         return cls(factory.caches.consumer, factory.api_key_verifier)
 
     async def __call__(self, presented_key: str) -> UUID:
-        consumers = await self._consumer_cache.list_all()
-        for consumer in consumers:
-            if consumer.api_key_hash is None:
-                continue
-            if not self._api_key_verifier.verify(presented_key, consumer.api_key_hash):
-                continue
-            if consumer.status is ConsumerStatus.DISABLED:
-                raise ForbiddenError("API consumer is disabled")
-            if consumer.status is not ConsumerStatus.ACTIVE:
-                break
-            return consumer.consumer_id
-        raise UnauthorizedError("Invalid API key")
+        prefix, _, secret = presented_key.partition(".")
+        if not secret:
+            raise UnauthorizedError("Invalid API key")
+
+        consumer = await self._consumer_cache.get_by_key_prefix(prefix)
+        if consumer is None:
+            raise UnauthorizedError("Invalid API key")
+
+        if consumer.is_disabled():
+            raise ForbiddenError("API consumer is disabled")
+
+        # consumer.api_key_hash is non-None here: the ACTIVE invariant on
+        # ApiConsumer guarantees it (enforced by _check_active_has_hash).
+        # Cache only holds ACTIVE and DISABLED, so not-disabled implies active.
+        if not self._api_key_verifier.verify(presented_key, consumer.api_key_hash):  # type: ignore[arg-type]
+            raise UnauthorizedError("Invalid API key")
+
+        return consumer.consumer_id

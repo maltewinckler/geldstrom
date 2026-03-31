@@ -9,13 +9,13 @@ from typing import TYPE_CHECKING, Self
 from gateway.application.common import (
     IdProvider,
     InstitutionNotFoundError,
-    UnsupportedProtocolError,
     ValidationError,
     cap_session_expires_at,
 )
 from gateway.application.consumer.queries.authenticate_consumer import (
     AuthenticateConsumerQuery,
 )
+from gateway.domain import DomainError
 from gateway.domain.banking_gateway import (
     BankingConnector,
     BankLeitzahl,
@@ -23,6 +23,7 @@ from gateway.domain.banking_gateway import (
     FinTSInstituteRepository,
     OperationSessionStore,
     OperationStatus,
+    OperationType,
     PendingOperationSession,
     PresentedBankCredentials,
     RequestedIban,
@@ -47,6 +48,14 @@ class FetchTransactionsInput:
     end_date: date | None = None
     tan_method: str | None = None
     tan_medium: str | None = None
+
+    @property
+    def validated_iban(self) -> RequestedIban:
+        """Parse and validate the IBAN, raising ValidationError on bad input."""
+        try:
+            return RequestedIban(self.iban)
+        except DomainError as exc:
+            raise ValidationError(str(exc)) from exc
 
 
 class FetchTransactionsCommand:
@@ -84,11 +93,6 @@ class FetchTransactionsCommand:
         request: FetchTransactionsInput,
         presented_api_key: str,
     ) -> TransactionsResultEnvelope:
-        if request.protocol is not BankProtocol.FINTS:
-            raise UnsupportedProtocolError(
-                f"Unsupported banking protocol: {request.protocol.value}"
-            )
-
         authenticated_consumer = await self._authenticate_consumer(presented_api_key)
         credentials = PresentedBankCredentials(
             user_id=request.user_id,
@@ -105,7 +109,7 @@ class FetchTransactionsCommand:
         result = await self._connector.fetch_transactions(
             institute,
             credentials,
-            RequestedIban(request.iban),
+            request.validated_iban,
             start_date,
             end_date,
         )
@@ -120,7 +124,7 @@ class FetchTransactionsCommand:
                 operation_id=operation_id,
                 consumer_id=authenticated_consumer,
                 protocol=request.protocol,
-                operation_type="transactions",
+                operation_type=OperationType.TRANSACTIONS,
                 session_state=result.session_state,
                 status=OperationStatus.PENDING_CONFIRMATION,
                 created_at=created_at,

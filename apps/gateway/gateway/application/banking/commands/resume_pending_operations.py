@@ -17,13 +17,6 @@ from ..dtos.resume_pending_operations import ResumeSummary
 if TYPE_CHECKING:
     from gateway.application.ports import ApplicationFactory
 
-# Sentinel written to session_state when a session is finished.
-# The FinTS session state (which may contain credential material) is cleared
-# as soon as the operation reaches a terminal state (COMPLETED, FAILED, EXPIRED).
-# The bytes value satisfies the non-empty `session_state: bytes` domain invariant
-# while signalling to any reader that there is no live session remaining.
-_CLEARED_SESSION_STATE = b"cleared"
-
 
 class ResumePendingOperationsCommand:
     """Poll pending operation sessions and transition them forward."""
@@ -63,7 +56,7 @@ class ResumePendingOperationsCommand:
                 expired_session = replace(
                     session,
                     status=OperationStatus.EXPIRED,
-                    session_state=_CLEARED_SESSION_STATE,
+                    session_state=None,
                 )
                 await self._session_store.update(expired_session)
                 summary = replace(summary, expired_count=summary.expired_count + 1)
@@ -87,7 +80,7 @@ class ResumePendingOperationsCommand:
                     session,
                     status=OperationStatus.COMPLETED,
                     result_payload=result.result_payload,
-                    session_state=_CLEARED_SESSION_STATE,
+                    session_state=None,
                     expires_at=result.expires_at or session.expires_at,
                     last_polled_at=now,
                 )
@@ -100,7 +93,7 @@ class ResumePendingOperationsCommand:
                     session,
                     status=OperationStatus.FAILED,
                     failure_reason=result.failure_reason,
-                    session_state=_CLEARED_SESSION_STATE,
+                    session_state=None,
                     expires_at=result.expires_at or session.expires_at,
                     last_polled_at=now,
                 )
@@ -112,7 +105,7 @@ class ResumePendingOperationsCommand:
                 expired_session = replace(
                     session,
                     status=OperationStatus.EXPIRED,
-                    session_state=_CLEARED_SESSION_STATE,
+                    session_state=None,
                     expires_at=result.expires_at or session.expires_at,
                     last_polled_at=now,
                 )

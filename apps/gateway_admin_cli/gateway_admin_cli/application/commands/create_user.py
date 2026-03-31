@@ -46,9 +46,10 @@ class CreateUserCommand:
                 f"User with email {normalized_email.value} already exists"
             )
 
-        raw_key = self._api_key_service.generate()
+        user_id = self._id_provider.new_operation_id()
+        raw_key = self._api_key_service.generate(user_id)
         user = User(
-            user_id=UserId(UUID(self._id_provider.new_operation_id())),
+            user_id=UserId(UUID(user_id)),
             email=normalized_email,
             api_key_hash=self._api_key_service.hash(raw_key),
             status=UserStatus.ACTIVE,

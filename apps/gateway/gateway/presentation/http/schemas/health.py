@@ -9,3 +9,18 @@ class LivenessResponse(BaseModel):
     model_config = {"extra": "forbid"}
 
     status: str
+
+
+class ReadinessCheck(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    db: str
+    product_key: str
+    catalog: str
+
+
+class ReadinessResponse(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    status: str
+    checks: ReadinessCheck

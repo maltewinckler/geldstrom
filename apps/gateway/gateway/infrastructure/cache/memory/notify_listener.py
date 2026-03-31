@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-import json
 import logging
 from uuid import UUID
 
@@ -13,6 +12,7 @@ from gateway_contracts.channels import (
     CATALOG_REPLACED_CHANNEL,
     CONSUMER_UPDATED_CHANNEL,
 )
+from gateway_contracts.payloads import ConsumerUpdatedPayload
 from sqlalchemy.engine import URL, make_url
 
 from gateway.domain.banking_gateway import (
@@ -176,21 +176,23 @@ class PostgresNotifyListener:
             )
 
     async def _dispatch_notification(self, channel: str, payload: str) -> None:
-        data = _parse_payload(payload)
         if channel == CONSUMER_UPDATED_CHANNEL:
-            await self._refresh_consumer(data)
+            try:
+                parsed = ConsumerUpdatedPayload.deserialize(payload)
+            except (ValueError, KeyError):
+                logger.warning("Invalid consumer_updated payload: %s", payload)
+                return
+            await self._refresh_consumer(parsed)
             return
         if channel == CATALOG_REPLACED_CHANNEL:
             await self._refresh_catalog()
             return
 
-    async def _refresh_consumer(self, payload: dict[str, object]) -> None:
-        raw_consumer_id = payload.get("consumer_id")
-        if not isinstance(raw_consumer_id, str):
-            return
-        consumer = await self._consumer_repository.get_by_id(UUID(raw_consumer_id))
+    async def _refresh_consumer(self, payload: ConsumerUpdatedPayload) -> None:
+        consumer_id = UUID(payload.consumer_id)
+        consumer = await self._consumer_repository.get_by_id(consumer_id)
         if consumer is None:
-            await self._consumer_cache.evict(UUID(raw_consumer_id))
+            await self._consumer_cache.evict(consumer_id)
             return
         await self._consumer_cache.reload_one(consumer)
 
@@ -201,13 +203,6 @@ class PostgresNotifyListener:
 
 def _normalize_database_url(database_url: str) -> URL:
     return make_url(database_url).set(drivername="postgresql")
-
-
-def _parse_payload(payload: str) -> dict[str, object]:
-    if not payload:
-        return {}
-    data = json.loads(payload)
-    return data if isinstance(data, dict) else {}
 
 
 async def _wait_for_first(*awaitables: object) -> None:

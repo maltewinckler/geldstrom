@@ -9,7 +9,7 @@ from gateway.application.banking.commands.get_balances import (
     GetBalancesCommand,
     GetBalancesInput,
 )
-from gateway.domain.banking_gateway import BankProtocol, OperationStatus
+from gateway.domain.banking_gateway import BankLeitzahl, BankProtocol, OperationStatus
 
 from ..dependencies import ApiKey, Factory
 from ..schemas.balances import (
@@ -34,8 +34,8 @@ async def get_balances(
     factory: Factory,
 ) -> JSONResponse:
     command = GetBalancesInput(
-        protocol=BankProtocol(body.protocol),
-        blz=body.blz,
+        protocol=BankProtocol.FINTS,
+        blz=BankLeitzahl(body.blz),
         user_id=body.user_id,
         password=body.password.get_secret_value(),
         tan_method=body.tan_method,

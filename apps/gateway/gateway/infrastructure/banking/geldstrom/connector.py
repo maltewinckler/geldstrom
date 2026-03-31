@@ -16,6 +16,7 @@ from gateway.domain.banking_gateway import (
     BankingConnector,
     FinTSInstitute,
     OperationStatus,
+    OperationType,
     ResumeResult,
     TanMethod,
     TanMethodsResult,
@@ -176,7 +177,7 @@ class GeldstromBankingConnector(BankingConnector):
             return AccountsResult(
                 status=OperationStatus.PENDING_CONFIRMATION,
                 session_state=self._serialize_pending_state(
-                    operation_type="accounts",
+                    operation_type=OperationType.ACCOUNTS,
                     institute=institute,
                     credentials=credentials,
                     session_state=pending.session_state,
@@ -212,7 +213,7 @@ class GeldstromBankingConnector(BankingConnector):
             return TransactionsResult(
                 status=OperationStatus.PENDING_CONFIRMATION,
                 session_state=self._serialize_pending_state(
-                    operation_type="transactions",
+                    operation_type=OperationType.TRANSACTIONS,
                     institute=institute,
                     credentials=credentials,
                     session_state=pending.session_state,
@@ -240,7 +241,7 @@ class GeldstromBankingConnector(BankingConnector):
             return BalancesResult(
                 status=OperationStatus.PENDING_CONFIRMATION,
                 session_state=self._serialize_pending_state(
-                    operation_type="balances",
+                    operation_type=OperationType.BALANCES,
                     institute=institute,
                     credentials=credentials,
                     session_state=pending.session_state,
@@ -265,7 +266,7 @@ class GeldstromBankingConnector(BankingConnector):
             return TanMethodsResult(
                 status=OperationStatus.PENDING_CONFIRMATION,
                 session_state=self._serialize_pending_state(
-                    operation_type="tan_methods",
+                    operation_type=OperationType.TAN_METHODS,
                     institute=institute,
                     credentials=credentials,
                     session_state=pending.session_state,
@@ -292,8 +293,6 @@ class GeldstromBankingConnector(BankingConnector):
             pin_tan_url=pending_state.endpoint or None,
             fints_version=None,
             last_source_update=None,
-            source_row_checksum="resumed-session",
-            source_payload={},
         )
         credentials = PresentedBankCredentials(
             user_id=pending_state.user_id,
@@ -307,7 +306,7 @@ class GeldstromBankingConnector(BankingConnector):
         )
 
         try:
-            if pending_state.operation_type == "balances":
+            if pending_state.operation_type is OperationType.BALANCES:
                 balances = client.get_balances()
                 return ResumeResult(
                     status=OperationStatus.COMPLETED,
@@ -315,7 +314,7 @@ class GeldstromBankingConnector(BankingConnector):
                         "balances": [_serialize_balance(b) for b in balances]
                     },
                 )
-            if pending_state.operation_type == "accounts":
+            if pending_state.operation_type is OperationType.ACCOUNTS:
                 accounts = client.list_accounts()
                 return ResumeResult(
                     status=OperationStatus.COMPLETED,
@@ -325,7 +324,7 @@ class GeldstromBankingConnector(BankingConnector):
                         ]
                     },
                 )
-            if pending_state.operation_type == "transactions":
+            if pending_state.operation_type is OperationType.TRANSACTIONS:
                 account = self._find_account_by_iban(
                     client.list_accounts(),
                     RequestedIban(pending_state.iban or ""),
@@ -346,7 +345,7 @@ class GeldstromBankingConnector(BankingConnector):
                     status=OperationStatus.COMPLETED,
                     result_payload={"transactions": _serialize_transactions(feed)},
                 )
-            if pending_state.operation_type == "tan_methods":
+            if pending_state.operation_type is OperationType.TAN_METHODS:
                 methods = client.get_tan_methods()
                 return ResumeResult(
                     status=OperationStatus.COMPLETED,
@@ -426,7 +425,7 @@ class GeldstromBankingConnector(BankingConnector):
     def _serialize_pending_state(
         self,
         *,
-        operation_type: str,
+        operation_type: OperationType,
         institute: FinTSInstitute,
         credentials: PresentedBankCredentials,
         session_state,

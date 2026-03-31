@@ -46,7 +46,7 @@ class ReactivateUserCommand:
         if user.status is UserStatus.ACTIVE:
             raise ValidationError("User is already active")
 
-        raw_key = self._api_key_service.generate()
+        raw_key = self._api_key_service.generate(str(user.user_id))
         api_key_hash = self._api_key_service.hash(raw_key)
         user.reactivate(api_key_hash)
         user.rotated_at = self._id_provider.now()

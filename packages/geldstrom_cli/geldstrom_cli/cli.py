@@ -136,7 +136,7 @@ def health(
         )
     except Exception as exc:
         console.print(f"[red]Gateway unreachable:[/red] {exc}")
-        raise typer.Exit(1)
+        raise typer.Exit(1)  # noqa: B904
 
 
 @app.command()
@@ -165,7 +165,7 @@ def accounts(
         print_accounts(console, acct_list)
     except GatewayError as exc:
         console.print(f"[red]Error {exc.status_code}:[/red] {exc.detail}")
-        raise typer.Exit(1)
+        raise typer.Exit(1)  # noqa: B904
 
 
 @app.command(name="tan-methods")
@@ -194,7 +194,7 @@ def tan_methods(
         print_tan_methods(console, methods_list)
     except GatewayError as exc:
         console.print(f"[red]Error {exc.status_code}:[/red] {exc.detail}")
-        raise typer.Exit(1)
+        raise typer.Exit(1)  # noqa: B904
 
 
 @app.command()
@@ -223,7 +223,7 @@ def balances(
         print_balances(console, balances_list)
     except GatewayError as exc:
         console.print(f"[red]Error {exc.status_code}:[/red] {exc.detail}")
-        raise typer.Exit(1)
+        raise typer.Exit(1)  # noqa: B904
 
 
 @app.command()
@@ -276,4 +276,4 @@ def transactions(
         print_transactions(console, tx_list)
     except GatewayError as exc:
         console.print(f"[red]Error {exc.status_code}:[/red] {exc.detail}")
-        raise typer.Exit(1)
+        raise typer.Exit(1)  # noqa: B904

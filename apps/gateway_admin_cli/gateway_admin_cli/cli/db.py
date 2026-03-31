@@ -10,7 +10,10 @@ from rich.console import Console
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
+from gateway_admin_cli.application.commands import UpdateProductRegistrationCommand
 from gateway_admin_cli.config import get_settings
+
+from ._common import build_factory
 
 app = typer.Typer(name="db", help="Manage the database schema.")
 console = Console()
@@ -39,16 +42,16 @@ def init_db() -> None:
             async with engine.connect() as conn:
                 exists = await conn.scalar(
                     text("SELECT 1 FROM pg_database WHERE datname = :name"),
-                    {"name": s.db_name},
+                    {"name": s.postgres_db},
                 )
             if exists:
-                console.print(f"[dim]Database '{s.db_name}' already exists.[/dim]")
+                console.print(f"[dim]Database '{s.postgres_db}' already exists.[/dim]")
             else:
                 async with engine.connect() as conn:
                     await conn.execute(
-                        text(f"CREATE DATABASE {_quote_ident(s.db_name)}")
+                        text(f"CREATE DATABASE {_quote_ident(s.postgres_db)}")
                     )
-                console.print(f"[green]Created database '{s.db_name}'.[/green]")
+                console.print(f"[green]Created database '{s.postgres_db}'.[/green]")
         finally:
             await engine.dispose()
 
@@ -95,6 +98,16 @@ def init_db() -> None:
 
         tables = ", ".join(sorted(metadata.tables))
         console.print(f"[green]Tables ready:[/green] {tables}")
+
+        async with build_factory() as factory:
+            result = await UpdateProductRegistrationCommand.from_factory(
+                factory,
+                product_version=s.fints_product_version,
+            )(s.fints_product_registration_key)
+        console.print(
+            f"[green]Product registration ready.[/green] "
+            f"version={result.product_version}"
+        )
 
     asyncio.run(_run())
 

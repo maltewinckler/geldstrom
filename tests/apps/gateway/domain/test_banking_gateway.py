@@ -9,6 +9,7 @@ from gateway.domain import DomainError
 from gateway.domain.banking_gateway import (
     BankProtocol,
     OperationStatus,
+    OperationType,
     PendingOperationSession,
     PresentedBankCredentials,
     RequestedIban,
@@ -40,7 +41,7 @@ def test_pending_operation_session_constructs_with_pending_state() -> None:
         operation_id="operation-123",
         consumer_id=UUID("12345678-1234-5678-1234-567812345678"),
         protocol=BankProtocol.FINTS,
-        operation_type="transactions",
+        operation_type=OperationType.TRANSACTIONS,
         session_state=b"opaque-session-state",
         status=OperationStatus.PENDING_CONFIRMATION,
         created_at=created_at,

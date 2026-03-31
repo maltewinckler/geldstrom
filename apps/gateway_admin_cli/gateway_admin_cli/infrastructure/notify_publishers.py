@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-import json
-
 from gateway_contracts.channels import (
     CATALOG_REPLACED_CHANNEL,
     CONSUMER_UPDATED_CHANNEL,
     PRODUCT_REGISTRATION_UPDATED_CHANNEL,
 )
+from gateway_contracts.payloads import ConsumerUpdatedPayload
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
@@ -26,11 +25,13 @@ class PostgresUserCacheWriter:
         self._engine = engine
 
     async def reload_one(self, user: User) -> None:
-        payload = json.dumps({"consumer_id": str(user.user_id)})
+        payload = ConsumerUpdatedPayload(
+            consumer_id=str(user.user_id),
+        )
         async with self._engine.begin() as conn:
             await conn.execute(
                 _NOTIFY_SQL,
-                {"channel": CONSUMER_UPDATED_CHANNEL, "payload": payload},
+                {"channel": CONSUMER_UPDATED_CHANNEL, "payload": payload.serialize()},
             )
 
 

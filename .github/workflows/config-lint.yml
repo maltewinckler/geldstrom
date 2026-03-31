@@ -1,0 +1,26 @@
+name: Config safety lint
+
+on:
+  push:
+    paths:
+      - "config/**"
+  pull_request:
+    paths:
+      - "config/**"
+
+jobs:
+  check-placeholder-credentials:
+    name: Reject placeholder credentials
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fail if any non-example env file contains 'change_me'
+        run: |
+          # Only check .env files, not .env.example files
+          if grep -rn "change_me" config/ --include="*.env" \
+                 --exclude="*.example"; then
+            echo "::error::Placeholder 'change_me' found in a config/*.env file. Replace with real values."
+            exit 1
+          fi
+          echo "No placeholder credentials found ✓"

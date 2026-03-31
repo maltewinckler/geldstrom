@@ -41,3 +41,6 @@ class ConsumerCache(Protocol):
 
     async def reload_one(self, consumer: ApiConsumer) -> None:
         """Insert or update a single consumer in the cache."""
+
+    async def get_by_key_prefix(self, prefix: str) -> ApiConsumer | None:
+        """Look up a consumer by the first 8 hex chars of the API key."""

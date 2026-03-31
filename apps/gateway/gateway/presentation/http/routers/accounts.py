@@ -9,7 +9,7 @@ from gateway.application.banking.commands.list_accounts import (
     ListAccountsCommand,
     ListAccountsInput,
 )
-from gateway.domain.banking_gateway import BankProtocol, OperationStatus
+from gateway.domain.banking_gateway import BankLeitzahl, BankProtocol, OperationStatus
 
 from ..dependencies import ApiKey, Factory
 from ..schemas.accounts import (
@@ -34,8 +34,8 @@ async def list_accounts(
     factory: Factory,
 ) -> JSONResponse:
     command = ListAccountsInput(
-        protocol=BankProtocol(body.protocol),
-        blz=body.blz,
+        protocol=BankProtocol.FINTS,
+        blz=BankLeitzahl(body.blz),
         user_id=body.user_id,
         password=body.password.get_secret_value(),
         tan_method=body.tan_method,

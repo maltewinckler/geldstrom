@@ -16,6 +16,7 @@ from .middleware.cache_control import CacheControlMiddleware
 from .middleware.exception_handlers import application_error_handler
 from .middleware.rate_limit import RateLimitMiddleware
 from .middleware.request_id import RequestIDMiddleware
+from .middleware.security_headers import SecurityHeadersMiddleware
 from .routers import accounts, balances, health, operations, tan_methods, transactions
 
 logger = logging.getLogger(__name__)
@@ -58,6 +59,7 @@ def create_app() -> FastAPI:
     )
 
     # Middleware (registered last = outermost wrap)
+    app.add_middleware(SecurityHeadersMiddleware)
     app.add_middleware(CacheControlMiddleware)
     app.add_middleware(RequestIDMiddleware)
     app.add_middleware(

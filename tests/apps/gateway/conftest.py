@@ -19,7 +19,7 @@ from gateway_contracts.schema import (
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from gateway.infrastructure.persistence.postgres.connection import build_engine
+from gateway.infrastructure.persistence.sql.connection import build_engine
 
 
 def _ensure_docker_host() -> None:

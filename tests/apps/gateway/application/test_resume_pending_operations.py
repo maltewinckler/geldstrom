@@ -12,6 +12,7 @@ from gateway.application.banking.commands.resume_pending_operations import (
 from gateway.domain.banking_gateway import (
     BankProtocol,
     OperationStatus,
+    OperationType,
     PendingOperationSession,
     ResumeResult,
 )
@@ -44,7 +45,7 @@ def test_resume_pending_operations_transitions_pending_to_completed() -> None:
     assert summary.completed_count == 1
     assert stored_session is not None
     assert stored_session.status is OperationStatus.COMPLETED
-    assert stored_session.session_state == b"cleared"
+    assert stored_session.session_state is None
     assert stored_session.result_payload == {
         "accounts": [{"iban": "DE89370400440532013000"}]
     }
@@ -72,7 +73,7 @@ def test_resume_pending_operations_transitions_pending_to_failed() -> None:
     assert summary.failed_count == 1
     assert stored_session is not None
     assert stored_session.status is OperationStatus.FAILED
-    assert stored_session.session_state == b"cleared"
+    assert stored_session.session_state is None
     assert stored_session.failure_reason == "bank rejected confirmation"
 
 
@@ -99,7 +100,7 @@ def test_resume_pending_operations_transitions_pending_to_expired() -> None:
     assert summary.expired_count == 1
     assert stored_session is not None
     assert stored_session.status is OperationStatus.EXPIRED
-    assert stored_session.session_state == b"cleared"
+    assert stored_session.session_state is None
 
 
 def test_resume_pending_operations_purges_stale_terminal_sessions() -> None:
@@ -110,8 +111,8 @@ def test_resume_pending_operations_purges_stale_terminal_sessions() -> None:
         operation_id="op-stale",
         consumer_id=UUID("12345678-1234-5678-1234-567812345678"),
         protocol=BankProtocol.FINTS,
-        operation_type="accounts",
-        session_state=b"cleared",
+        operation_type=OperationType.ACCOUNTS,
+        session_state=None,
         status=OperationStatus.COMPLETED,
         created_at=now - timedelta(minutes=10),
         expires_at=now - timedelta(minutes=5),
@@ -139,7 +140,7 @@ def _session(
         operation_id=operation_id,
         consumer_id=UUID("12345678-1234-5678-1234-567812345678"),
         protocol=BankProtocol.FINTS,
-        operation_type="accounts",
+        operation_type=OperationType.ACCOUNTS,
         session_state=b"opaque-state",
         status=OperationStatus.PENDING_CONFIRMATION,
         created_at=now,

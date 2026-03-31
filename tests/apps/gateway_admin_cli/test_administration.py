@@ -34,7 +34,7 @@ class FakeApiKeyService:
     def __init__(self, generated_keys: list[str] | None = None) -> None:
         self._generated_keys = list(generated_keys or ["raw-key-1"])
 
-    def generate(self) -> str:
+    def generate(self, consumer_id: str) -> str:
         return self._generated_keys.pop(0)
 
     def hash(self, raw_key: str) -> ApiKeyHash:

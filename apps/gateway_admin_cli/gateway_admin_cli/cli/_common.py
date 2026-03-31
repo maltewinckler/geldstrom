@@ -14,9 +14,9 @@ async def build_factory() -> AsyncIterator[ConcreteAdminFactory]:
     s = get_settings()
     factory = ConcreteAdminFactory(
         database_url=s.database_url,
-        argon2_time_cost=s.argon2_time_cost,
-        argon2_memory_cost=s.argon2_memory_cost,
-        argon2_parallelism=s.argon2_parallelism,
+        argon2_time_cost=s.admin_argon2_time_cost,
+        argon2_memory_cost=s.admin_argon2_memory_cost,
+        argon2_parallelism=s.admin_argon2_parallelism,
     )
     try:
         yield factory

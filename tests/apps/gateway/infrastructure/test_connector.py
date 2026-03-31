@@ -6,6 +6,9 @@ import asyncio
 from datetime import UTC, date, datetime
 from decimal import Decimal
 
+import pytest
+
+from gateway.application.common import BankUpstreamUnavailableError
 from gateway.domain.banking_gateway import (
     BankLeitzahl,
     FinTSInstitute,
@@ -287,6 +290,48 @@ def test_connector_returns_empty_balances_list() -> None:
     assert result.balances == []
 
 
+def test_connector_rejects_http_pin_tan_url() -> None:
+    connector = GeldstromBankingConnector(
+        "product-key-1",
+        product_version="0.0.1",
+        client_factory=StubClientFactory([StubClient()]),
+    )
+    insecure_institute = FinTSInstitute(
+        blz=BankLeitzahl("12345678"),
+        bic="GENODEF1ABC",
+        name="Insecure Bank",
+        city="Berlin",
+        organization="Example Org",
+        pin_tan_url="http://insecure.bank.example/fints",
+        fints_version="3.0",
+        last_source_update=date(2026, 3, 7),
+    )
+
+    with pytest.raises(BankUpstreamUnavailableError, match="not HTTPS"):
+        asyncio.run(connector.list_accounts(insecure_institute, _credentials()))
+
+
+def test_connector_rejects_missing_pin_tan_url() -> None:
+    connector = GeldstromBankingConnector(
+        "product-key-1",
+        product_version="0.0.1",
+        client_factory=StubClientFactory([StubClient()]),
+    )
+    no_url_institute = FinTSInstitute(
+        blz=BankLeitzahl("12345678"),
+        bic="GENODEF1ABC",
+        name="No URL Bank",
+        city="Berlin",
+        organization="Example Org",
+        pin_tan_url=None,
+        fints_version="3.0",
+        last_source_update=date(2026, 3, 7),
+    )
+
+    with pytest.raises(BankUpstreamUnavailableError, match="PIN/TAN endpoint"):
+        asyncio.run(connector.list_accounts(no_url_institute, _credentials()))
+
+
 def _credentials() -> PresentedBankCredentials:
     return PresentedBankCredentials(
         user_id="bank-user",
@@ -304,8 +349,6 @@ def _institute() -> FinTSInstitute:
         pin_tan_url="https://bank.example/fints",
         fints_version="3.0",
         last_source_update=date(2026, 3, 7),
-        source_row_checksum="checksum-1",
-        source_payload={"row": 1},
     )
 
 

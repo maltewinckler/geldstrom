@@ -4,14 +4,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, datetime
-from typing import Any
 
 from .banking import BankLeitzahl
 
 
 @dataclass
 class FinTSInstitute:
-    """Canonical operational institute data selected from the source CSV."""
+    """Canonical operational institute data for gateway banking requests."""
 
     blz: BankLeitzahl
     bic: str | None
@@ -21,8 +20,6 @@ class FinTSInstitute:
     pin_tan_url: str | None
     fints_version: str | None
     last_source_update: date | None
-    source_row_checksum: str
-    source_payload: dict[str, Any]
 
     def is_pin_tan_capable(self) -> bool:
         return self.pin_tan_url is not None

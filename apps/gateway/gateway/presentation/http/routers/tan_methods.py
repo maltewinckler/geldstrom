@@ -11,7 +11,7 @@ from gateway.application.banking.commands.get_tan_methods import (
     GetTanMethodsCommand,
     GetTanMethodsInput,
 )
-from gateway.domain.banking_gateway import BankProtocol, OperationStatus
+from gateway.domain.banking_gateway import BankLeitzahl, BankProtocol, OperationStatus
 
 from ..dependencies import ApiKey, Factory
 from ..schemas.tan_methods import (
@@ -36,8 +36,8 @@ async def get_tan_methods(
     factory: Factory,
 ) -> JSONResponse:
     command = GetTanMethodsInput(
-        protocol=BankProtocol(body.protocol),
-        blz=body.blz,
+        protocol=BankProtocol.FINTS,
+        blz=BankLeitzahl(body.blz),
         user_id=body.user_id,
         password=body.password.get_secret_value(),
         tan_method=body.tan_method,
