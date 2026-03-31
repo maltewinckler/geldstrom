@@ -39,16 +39,16 @@ def init_db() -> None:
             async with engine.connect() as conn:
                 exists = await conn.scalar(
                     text("SELECT 1 FROM pg_database WHERE datname = :name"),
-                    {"name": s.db_name},
+                    {"name": s.postgres_db},
                 )
             if exists:
-                console.print(f"[dim]Database '{s.db_name}' already exists.[/dim]")
+                console.print(f"[dim]Database '{s.postgres_db}' already exists.[/dim]")
             else:
                 async with engine.connect() as conn:
                     await conn.execute(
-                        text(f"CREATE DATABASE {_quote_ident(s.db_name)}")
+                        text(f"CREATE DATABASE {_quote_ident(s.postgres_db)}")
                     )
-                console.print(f"[green]Created database '{s.db_name}'.[/green]")
+                console.print(f"[green]Created database '{s.postgres_db}'.[/green]")
         finally:
             await engine.dispose()
 

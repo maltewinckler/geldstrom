@@ -19,24 +19,19 @@ def _reset() -> None:
 
 
 def test_settings_load_from_environment(monkeypatch) -> None:
-    monkeypatch.setenv(
-        "GATEWAY_DATABASE_URL",
-        "postgresql+asyncpg://gateway:secret@localhost:5432/gateway",
-    )
+    monkeypatch.setenv("GATEWAY_DB_PASSWORD", "s3cr3t")
+    monkeypatch.setenv("GATEWAY_DB_NAME", "mydb")
     monkeypatch.setenv("GATEWAY_ARGON2_TIME_COST", "3")
     _reset()
 
     settings = get_settings()
 
-    assert settings.database_url.get_secret_value().endswith("/gateway")
+    assert settings.database_url.get_secret_value().endswith("/mydb")
     assert settings.argon2_time_cost == 3
 
 
 def test_settings_apply_default_values(monkeypatch) -> None:
-    monkeypatch.setenv(
-        "GATEWAY_DATABASE_URL",
-        "postgresql+asyncpg://gateway:secret@localhost:5432/gateway",
-    )
+    monkeypatch.setenv("GATEWAY_DB_PASSWORD", "s3cr3t")
     _reset()
 
     settings = Settings()
@@ -52,10 +47,7 @@ def test_settings_apply_default_values(monkeypatch) -> None:
 
 
 def test_factory_is_singleton_and_deps_are_cached(monkeypatch) -> None:
-    monkeypatch.setenv(
-        "GATEWAY_DATABASE_URL",
-        "postgresql+asyncpg://gateway:secret@localhost:5432/gateway",
-    )
+    monkeypatch.setenv("GATEWAY_DB_PASSWORD", "s3cr3t")
     _reset()
 
     factory = get_factory()

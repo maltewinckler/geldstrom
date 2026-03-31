@@ -1,22 +1,21 @@
 # Geldstrom Banking Gateway — Docker Compose
 #
 # ─────────────────────────────────────────────────────────────────────────────
-# Local quick-start
+# Secrets
 # ─────────────────────────────────────────────────────────────────────────────
-# config/gateway.env and config/admin_cli.env are gitignored.  Fill in the
-# passwords there for local use, then create a matching .env with the same
-# two passwords for Docker Compose variable interpolation (${VAR} in this file
-# is resolved before containers start, before env_file: is loaded).
+# Secrets are loaded from config/*.env files (gitignored).  Copy the examples
+# and fill in real values before running docker compose:
 #
-#   # 1. Edit config/*.env with your local passwords, then:
-#   cat > .env <<'EOF'
-#   ADMIN_DB_PASSWORD=same_password_as_in_config/admin_cli.env
-#   GATEWAY_DB_PASSWORD=same_password_as_in_config/admin_cli.env
-#   EOF
+#   cp config/admin_cli.env.example config/admin_cli.env   # then set passwords
+#   cp config/gateway.env.example   config/gateway.env     # then set passwords
 #
-# On the VPS the deploy workflow writes .env from GitHub secrets automatically.
-# The config files are NOT deployed — all required values are covered by the
-# environment: blocks below (required fields) or Python code defaults (tuning).
+# These files are loaded directly into the relevant containers via env_file:.
+# All other configuration is wired in the environment: blocks below and has no
+# secrets to protect.
+#
+# On the VPS the deploy workflow writes the two config/*.env files from GitHub
+# secrets before running docker compose up -d.  No other files are needed on
+# the server.
 #
 #
 #       docker compose up -d
@@ -25,17 +24,16 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # a) Load the FinTS institute catalog:
 #
-#       docker compose cp fints_institutes.csv gateway:/tmp/institutes.csv
-#       docker compose exec gateway gw-admin catalog sync /tmp/institutes.csv
+#       docker compose run --rm gateway-admin-cli gw-admin catalog sync /tmp/institutes.csv
 #
 # b) Store your FinTS product registration key:
 #
-#       docker compose exec gateway gw-admin product update "YOUR_PRODUCT_KEY" \
+#       docker compose run --rm gateway-admin-cli gw-admin product update "YOUR_PRODUCT_KEY" \
 #           --product-version "1.0.0"
 #
 # c) Create the first API consumer:
 #
-#       docker compose exec gateway gw-admin users create you@example.com
+#       docker compose run --rm gateway-admin-cli gw-admin users create you@example.com
 #
 #    The raw API key is printed exactly once — copy it immediately.
 #
@@ -55,13 +53,10 @@ services:
   # ── PostgreSQL ──────────────────────────────────────────────────────────────
   postgres:
     image: postgres:18-alpine
+    container_name: geldstrom_postgres
     restart: unless-stopped
-    environment:
-      POSTGRES_USER: postgres
-      # Superuser password.  ADMIN_DB_PASSWORD comes from .env (Docker Compose
-      # substitution context) and must match the value in config/admin_cli.env.
-      POSTGRES_PASSWORD: ${ADMIN_DB_PASSWORD:?Set ADMIN_DB_PASSWORD in .env}
-      POSTGRES_DB: geldstrom
+    env_file:
+      - config/admin_cli.env
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -70,67 +65,39 @@ services:
       timeout: 5s
       retries: 5
 
-  # ── One-shot DB initializer ─────────────────────────────────────────────────
-  # Runs `gw-admin db init` once (idempotent) on every deploy to create/verify
-  # the database, schema, and gateway app user.
-  # The gateway service will not start until this exits with code 0.
-  gateway-init:
-    image: ${GATEWAY_IMAGE:-geldstrom-gateway:latest}
-    build: .
+  gateway-admin-cli:
+    image: ${ADMIN_CLI_IMAGE:-geldstrom-admin-cli:latest}
+    build:
+      context: .
+      dockerfile: apps/gateway_admin_cli/Dockerfile
+    container_name: geldstrom_gateway_admin_cli
     restart: "no"
     depends_on:
       postgres:
         condition: service_healthy
-    # Locally, config/admin_cli.env is loaded (gitignored, contains passwords).
-    # On the VPS the file is absent; all required values are in environment: below.
     env_file:
-      - path: config/admin_cli.env
-        required: false
-    environment:
-      # Structural values without Python defaults — always set explicitly so
-      # the service works on the VPS where config/admin_cli.env is absent.
-      ADMIN_DB_USER: postgres
-      ADMIN_DB_NAME: geldstrom
-      GATEWAY_DB_USER: gateway
-      # DB hostname inside Docker is the service name, not localhost.
-      ADMIN_DB_HOST: postgres
-      ADMIN_DB_PORT: 5432
-      # Secrets from .env (override any value in config/admin_cli.env)
-      ADMIN_DB_PASSWORD: ${ADMIN_DB_PASSWORD:?Set ADMIN_DB_PASSWORD in .env}
-      GATEWAY_DB_PASSWORD: ${GATEWAY_DB_PASSWORD:?Set GATEWAY_DB_PASSWORD in .env}
+      - config/admin_cli.env
     command: ["gw-admin", "db", "init"]
 
-  # ── Banking Gateway ─────────────────────────────────────────────────────────
   gateway:
     image: ${GATEWAY_IMAGE:-geldstrom-gateway:latest}
-    build: .
+    build:
+      context: .
+      dockerfile: apps/gateway/Dockerfile
+    container_name: geldstrom_gateway
     restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy
-      gateway-init:
+      gateway-admin-cli:
         condition: service_completed_successfully
-    # Locally, config/gateway.env is loaded (gitignored, contains passwords).
-    # On the VPS the file is absent; GATEWAY_DATABASE_URL is set in environment:
-    # below and all other settings have Python code defaults.
+    # Secrets (DB password) come from the env file.
+    # GATEWAY_DB_HOST overrides the 'localhost' default from the env file with
+    # the Docker service name.  All other env-file values are used as-is.
     env_file:
-      - path: config/gateway.env
-        required: false
-    environment:
-      # Build the database URL with the Docker service hostname and the secret
-      # password from .env.  This overrides the localhost URL in gateway.env.
-      GATEWAY_DATABASE_URL: >-
-        postgresql+asyncpg://gateway:${GATEWAY_DB_PASSWORD:?Set GATEWAY_DB_PASSWORD in .env}@postgres:5432/geldstrom
-      # Server
-      GATEWAY_HOST: "0.0.0.0"
-      GATEWAY_PORT: "8000"
-      # Must stay at 1 until Redis-backed state is added (see PRD § scalability)
-      GATEWAY_WORKERS: "1"
-      GATEWAY_LOG_LEVEL: "INFO"
-      GATEWAY_JSON_LOGS: "true"
-    # Bind to loopback only — the reverse proxy handles TLS.
+      - config/gateway.env
     ports:
-      - "127.0.0.1:8000:8000"
+      - 8000:8000
     healthcheck:
       test:
         - "CMD"
