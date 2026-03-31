@@ -1,4 +1,5 @@
 """Unit tests for TANConfig and challenge handling."""
+
 from __future__ import annotations
 
 import pytest
@@ -150,4 +151,3 @@ class TestChallengeHandlerProtocol:
         """InteractiveChallengeHandler should satisfy ChallengeHandler protocol."""
         handler = InteractiveChallengeHandler()
         assert isinstance(handler, ChallengeHandler)
-

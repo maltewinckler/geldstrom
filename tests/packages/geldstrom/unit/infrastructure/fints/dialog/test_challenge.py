@@ -1,10 +1,8 @@
 """Unit tests for FinTSChallenge."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
-
-import pytest
 
 from geldstrom.domain.connection.challenge import ChallengeType
 from geldstrom.infrastructure.fints.dialog.challenge import FinTSChallenge
@@ -90,4 +88,3 @@ class TestFinTSChallenge:
         challenge = FinTSChallenge(hitan)
 
         assert challenge.challenge_html is None
-

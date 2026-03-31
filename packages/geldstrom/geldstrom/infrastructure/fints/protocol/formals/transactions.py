@@ -3,6 +3,7 @@
 This module contains Pydantic models for transaction-related data structures
 including CAMT statements and SEPA transfer parameters.
 """
+
 from __future__ import annotations
 
 from pydantic import Field

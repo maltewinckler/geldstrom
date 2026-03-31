@@ -1,4 +1,5 @@
 """Port for querying TAN authentication methods."""
+
 from __future__ import annotations
 
 from collections.abc import Sequence
@@ -38,4 +39,3 @@ class TANMethodsPort(Protocol):
 
 
 __all__ = ["TANMethodsPort"]
-

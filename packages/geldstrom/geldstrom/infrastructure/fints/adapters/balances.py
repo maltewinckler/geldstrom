@@ -1,4 +1,5 @@
 """FinTS 3.0 implementation of BalancePort."""
+
 from __future__ import annotations
 
 import logging
@@ -195,7 +196,10 @@ class FinTSBalanceAdapter(BalancePort):
 
     def _mt940_balance_to_amount(self, mt940_balance) -> BalanceAmount:
         """Convert MT940Balance to BalanceAmount with correct sign."""
-        amount = mt940_balance.amount if mt940_balance.is_credit else -mt940_balance.amount
+        amount = (
+            mt940_balance.amount if mt940_balance.is_credit else -mt940_balance.amount
+        )
         return BalanceAmount(amount=amount, currency=mt940_balance.currency)
+
 
 __all__ = ["FinTSBalanceAdapter"]

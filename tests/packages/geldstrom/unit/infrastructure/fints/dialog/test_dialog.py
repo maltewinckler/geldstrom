@@ -3,30 +3,31 @@
 These tests verify the Dialog and DialogFactory classes work correctly
 without depending on the legacy FinTS3PinTanClient.
 """
+
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Sequence
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from geldstrom.infrastructure.fints.protocol import BankIdentifier, Language2
 from geldstrom.infrastructure.fints.dialog import (
+    DIALOG_ID_UNASSIGNED,
+    SYSTEM_ID_UNASSIGNED,
     ConnectionConfig,
     Dialog,
     DialogConfig,
     DialogFactory,
     DialogState,
-    SYSTEM_ID_UNASSIGNED,
-    DIALOG_ID_UNASSIGNED,
     HTTPSDialogConnection,
     ProcessedResponse,
     ResponseProcessor,
 )
 from geldstrom.infrastructure.fints.dialog.logging import mask_credentials
-from geldstrom.infrastructure.fints.protocol import ParameterStore
-
+from geldstrom.infrastructure.fints.protocol import (
+    BankIdentifier,
+    Language2,
+    ParameterStore,
+)
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -373,4 +374,3 @@ class TestMaskCredentials:
         """Should return unchanged text when no credentials present."""
         text = "Just some regular log message with numbers 12345"
         assert mask_credentials(text) == text
-

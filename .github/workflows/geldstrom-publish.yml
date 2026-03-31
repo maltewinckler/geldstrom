@@ -21,21 +21,39 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Check if version already exists on PyPI
+        id: version_gate
+        run: |
+          VERSION=$(python3 -c "
+          import tomllib
+          with open('packages/geldstrom/pyproject.toml', 'rb') as f:
+              print(tomllib.load(f)['project']['version'])
+          ")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://pypi.org/pypi/geldstrom/$VERSION/json")
+          if [ "$STATUS" = "200" ]; then
+            echo "already_published=true" >> "$GITHUB_OUTPUT"
+            echo "Version $VERSION is already on PyPI — skipping publish."
+          else
+            echo "already_published=false" >> "$GITHUB_OUTPUT"
+            echo "Version $VERSION is not yet on PyPI — will publish."
+          fi
+
       - uses: astral-sh/setup-uv@v5
+        if: steps.version_gate.outputs.already_published == 'false'
         with:
           python-version: "3.13"
 
       - name: Install dependencies
+        if: steps.version_gate.outputs.already_published == 'false'
         run: uv sync --frozen --all-packages
 
       - name: Build geldstrom package
+        if: steps.version_gate.outputs.already_published == 'false'
         run: uv build --package geldstrom --out-dir dist/
 
       - name: Publish to PyPI (Trusted Publishing / OIDC)
+        if: steps.version_gate.outputs.already_published == 'false'
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: dist/
-          # Setting this to true turns a "version already exists" error into a
-          # warning so a spurious re-trigger of this workflow doesn't break the
-          # pipeline. Remove if you prefer a hard failure.
-          skip-existing: true

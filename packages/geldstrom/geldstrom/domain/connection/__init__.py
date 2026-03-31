@@ -1,4 +1,5 @@
 """Technical domain abstractions for banking connectivity."""
+
 from .challenge import (
     Challenge,
     ChallengeData,

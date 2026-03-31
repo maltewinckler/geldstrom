@@ -6,6 +6,7 @@ the Dialog and Protocol modules, without depending on the legacy client.
 Operations are FinTS-specific and return FinTS-specific types. The adapters
 layer is responsible for converting these to domain models.
 """
+
 from .accounts import AccountInfo, AccountOperations
 from .balances import BalanceOperations, BalanceResult, MT940Balance
 from .enums import FinTSOperations
@@ -40,4 +41,3 @@ __all__ = [
     "decode_phototan_image",
     "mt940_to_array",
 ]
-

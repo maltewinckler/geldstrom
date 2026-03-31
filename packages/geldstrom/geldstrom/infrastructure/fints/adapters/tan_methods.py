@@ -1,4 +1,5 @@
 """FinTS adapter for TAN methods discovery."""
+
 from __future__ import annotations
 
 import logging
@@ -228,7 +229,9 @@ class FinTSTANMethodsAdapter(TANMethodsPort):
                     is_decoupled = True
                     decoupled_max_polls = max_polls
                     decoupled_first_poll = getattr(tsp, "wait_before_first_poll", None)
-                    decoupled_poll_interval = getattr(tsp, "wait_before_next_poll", None)
+                    decoupled_poll_interval = getattr(
+                        tsp, "wait_before_next_poll", None
+                    )
                     method_type = TANMethodType.DECOUPLED
 
             return TANMethod(
@@ -244,7 +247,9 @@ class FinTSTANMethodsAdapter(TANMethodsPort):
                 decoupled_first_poll_delay=decoupled_first_poll,
                 decoupled_poll_interval=decoupled_poll_interval,
                 supports_cancel=bool(getattr(tsp, "cancel_allowed", False)),
-                supports_multiple_tan=bool(getattr(tsp, "multiple_tans_allowed", False)),
+                supports_multiple_tan=bool(
+                    getattr(tsp, "multiple_tans_allowed", False)
+                ),
             )
         except Exception as e:
             logger.warning("Failed to convert TAN parameters: %s", e)
@@ -277,4 +282,3 @@ class FinTSTANMethodsAdapter(TANMethodsPort):
 
 
 __all__ = ["FinTSTANMethodsAdapter"]
-

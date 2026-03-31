@@ -5,75 +5,73 @@ Tests cover:
 - Message segments (message.py)
 - Auth segments (auth.py)
 """
+
 from __future__ import annotations
 
 from datetime import date, time
 
-import pytest
-
+from geldstrom.infrastructure.fints.protocol.base import SegmentHeader
+from geldstrom.infrastructure.fints.protocol.formals import (
+    AlgorithmParameterIVName,
+    AlgorithmParameterName,
+    BankIdentifier,
+    CompressionFunction,
+    DateTimeType,
+    EncryptionAlgorithm,
+    EncryptionAlgorithmCoded,
+    HashAlgorithm,
+    IdentifiedRole,
+    KeyName,
+    KeyType,
+    Language,
+    OperationMode,
+    ReferenceMessage,
+    Response,
+    SecurityApplicationArea,
+    SecurityDateTime,
+    SecurityIdentificationDetails,
+    SecurityMethod,
+    SecurityProfile,
+    SecurityRole,
+    SignatureAlgorithm,
+    SynchronizationMode,
+    SystemIDStatus,
+    TANMedia4,
+    TANMedia5,
+    TANMediaClass,
+    TANMediaType,
+    TANMediumStatus,
+    TANUsageOption,
+    UsageEncryption,
+    UserDefinedSignature,
+)
 from geldstrom.infrastructure.fints.protocol.segments import (
-    # Dialog segments
-    HNHBK3,
-    HNHBS1,
     HIRMG2,
     HIRMS2,
-    HKSYN3,
     HISYN4,
+    HITAB4,
+    HITAB5,
+    HITAN6,
+    HITAN7,
     HKEND1,
-    # Message segments
-    HNVSK3,
-    HNVSD1,
-    HNSHK4,
-    HNSHA2,
     # Auth segments
     HKIDN2,
-    HKVVB3,
+    HKSYN3,
+    HKTAB4,
+    HKTAB5,
     HKTAN2,
     HKTAN6,
     HKTAN7,
-    HITAN6,
-    HITAN7,
-    HKTAB4,
-    HKTAB5,
-    HITAB4,
-    HITAB5,
+    HKVVB3,
+    # Dialog segments
+    HNHBK3,
+    HNHBS1,
+    HNSHA2,
+    HNSHK4,
+    HNVSD1,
+    # Message segments
+    HNVSK3,
 )
-from geldstrom.infrastructure.fints.protocol.formals import (
-    BankIdentifier,
-    Response,
-    ReferenceMessage,
-    SynchronizationMode,
-    SecurityProfile,
-    SecurityMethod,
-    SecurityRole,
-    SecurityIdentificationDetails,
-    SecurityDateTime,
-    EncryptionAlgorithm,
-    HashAlgorithm,
-    SignatureAlgorithm,
-    KeyName,
-    KeyType,
-    UserDefinedSignature,
-    CompressionFunction,
-    SecurityApplicationArea,
-    IdentifiedRole,
-    DateTimeType,
-    UsageEncryption,
-    OperationMode,
-    EncryptionAlgorithmCoded,
-    AlgorithmParameterName,
-    AlgorithmParameterIVName,
-    SystemIDStatus,
-    Language,
-    TANMediaType,
-    TANMediaClass,
-    TANMediumStatus,
-    TANUsageOption,
-    TANMedia4,
-    TANMedia5,
-)
-from geldstrom.infrastructure.fints.protocol.base import SegmentHeader
-
 
 # =============================================================================
 # Dialog Segment Tests
@@ -121,7 +119,9 @@ class TestDialogSegments:
     def test_hirmg2_creation(self):
         """Create global message response."""
         responses = [
-            Response(code="0010", reference_element="", text="Nachricht entgegengenommen"),
+            Response(
+                code="0010", reference_element="", text="Nachricht entgegengenommen"
+            ),
         ]
         seg = HIRMG2(
             header=SegmentHeader(type="HIRMG", version=2, number=2),
@@ -412,4 +412,3 @@ class TestTANMediaSegments:
             tan_media_list=[media],
         )
         assert seg.tan_media_list[0].security_function == 920
-

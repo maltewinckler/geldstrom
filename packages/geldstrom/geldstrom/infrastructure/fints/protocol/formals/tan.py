@@ -3,6 +3,7 @@
 This module contains Pydantic models for TAN (Transaction Authentication Number)
 related data structures used in PIN/TAN security procedures.
 """
+
 from __future__ import annotations
 
 from pydantic import Field
@@ -108,6 +109,7 @@ class TANMedia4(TANMediaBase):
 
     Source: FinTS 3.0 Sicherheitsverfahren PIN/TAN
     """
+
     pass
 
 
@@ -195,4 +197,3 @@ __all__ = [
     "ParameterChallengeClass",
     "ResponseHHDUC",
 ]
-

@@ -1,4 +1,5 @@
 """Domain value objects for initiating payments."""
+
 from __future__ import annotations
 
 from collections.abc import Mapping

@@ -6,6 +6,7 @@ Response segments (HIKAZ, HICAZ) contain transaction data.
 HKKAZ/HIKAZ: MT940 format (legacy)
 HKCAZ/HICAZ: CAMT XML format (modern)
 """
+
 from __future__ import annotations
 
 from typing import ClassVar
@@ -320,4 +321,3 @@ __all__ = [
     "HICAZ1",
     "HICAZ_VERSIONS",
 ]
-

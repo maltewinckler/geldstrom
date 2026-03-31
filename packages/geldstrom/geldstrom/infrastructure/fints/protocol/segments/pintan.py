@@ -4,6 +4,7 @@ These segments handle PIN/TAN-specific parameters:
 - HIPINS: PIN/TAN-specific information
 - HITANS: Two-step TAN parameters (versions 1-7)
 """
+
 from __future__ import annotations
 
 from typing import Any, ClassVar
@@ -513,7 +514,9 @@ class TwoStepParameters6(TwoStepParametersCommon):
             if (
                 possible_tan_process is not None
                 and isinstance(possible_tan_process, str)
-                and (len(possible_tan_process) > 1 or not possible_tan_process.isdigit())
+                and (
+                    len(possible_tan_process) > 1 or not possible_tan_process.isdigit()
+                )
             ):
                 # tan_process was omitted, insert None at position 1
                 data = [data[0], None] + data[1:]
@@ -883,4 +886,3 @@ __all__ = [
     "HIPINS_VERSIONS",
     "HITANS_VERSIONS",
 ]
-

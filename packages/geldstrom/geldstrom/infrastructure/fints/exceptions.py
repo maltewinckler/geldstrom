@@ -87,4 +87,3 @@ __all__ = [
     "FinTSSCARequiredError",
     "FinTSUnsupportedOperation",
 ]
-

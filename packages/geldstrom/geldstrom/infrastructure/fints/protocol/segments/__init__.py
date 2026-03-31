@@ -17,6 +17,7 @@ Organization:
 - transactions: Transaction segments (HKKAZ, HIKAZ, HKCAZ, HICAZ)
 - params: Generic parameter segments
 """
+
 from __future__ import annotations
 
 from .accounts import (
@@ -347,4 +348,3 @@ __all__ = [
     "HISHV3",
     "HISHV_VERSIONS",
 ]
-

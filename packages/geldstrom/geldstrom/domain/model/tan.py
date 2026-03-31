@@ -1,4 +1,5 @@
 """Domain objects describing TAN authentication methods."""
+
 from __future__ import annotations
 
 from enum import StrEnum
@@ -96,4 +97,3 @@ __all__ = [
     "TANMethod",
     "TANMethodType",
 ]
-

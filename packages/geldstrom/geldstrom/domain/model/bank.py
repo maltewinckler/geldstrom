@@ -1,4 +1,5 @@
 """Domain objects describing banks and their capabilities."""
+
 from __future__ import annotations
 
 from collections.abc import Mapping

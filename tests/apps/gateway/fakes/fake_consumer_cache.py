@@ -26,9 +26,7 @@ class FakeConsumerCache:
         self._consumers.append(consumer)
 
     async def evict(self, consumer_id: UUID) -> None:
-        self._consumers = [
-            c for c in self._consumers if c.consumer_id != consumer_id
-        ]
+        self._consumers = [c for c in self._consumers if c.consumer_id != consumer_id]
 
     async def reload_one(self, consumer: ApiConsumer) -> None:
         self._consumers = [

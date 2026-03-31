@@ -1,0 +1,110 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ===========================================================================
+  # Lock file integrity check
+  # ===========================================================================
+  check-lockfile:
+    name: Check uv.lock
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Verify lock file is consistent with pyproject.toml
+        run: uv lock --check
+
+  # ===========================================================================
+  # Python linting with Ruff (full codebase)
+  # ===========================================================================
+  lint:
+    name: Lint (Ruff)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.13"
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --frozen --all-packages
+
+      - name: Run Ruff linter
+        run: uv run ruff check packages/ apps/ tests/
+
+      - name: Run Ruff formatter check
+        run: uv run ruff format --check packages/ apps/ tests/
+
+  # ===========================================================================
+  # Unit tests — no external services required
+  # ===========================================================================
+  test-unit:
+    name: Test (Unit)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.13"
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --frozen --all-packages
+
+      - name: Run unit tests
+        # Skip gateway infrastructure tests (need testcontainers) and
+        # geldstrom integration tests (need real bank credentials).
+        # End-to-end tests are excluded entirely.
+        run: |
+          uv run pytest \
+            tests/packages/geldstrom/unit/ \
+            tests/apps/ \
+            --ignore=tests/apps/gateway/infrastructure/ \
+            -v --tb=short
+
+  # ===========================================================================
+  # Integration tests — PostgreSQL via Testcontainers (no bank credentials)
+  # ===========================================================================
+  test-integration:
+    name: Test (Integration)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.13"
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --frozen --all-packages
+
+      - name: Run integration tests
+        # All gateway infrastructure tests use a disposable PostgreSQL
+        # testcontainer — no banking credentials are needed or used.
+        env:
+          # Provide a dummy value so pydantic-settings doesn't fail if
+          # Settings is validated anywhere during module import.
+          GATEWAY_DB_PASSWORD: "ci-placeholder-not-used"
+        run: |
+          uv run pytest \
+            tests/apps/gateway/infrastructure/ \
+            -v --tb=short

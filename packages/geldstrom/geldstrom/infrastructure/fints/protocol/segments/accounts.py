@@ -3,6 +3,7 @@
 Request segments (HKSPA) request SEPA account information.
 Response segments (HISPA) contain SEPA account details.
 """
+
 from __future__ import annotations
 
 from typing import ClassVar
@@ -56,4 +57,3 @@ __all__ = [
     "HKSPA1",
     "HISPA1",
 ]
-

@@ -3,10 +3,9 @@
 These tests verify BankParameters, UserParameters, and ParameterStore
 work correctly for storing and querying BPD/UPD data.
 """
+
 from __future__ import annotations
 
-from types import SimpleNamespace
-from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -17,7 +16,6 @@ from geldstrom.infrastructure.fints.protocol import (
     SegmentSequence,
     UserParameters,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -107,7 +105,9 @@ def bpd_with_segments():
         version=78,
         bank_name="Test Bank",
         segments=seq,
-        bpa=_make_mock_segment("HIBPA", version=3, bpd_version=78, bank_name="Test Bank"),
+        bpa=_make_mock_segment(
+            "HIBPA", version=3, bpd_version=78, bank_name="Test Bank"
+        ),
     )
 
 
@@ -289,7 +289,9 @@ class TestParameterStore:
         store = ParameterStore(bpd=bpd_with_segments, upd=upd_with_accounts)
 
         # Mock the Pydantic serializer for BPA/UPA
-        with patch("geldstrom.infrastructure.fints.protocol.parameters.FinTSSerializer") as mock_serializer:
+        with patch(
+            "geldstrom.infrastructure.fints.protocol.parameters.FinTSSerializer"
+        ) as mock_serializer:
             mock_serializer.return_value.serialize_message.return_value = b"serialized"
 
             data = store.to_dict()
@@ -308,4 +310,3 @@ class TestParameterStore:
         """upd property should return UserParameters."""
         store = ParameterStore(upd=upd_with_accounts)
         assert store.upd is upd_with_accounts
-

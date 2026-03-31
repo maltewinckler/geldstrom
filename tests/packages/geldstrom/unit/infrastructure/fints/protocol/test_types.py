@@ -6,6 +6,7 @@ Tests cover:
 - Annotated types with Pydantic models
 - Edge cases and error handling
 """
+
 from __future__ import annotations
 
 from datetime import date, time
@@ -15,6 +16,15 @@ import pytest
 from pydantic import BaseModel, ValidationError
 
 from geldstrom.infrastructure.fints.protocol.types import (
+    # Annotated Types
+    FinTSAmount,
+    FinTSBool,
+    FinTSCountry,
+    FinTSCurrency,
+    FinTSDate,
+    FinTSID,
+    FinTSNumeric,
+    FinTSTime,
     # Validators
     parse_fints_amount,
     parse_fints_binary,
@@ -29,24 +39,8 @@ from geldstrom.infrastructure.fints.protocol.types import (
     serialize_fints_amount,
     serialize_fints_bool,
     serialize_fints_date,
-    serialize_fints_numeric,
     serialize_fints_time,
-    # Annotated Types
-    FinTSAlphanumeric,
-    FinTSAmount,
-    FinTSBinary,
-    FinTSBool,
-    FinTSCode,
-    FinTSCountry,
-    FinTSCurrency,
-    FinTSDate,
-    FinTSDigits,
-    FinTSID,
-    FinTSNumeric,
-    FinTSText,
-    FinTSTime,
 )
-
 
 # =============================================================================
 # Date Validator Tests
@@ -700,4 +694,3 @@ class TestCombinedModel:
         assert dumped["currency"] == "EUR"
         assert dumped["booked"] == "J"
         assert dumped["reference"] == "TX123"
-

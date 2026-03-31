@@ -1,7 +1,6 @@
 """Tests for banking connector protocol dispatch."""
 
 import asyncio
-from datetime import date
 from unittest.mock import AsyncMock
 
 from gateway.domain.banking_gateway import (
@@ -20,9 +19,7 @@ def test_dispatcher_delegates_to_fints_connector() -> None:
     dispatcher = BankingConnectorDispatcher(fints_connector=inner)
 
     result = asyncio.run(
-        dispatcher.list_accounts(
-            institute=AsyncMock(), credentials=AsyncMock()
-        )
+        dispatcher.list_accounts(institute=AsyncMock(), credentials=AsyncMock())
     )
 
     assert result.status is OperationStatus.COMPLETED

@@ -2,6 +2,7 @@
 
 These DEGs handle response messages from banks.
 """
+
 from __future__ import annotations
 
 from pydantic import Field
@@ -87,4 +88,3 @@ __all__ = [
     "Response",
     "ReferenceMessage",
 ]
-
