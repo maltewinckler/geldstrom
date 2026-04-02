@@ -12,12 +12,7 @@ _KEY_BYTES = 32
 
 
 class Argon2AdminApiKeyService:
-    """Generates cryptographically secure API keys and hashes them with Argon2id.
-
-    Keys are prefixed with the first 8 hex characters of the consumer UUID
-    so the gateway can perform O(1) consumer lookup before running Argon2.
-    Format: ``{prefix}.{token}``
-    """
+    """Generates secure API keys (``{prefix}.{token}``) and hashes them with Argon2id."""
 
     def __init__(
         self,

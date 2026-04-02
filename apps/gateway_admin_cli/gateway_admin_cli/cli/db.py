@@ -20,12 +20,10 @@ console = Console()
 
 
 def _quote_ident(s: str) -> str:
-    """Double-quote a PostgreSQL identifier, escaping internal double-quotes."""
     return '"' + s.replace('"', '""') + '"'
 
 
 def _quote_literal(s: str) -> str:
-    """Single-quote a PostgreSQL string literal, escaping internal single-quotes."""
     return "'" + s.replace("'", "''") + "'"
 
 
@@ -36,7 +34,7 @@ def init_db() -> None:
     async def _run() -> None:
         s = get_settings()
 
-        # ── Step 1: create the database if missing ────────────────────────────
+        # Create the database if missing
         engine = create_async_engine(s.maintenance_url, isolation_level="AUTOCOMMIT")
         try:
             async with engine.connect() as conn:
@@ -55,7 +53,7 @@ def init_db() -> None:
         finally:
             await engine.dispose()
 
-        # ── Step 2: create tables + gateway user + grants ─────────────────────
+        # Create tables, gateway user, and grants
         engine = create_async_engine(s.database_url)
         try:
             async with engine.begin() as conn:

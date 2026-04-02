@@ -1,10 +1,4 @@
-"""FinTS Bank Parameter Segments.
-
-These segments handle bank and user parameter data:
-- Bank Parameter Data (BPD): HIBPA
-- User Parameter Data (UPD): HIUPA, HIUPD
-- Communication Access: HKKOM, HIKOM
-"""
+"""FinTS Bank Parameter Segments."""
 
 from __future__ import annotations
 
@@ -79,8 +73,6 @@ class HIBPA3(FinTSSegment):
 
     Contains general bank parameters including supported languages,
     versions, and limits.
-
-    Source: FinTS 3.0 Formals
     """
 
     SEGMENT_TYPE: ClassVar[str] = "HIBPA"
@@ -139,12 +131,7 @@ class HIBPA3(FinTSSegment):
 
 
 class HIUPA4(FinTSSegment):
-    """Userparameter allgemein (User Parameters), version 4.
-
-    Contains general user parameters.
-
-    Source: FinTS 3.0 Formals
-    """
+    """Userparameter allgemein (User Parameters), version 4."""
 
     SEGMENT_TYPE: ClassVar[str] = "HIUPA"
     SEGMENT_VERSION: ClassVar[int] = 4
@@ -176,8 +163,6 @@ class HIUPD6(FinTSSegment):
     """Kontoinformationen (Account Information), version 6.
 
     Contains detailed information about a user's account.
-
-    Source: FinTS 3.0 Formals
     """
 
     SEGMENT_TYPE: ClassVar[str] = "HIUPD"
@@ -238,12 +223,7 @@ class HIUPD6(FinTSSegment):
 
 
 class HKKOM4(FinTSSegment):
-    """Kommunikationszugang anfordern (Request Communication Access), version 4.
-
-    Request to get communication parameters for banks.
-
-    Source: FinTS 3.0 Formals
-    """
+    """Kommunikationszugang anfordern (Request Communication Access), version 4."""
 
     SEGMENT_TYPE: ClassVar[str] = "HKKOM"
     SEGMENT_VERSION: ClassVar[int] = 4
@@ -270,12 +250,7 @@ class HKKOM4(FinTSSegment):
 
 
 class HIKOM4(FinTSSegment):
-    """Kommunikationszugang rückmelden (Communication Access Response), version 4.
-
-    Response with communication parameters for a bank.
-
-    Source: FinTS 3.0 Formals
-    """
+    """Kommunikationszugang rückmelden (Communication Access Response), version 4."""
 
     SEGMENT_TYPE: ClassVar[str] = "HIKOM"
     SEGMENT_VERSION: ClassVar[int] = 4

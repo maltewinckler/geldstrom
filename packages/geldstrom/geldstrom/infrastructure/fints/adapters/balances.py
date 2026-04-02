@@ -23,11 +23,7 @@ logger = logging.getLogger(__name__)
 
 
 class FinTSBalanceAdapter(BalancePort):
-    """
-    FinTS 3.0 implementation of BalancePort.
-
-    Fetches account balances via HKSAL segments.
-    """
+    """FinTS 3.0 implementation of BalancePort via HKSAL segments."""
 
     def __init__(
         self,
@@ -36,14 +32,6 @@ class FinTSBalanceAdapter(BalancePort):
         tan_config: TANConfig | None = None,
         challenge_handler: ChallengeHandler | None = None,
     ) -> None:
-        """
-        Initialize with credentials.
-
-        Args:
-            credentials: Bank connection credentials
-            tan_config: Configuration for TAN handling (polling, timeout)
-            challenge_handler: Handler for presenting 2FA challenges to user
-        """
         self._credentials = credentials
         self._tan_config = tan_config or TANConfig()
         self._challenge_handler = challenge_handler
@@ -53,19 +41,6 @@ class FinTSBalanceAdapter(BalancePort):
         state: FinTSSessionState,
         account_ids: Sequence[str] | None = None,
     ) -> Sequence[BalanceSnapshot]:
-        """
-        Fetch balances for specified accounts.
-
-        Args:
-            state: Current session state
-            account_ids: Optional list of account IDs to fetch (default: all)
-
-        Returns:
-            Sequence of BalanceSnapshot for each account
-
-        Raises:
-            ValueError: If any account_id in the list is unknown
-        """
         from geldstrom.infrastructure.fints.operations import (
             AccountOperations,
             BalanceOperations,
@@ -81,15 +56,9 @@ class FinTSBalanceAdapter(BalancePort):
         with helper.connect(state) as ctx:
             account_ops = AccountOperations(ctx.dialog, ctx.parameters)
             balance_ops = BalanceOperations(ctx.dialog, ctx.parameters)
-
-            # Get SEPA accounts
             sepa_accounts = account_ops.fetch_sepa_accounts()
             sepa_lookup = {account_key(sepa): sepa for sepa in sepa_accounts}
-
-            # Determine which accounts to fetch
             target_ids = account_ids or list(sepa_lookup.keys())
-
-            # Validate all requested account IDs exist
             if account_ids is not None:
                 unknown_ids = set(account_ids) - set(sepa_lookup.keys())
                 if unknown_ids:
@@ -100,7 +69,6 @@ class FinTSBalanceAdapter(BalancePort):
             for account_id in target_ids:
                 sepa = sepa_lookup.get(account_id)
                 if not sepa:
-                    # Should not happen after validation, but be safe
                     continue
 
                 try:
@@ -118,19 +86,6 @@ class FinTSBalanceAdapter(BalancePort):
         state: FinTSSessionState,
         account: Account,
     ) -> BalanceSnapshot:
-        """
-        Fetch balance for a single account.
-
-        Args:
-            state: Current session state
-            account: Account to fetch balance for
-
-        Returns:
-            BalanceSnapshot for the account
-
-        Raises:
-            ValueError: If account not found
-        """
         from geldstrom.infrastructure.fints.operations import (
             AccountOperations,
             BalanceOperations,
@@ -146,30 +101,22 @@ class FinTSBalanceAdapter(BalancePort):
             result = balance_ops.fetch_balance(sepa_account)
             return self._balance_from_operations(account.account_id, result)
 
-    # --- Helpers ---
-
     def _balance_from_operations(
         self,
         account_id: str,
         result,
     ) -> BalanceSnapshot:
-        """Convert operations BalanceResult to domain BalanceSnapshot."""
         from geldstrom.infrastructure.fints.operations import BalanceResult
 
         if not isinstance(result, BalanceResult):
             raise ValueError(f"Unexpected result type: {type(result)}")
 
-        # Map booked balance (required)
         booked = result.booked
         booked_amount = self._mt940_balance_to_amount(booked)
         as_of = datetime.combine(booked.date, time.min)
-
-        # Map pending balance (optional)
         pending_amount = None
         if result.pending:
             pending_amount = self._mt940_balance_to_amount(result.pending)
-
-        # Map available balance (optional)
         available_amount = None
         if result.available is not None:
             available_amount = BalanceAmount(
@@ -177,7 +124,6 @@ class FinTSBalanceAdapter(BalancePort):
                 currency=booked.currency,
             )
 
-        # Map credit limit (optional)
         credit_limit_amount = None
         if result.credit_line is not None:
             credit_limit_amount = BalanceAmount(

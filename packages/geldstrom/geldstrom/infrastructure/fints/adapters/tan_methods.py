@@ -34,11 +34,7 @@ logger = logging.getLogger(__name__)
 
 
 class FinTSTANMethodsAdapter(TANMethodsPort):
-    """
-    FinTS 3.0 implementation of TANMethodsPort.
-
-    Extracts TAN method information from HITANS segments in BPD.
-    """
+    """FinTS 3.0 implementation of TANMethodsPort via HITANS segments in BPD."""
 
     def __init__(
         self,
@@ -55,20 +51,6 @@ class FinTSTANMethodsAdapter(TANMethodsPort):
         self,
         state: FinTSSessionState | None = None,
     ) -> Sequence[TANMethod]:
-        """
-        Get TAN methods from BPD's HITANS segments.
-
-        If state is provided and contains BPD, extracts from the cached data.
-        Otherwise, performs a sync dialog (one-step auth, NO TAN required)
-        to fetch BPD from the bank.
-
-        Args:
-            state: Optional session state with cached BPD
-
-        Returns:
-            Sequence of available TAN methods
-        """
-        # Try to extract from existing state first
         if state and state.client_blob:
             helper = FinTSConnectionHelper(
                 self._credentials,
@@ -81,40 +63,22 @@ class FinTSTANMethodsAdapter(TANMethodsPort):
                 logger.debug("Extracted %d TAN methods from cached BPD", len(methods))
                 return methods
 
-        # No cached BPD or empty - fetch via sync dialog (no TAN required)
         logger.info("Fetching TAN methods via sync dialog (no TAN required)")
         return self._fetch_tan_methods_via_sync()
 
     def _fetch_tan_methods_via_sync(self) -> list[TANMethod]:
-        """
-        Fetch TAN methods by performing only the sync dialog.
-
-        This uses one-step auth (security_function=999) which does NOT
-        require TAN approval. The bank responds with BPD containing
-        HITANS segments with TAN method definitions.
-
-        Returns:
-            List of available TAN methods
-        """
         creds = self._credentials
-
-        # Build bank identifier
         bank_id = BankIdentifier(
             country_identifier=BankIdentifier.COUNTRY_ALPHA_TO_NUMERIC.get("DE", "280"),
             bank_code=creds.route.bank_code,
         )
 
-        # Build connection
         connection_config = ConnectionConfig(
             url=creds.server_url,
             timeout=30.0,
         )
         connection = HTTPSDialogConnection(connection_config)
-
-        # Create empty parameter store - will be populated with BPD
         parameters = ParameterStore()
-
-        # Build dialog config
         dialog_config = DialogConfig(
             bank_identifier=bank_id,
             user_id=creds.user_id,
@@ -124,14 +88,12 @@ class FinTSTANMethodsAdapter(TANMethodsPort):
             product_version=creds.product_version,
         )
 
-        # Create security context for one-step auth
         security_context = SecurityContext(
             bank_identifier=bank_id,
             user_id=creds.user_id,
             system_id=SYSTEM_ID_UNASSIGNED,
         )
-
-        # Use one-step auth (security_function=999) - NO TAN REQUIRED
+        # Use one-step auth (security_function=999) — no TAN required.
         security_function = "999"
         enc_mechanism = StandaloneEncryptionMechanism(
             security_context,
@@ -143,7 +105,6 @@ class FinTSTANMethodsAdapter(TANMethodsPort):
             security_function=security_function,
         )
 
-        # Create sync dialog
         sync_dialog = Dialog(
             connection=connection,
             config=dialog_config,
@@ -154,7 +115,6 @@ class FinTSTANMethodsAdapter(TANMethodsPort):
         )
 
         try:
-            # Initialize with HKSYN3 to request system ID + BPD
             sync_dialog.initialize(
                 extra_segments=[
                     HKSYN3(synchronization_mode=SynchronizationMode.NEW_SYSTEM_ID)
@@ -167,11 +127,9 @@ class FinTSTANMethodsAdapter(TANMethodsPort):
                 len(parameters.bpd.segments.segments),
             )
 
-            # Extract TAN methods from BPD
             return self._extract_tan_methods(parameters)
 
         finally:
-            # Close sync dialog
             if sync_dialog.is_open:
                 try:
                     sync_dialog.end()
@@ -180,44 +138,29 @@ class FinTSTANMethodsAdapter(TANMethodsPort):
             connection.close()
 
     def _extract_tan_methods(self, parameters: ParameterStore) -> list[TANMethod]:
-        """Extract TAN methods from HITANS segments in BPD."""
         methods: list[TANMethod] = []
         seen_codes: set[str] = set()
-
-        # Find all HITANS segments (may have multiple versions)
         for segment in parameters.bpd.segments.find_segments("HITANS"):
-            # Extract twostep_parameters from the segment
             if not hasattr(segment, "parameter"):
                 continue
-
             param = segment.parameter
             if not hasattr(param, "twostep_parameters"):
                 continue
-
             for tsp in param.twostep_parameters:
                 method = self._convert_twostep_params(tsp)
                 if method and method.code not in seen_codes:
-                    # Avoid duplicates (same code from different HITANS versions)
                     seen_codes.add(method.code)
                     methods.append(method)
-
         logger.info("Found %d TAN methods in BPD", len(methods))
         return methods
 
     def _convert_twostep_params(self, tsp: Any) -> TANMethod | None:
-        """Convert TwoStepParameters to TANMethod domain model."""
         try:
-            # Get basic fields
             security_function = getattr(tsp, "security_function", None)
             if not security_function:
                 return None
-
             name = getattr(tsp, "name", None) or "Unknown"
-
-            # Determine method type based on characteristics
             method_type = self._classify_method_type(tsp)
-
-            # Check if decoupled (version 7+ feature)
             is_decoupled = False
             decoupled_max_polls = None
             decoupled_first_poll = None
@@ -256,15 +199,12 @@ class FinTSTANMethodsAdapter(TANMethodsPort):
             return None
 
     def _classify_method_type(self, tsp: Any) -> TANMethodType:
-        """Classify the TAN method type based on its attributes."""
         zka_id = getattr(tsp, "zka_id", "") or ""
         tech_id = getattr(tsp, "technical_id", "") or ""
         name = (getattr(tsp, "name", "") or "").lower()
 
         zka_lower = zka_id.lower()
         tech_lower = tech_id.lower()
-
-        # Check ZKA identifiers and names for classification
         if "pushtan" in zka_lower or "push" in name:
             return TANMethodType.PUSH
         if "mobiletan" in zka_lower or "sms" in name or "mtan" in name:

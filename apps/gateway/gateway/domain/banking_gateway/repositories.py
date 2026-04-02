@@ -10,22 +10,17 @@ from .value_objects import BankLeitzahl, FinTSInstitute, FinTSProductRegistratio
 class FinTSInstituteRepository(Protocol):
     """Persistence contract for canonical institute records (read-only gateway side)."""
 
-    async def get_by_blz(self, blz: BankLeitzahl) -> FinTSInstitute | None:
-        """Load one institute by BLZ."""
-
-    async def list_all(self) -> list[FinTSInstitute]:
-        """Load the entire canonical institute catalog."""
+    async def get_by_blz(self, blz: BankLeitzahl) -> FinTSInstitute | None: ...
+    async def list_all(self) -> list[FinTSInstitute]: ...
 
 
 class InstituteCacheLoader(Protocol):
     """Write interface for loading the in-memory institute cache."""
 
-    async def load(self, institutes: list[FinTSInstitute]) -> None:
-        """Replace the cache contents with the given institute list."""
+    async def load(self, institutes: list[FinTSInstitute]) -> None: ...
 
 
 class FinTSProductRegistrationRepository(Protocol):
     """Persistence contract for the current product registration."""
 
-    async def get_current(self) -> FinTSProductRegistration | None:
-        """Load the current shared product registration, if present."""
+    async def get_current(self) -> FinTSProductRegistration | None: ...

@@ -108,10 +108,7 @@ class GenericSegment(FinTSSegment):
 
 
 class GetSEPAAccountParameter(FinTSDataElementGroup):
-    """Parameter for SEPA account info request.
-
-    Source: FinTS 3.0 Messages
-    """
+    """Parameter for SEPA account info request."""
 
     single_account_query_allowed: FinTSBool | None = Field(
         default=None,
@@ -132,10 +129,7 @@ class GetSEPAAccountParameter(FinTSDataElementGroup):
 
 
 class HISPAS1(ParameterSegmentBase):
-    """SEPA-Kontoverbindung anfordern, Parameter, version 1.
-
-    Source: FinTS 3.0 Messages
-    """
+    """SEPA-Kontoverbindung anfordern, Parameter, version 1."""
 
     SEGMENT_TYPE: ClassVar[str] = "HISPAS"
     SEGMENT_VERSION: ClassVar[int] = 1
@@ -147,10 +141,7 @@ class HISPAS1(ParameterSegmentBase):
 
 
 class HISPAS2(ParameterSegmentBase):
-    """SEPA-Kontoverbindung anfordern, Parameter, version 2.
-
-    Source: FinTS 3.0 Messages
-    """
+    """SEPA-Kontoverbindung anfordern, Parameter, version 2."""
 
     SEGMENT_TYPE: ClassVar[str] = "HISPAS"
     SEGMENT_VERSION: ClassVar[int] = 2
@@ -162,10 +153,7 @@ class HISPAS2(ParameterSegmentBase):
 
 
 class HISPAS3(ParameterSegmentBase):
-    """SEPA-Kontoverbindung anfordern, Parameter, version 3.
-
-    Source: FinTS 3.0 Messages
-    """
+    """SEPA-Kontoverbindung anfordern, Parameter, version 3."""
 
     SEGMENT_TYPE: ClassVar[str] = "HISPAS"
     SEGMENT_VERSION: ClassVar[int] = 3
@@ -182,10 +170,7 @@ class HISPAS3(ParameterSegmentBase):
 
 
 class BalanceParameter(FinTSDataElementGroup):
-    """Parameter for balance query.
-
-    Source: FinTS 3.0 Messages
-    """
+    """Parameter for balance query."""
 
     number_of_days: FinTSNumeric | None = Field(
         default=None,
@@ -198,10 +183,7 @@ class BalanceParameter(FinTSDataElementGroup):
 
 
 class HISALS4(ParameterSegmentBase):
-    """Saldenabfrage Parameter, version 4.
-
-    Source: HBCI Specification
-    """
+    """Saldenabfrage Parameter, version 4."""
 
     SEGMENT_TYPE: ClassVar[str] = "HISALS"
     SEGMENT_VERSION: ClassVar[int] = 4
@@ -213,10 +195,7 @@ class HISALS4(ParameterSegmentBase):
 
 
 class HISALS5(ParameterSegmentBase):
-    """Saldenabfrage Parameter, version 5.
-
-    Source: FinTS 3.0 Messages
-    """
+    """Saldenabfrage Parameter, version 5."""
 
     SEGMENT_TYPE: ClassVar[str] = "HISALS"
     SEGMENT_VERSION: ClassVar[int] = 5
@@ -228,10 +207,7 @@ class HISALS5(ParameterSegmentBase):
 
 
 class HISALS6(ParameterSegmentBase):
-    """Saldenabfrage Parameter, version 6.
-
-    Source: FinTS 3.0 Messages
-    """
+    """Saldenabfrage Parameter, version 6."""
 
     SEGMENT_TYPE: ClassVar[str] = "HISALS"
     SEGMENT_VERSION: ClassVar[int] = 6
@@ -243,10 +219,7 @@ class HISALS6(ParameterSegmentBase):
 
 
 class HISALS7(ParameterSegmentBase):
-    """Saldenabfrage Parameter, version 7.
-
-    Source: FinTS 3.0 Messages
-    """
+    """Saldenabfrage Parameter, version 7."""
 
     SEGMENT_TYPE: ClassVar[str] = "HISALS"
     SEGMENT_VERSION: ClassVar[int] = 7
@@ -263,10 +236,7 @@ class HISALS7(ParameterSegmentBase):
 
 
 class TransactionParameter(FinTSDataElementGroup):
-    """Parameter for transaction query.
-
-    Source: FinTS 3.0 Messages
-    """
+    """Parameter for transaction query."""
 
     number_of_days: FinTSNumeric | None = Field(
         default=None,
@@ -279,10 +249,7 @@ class TransactionParameter(FinTSDataElementGroup):
 
 
 class HIKAZS4(ParameterSegmentBase):
-    """Kontoumsätze Parameter, version 4.
-
-    Source: HBCI Specification
-    """
+    """Kontoumsätze Parameter, version 4."""
 
     SEGMENT_TYPE: ClassVar[str] = "HIKAZS"
     SEGMENT_VERSION: ClassVar[int] = 4
@@ -294,10 +261,7 @@ class HIKAZS4(ParameterSegmentBase):
 
 
 class HIKAZS5(ParameterSegmentBase):
-    """Kontoumsätze Parameter, version 5.
-
-    Source: FinTS 3.0 Messages
-    """
+    """Kontoumsätze Parameter, version 5."""
 
     SEGMENT_TYPE: ClassVar[str] = "HIKAZS"
     SEGMENT_VERSION: ClassVar[int] = 5
@@ -309,10 +273,7 @@ class HIKAZS5(ParameterSegmentBase):
 
 
 class HIKAZS6(ParameterSegmentBase):
-    """Kontoumsätze Parameter, version 6.
-
-    Source: FinTS 3.0 Messages
-    """
+    """Kontoumsätze Parameter, version 6."""
 
     SEGMENT_TYPE: ClassVar[str] = "HIKAZS"
     SEGMENT_VERSION: ClassVar[int] = 6
@@ -324,10 +285,7 @@ class HIKAZS6(ParameterSegmentBase):
 
 
 class HIKAZS7(ParameterSegmentBase):
-    """Kontoumsätze Parameter, version 7.
-
-    Source: FinTS 3.0 Messages
-    """
+    """Kontoumsätze Parameter, version 7."""
 
     SEGMENT_TYPE: ClassVar[str] = "HIKAZS"
     SEGMENT_VERSION: ClassVar[int] = 7
@@ -349,8 +307,6 @@ class HISHV3(GenericSegment):
 
     Lists supported security procedures. Uses GenericSegment because
     the structure varies between banks and doesn't follow standard patterns.
-
-    Source: FinTS 3.0 Formals
     """
 
     SEGMENT_TYPE: ClassVar[str] = "HISHV"

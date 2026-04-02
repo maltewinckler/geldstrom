@@ -52,11 +52,7 @@ class RequestedIban:
 
 
 class PresentedBankCredentials(BaseModel):
-    """Opaque credential pair passed to the banking connector.
-
-    Accepts plain strings on construction and stores them as SecretStr.
-    Validation rejects empty or whitespace-only values at the boundary.
-    """
+    """Opaque credential pair passed to the banking connector."""
 
     model_config = {"frozen": True}
 

@@ -1,0 +1,649 @@
+openapi: 3.1.0
+
+info:
+  title: Banking Gateway API
+  version: 1.0.0
+  description: |
+    HTTP API for performing FinTS 3.0 banking operations on behalf of registered consumers.
+
+    ## Authentication
+
+    All `/v1/banking/*` endpoints require a bearer token:
+
+    ```
+    Authorization: Bearer <api-key>
+    ```
+
+    API keys are provisioned via the admin CLI.
+
+    ## Async operations (2FA)
+
+    Some banks require a second-factor confirmation (decoupled TAN, push notification,
+    etc.) before returning data. When that happens, an endpoint returns **202** instead
+    of 200. The response body contains an `operation_id` — poll
+    `GET /v1/banking/operations/{operation_id}` every few seconds until the status
+    changes from `pending` to `completed` or `failed`.
+
+    The `result_payload` field on the completed response has the same shape as the
+    synchronous 200 body for that operation.
+
+servers:
+  - url: http://localhost:8000
+    description: Local development
+
+tags:
+  - name: health
+    description: Liveness and readiness checks. No authentication required.
+  - name: banking
+    description: Bank data operations (accounts, balances, transactions, TAN methods).
+
+paths:
+  /health/live:
+    get:
+      tags: [health]
+      summary: Liveness
+      description: Returns 200 if the process is running. No DB check.
+      operationId: liveness
+      responses:
+        "200":
+          description: Process is alive.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LivenessResponse"
+              example:
+                status: ok
+
+  /health/ready:
+    get:
+      tags: [health]
+      summary: Readiness
+      description: |
+        Returns 200 when all subsystems are healthy, 503 otherwise.
+
+        Checks:
+        - **db** — can the service reach PostgreSQL
+        - **product_key** — is the Fernet product key loaded
+        - **catalog** — is the institute catalog non-empty
+      operationId: readiness
+      responses:
+        "200":
+          description: All checks passed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadinessResponse"
+              example:
+                status: ready
+                checks:
+                  db: ok
+                  product_key: loaded
+                  catalog: ok
+        "503":
+          description: One or more checks failed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadinessResponse"
+              example:
+                status: not_ready
+                checks:
+                  db: error
+                  product_key: loaded
+                  catalog: ok
+
+  /v1/banking/accounts:
+    post:
+      tags: [banking]
+      summary: List accounts
+      description: |
+        Returns the list of accounts accessible for the given bank user.
+
+        Responds synchronously (200) when the bank confirms without a TAN step,
+        or asynchronously (202) when decoupled 2FA is required.
+      operationId: listAccounts
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BankingRequest"
+            example:
+              protocol: fints
+              blz: "20010020"
+              user_id: "myuser"
+              password: "mypin"
+              tan_method: "946"
+      responses:
+        "200":
+          description: Accounts retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountsCompletedResponse"
+              example:
+                status: completed
+                accounts:
+                  - iban: DE44200400600512345678
+                    account_number: "0512345678"
+                    type: Girokonto
+                    owner: Max Mustermann
+        "202":
+          description: 2FA required — poll the operation endpoint.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PendingResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /v1/banking/balances:
+    post:
+      tags: [banking]
+      summary: Get balances
+      description: |
+        Returns account balances for the given bank user.
+
+        Same sync/async behavior as `/v1/banking/accounts`.
+      operationId: getBalances
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BankingRequest"
+            example:
+              protocol: fints
+              blz: "20010020"
+              user_id: "myuser"
+              password: "mypin"
+      responses:
+        "200":
+          description: Balances retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BalancesCompletedResponse"
+              example:
+                status: completed
+                balances:
+                  - iban: DE44200400600512345678
+                    account_number: "0512345678"
+                    balance: "1234.56"
+                    currency: EUR
+                    date: "2026-04-01"
+        "202":
+          description: 2FA required — poll the operation endpoint.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PendingResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /v1/banking/transactions:
+    post:
+      tags: [banking]
+      summary: Fetch transactions
+      description: |
+        Returns MT940 transactions for a specific IBAN, optionally filtered by date range.
+
+        `start_date` and `end_date` are optional ISO 8601 dates. If omitted the bank
+        decides how far back to go (usually 90 days).
+
+        Same sync/async behavior as `/v1/banking/accounts`.
+      operationId: fetchTransactions
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FetchTransactionsRequest"
+            example:
+              protocol: fints
+              blz: "20010020"
+              user_id: "myuser"
+              password: "mypin"
+              iban: DE44200400600512345678
+              start_date: "2026-01-01"
+              end_date: "2026-03-31"
+      responses:
+        "200":
+          description: Transactions retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TransactionsCompletedResponse"
+              example:
+                status: completed
+                transactions:
+                  - date: "2026-03-15"
+                    amount: "-42.00"
+                    currency: EUR
+                    purpose: "Lastschrift Supermarkt"
+                    applicant_name: REWE
+        "202":
+          description: 2FA required — poll the operation endpoint.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PendingResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /v1/banking/tan-methods:
+    post:
+      tags: [banking]
+      summary: List TAN methods
+      description: |
+        Returns the TAN methods available for the given bank user.
+
+        Useful for discovering the right `tan_method` code to pass to other
+        endpoints (e.g. `"946"` for a push-TAN app).
+      operationId: getTanMethods
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BankingRequest"
+            example:
+              protocol: fints
+              blz: "20010020"
+              user_id: "myuser"
+              password: "mypin"
+      responses:
+        "200":
+          description: TAN methods retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TanMethodsCompletedResponse"
+              example:
+                status: completed
+                methods:
+                  - method_id: "946"
+                    display_name: pushTAN 2.0
+                  - method_id: "900"
+                    display_name: mobileTAN
+        "202":
+          description: 2FA required — poll the operation endpoint.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PendingResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /v1/banking/operations/{operation_id}:
+    get:
+      tags: [banking]
+      summary: Get operation status
+      description: |
+        Poll a pending 2FA operation.
+
+        Status values:
+        - `pending` — waiting for user confirmation
+        - `completed` — confirmed; `result_payload` contains the data
+        - `failed` — confirmation rejected or timed out; `failure_reason` explains why
+        - `expired` — the operation TTL elapsed
+      operationId: getOperationStatus
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: operation_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The operation UUID returned in a 202 response.
+      responses:
+        "200":
+          description: Operation found (may still be pending).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationStatusResponse"
+              examples:
+                pending:
+                  summary: Still waiting
+                  value:
+                    status: pending
+                    operation_id: 550e8400-e29b-41d4-a716-446655440000
+                    result_payload: null
+                    failure_reason: null
+                    expires_at: "2026-04-02T14:05:00Z"
+                    polling_interval_seconds: 5
+                completed:
+                  summary: Completed — result available
+                  value:
+                    status: completed
+                    operation_id: 550e8400-e29b-41d4-a716-446655440000
+                    result_payload:
+                      status: completed
+                      accounts:
+                        - iban: DE44200400600512345678
+                          account_number: "0512345678"
+                    failure_reason: null
+                    expires_at: "2026-04-02T14:05:00Z"
+                failed:
+                  summary: Failed
+                  value:
+                    status: failed
+                    operation_id: 550e8400-e29b-41d4-a716-446655440000
+                    result_payload: null
+                    failure_reason: TAN confirmation rejected by bank
+                    expires_at: "2026-04-02T14:05:00Z"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Operation not found or already expired.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: API key provisioned via the gateway admin CLI.
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid API key.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error: unauthorized
+            message: Missing API key
+    ValidationError:
+      description: Request body failed validation.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+  schemas:
+    # ── Common request fields ───────────────────────────────────────────────
+
+    BankingRequest:
+      type: object
+      description: Common fields required by all banking endpoints.
+      required: [protocol, blz, user_id, password]
+      additionalProperties: false
+      properties:
+        protocol:
+          type: string
+          enum: [fints]
+          description: Banking protocol. Currently only `fints` is supported.
+        blz:
+          type: string
+          pattern: "^\\d{8}$"
+          description: German bank code (Bankleitzahl), exactly 8 digits.
+          example: "20010020"
+        user_id:
+          type: string
+          maxLength: 64
+          description: Online banking user ID.
+        password:
+          type: string
+          format: password
+          writeOnly: true
+          description: Online banking PIN.
+        tan_method:
+          type: string
+          maxLength: 64
+          nullable: true
+          description: |
+            TAN method code to use (e.g. `"946"`). If omitted the bank's default
+            is used, which may not work for all banks. Use `/v1/banking/tan-methods`
+            to discover the available codes.
+        tan_medium:
+          type: string
+          maxLength: 64
+          nullable: true
+          description: TAN medium/device name, required by some banks.
+
+    FetchTransactionsRequest:
+      allOf:
+        - $ref: "#/components/schemas/BankingRequest"
+        - type: object
+          required: [iban]
+          properties:
+            iban:
+              type: string
+              description: IBAN of the account to fetch transactions for.
+              example: DE44200400600512345678
+            start_date:
+              type: string
+              format: date
+              nullable: true
+              description: Start of the date range (ISO 8601). Defaults to bank-defined limit.
+            end_date:
+              type: string
+              format: date
+              nullable: true
+              description: End of the date range (ISO 8601). Defaults to today.
+
+    # ── Pending (202) response ──────────────────────────────────────────────
+
+    PendingResponse:
+      type: object
+      description: Returned when the bank requires 2FA before data can be retrieved.
+      required: [status, operation_id, expires_at]
+      additionalProperties: false
+      properties:
+        status:
+          type: string
+          enum: [pending]
+        operation_id:
+          type: string
+          format: uuid
+          description: Use this ID to poll `GET /v1/banking/operations/{operation_id}`.
+        expires_at:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp after which the operation will be marked expired.
+        polling_interval_seconds:
+          type: integer
+          default: 5
+          description: Recommended polling interval in seconds.
+
+    # ── Completed (200) responses ───────────────────────────────────────────
+
+    AccountsCompletedResponse:
+      type: object
+      required: [status, accounts]
+      additionalProperties: false
+      properties:
+        status:
+          type: string
+          enum: [completed]
+        accounts:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+          description: |
+            List of accounts. Each entry is a flat object with bank-provided fields
+            such as `iban`, `account_number`, `type`, `owner`, etc. The exact fields
+            vary per bank.
+
+    BalancesCompletedResponse:
+      type: object
+      required: [status, balances]
+      additionalProperties: false
+      properties:
+        status:
+          type: string
+          enum: [completed]
+        balances:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+          description: |
+            List of balance entries. Each entry typically includes `iban`,
+            `account_number`, `balance`, `currency`, and `date`.
+
+    TransactionsCompletedResponse:
+      type: object
+      required: [status, transactions]
+      additionalProperties: false
+      properties:
+        status:
+          type: string
+          enum: [completed]
+        transactions:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+          description: |
+            Parsed MT940 transactions. Typical fields: `date`, `amount`, `currency`,
+            `purpose`, `applicant_name`, `applicant_iban`.
+
+    TanMethodsCompletedResponse:
+      type: object
+      required: [status, methods]
+      additionalProperties: false
+      properties:
+        status:
+          type: string
+          enum: [completed]
+        methods:
+          type: array
+          items:
+            type: object
+            required: [method_id, display_name]
+            properties:
+              method_id:
+                type: string
+                description: Code to pass as `tan_method` in other requests.
+              display_name:
+                type: string
+                description: Human-readable name shown to the user.
+
+    AccountsPendingResponse:
+      $ref: "#/components/schemas/PendingResponse"
+
+    BalancesPendingResponse:
+      $ref: "#/components/schemas/PendingResponse"
+
+    TransactionsPendingResponse:
+      $ref: "#/components/schemas/PendingResponse"
+
+    TanMethodsPendingResponse:
+      $ref: "#/components/schemas/PendingResponse"
+
+    # ── Operation status ────────────────────────────────────────────────────
+
+    OperationStatusResponse:
+      type: object
+      required: [status, operation_id]
+      additionalProperties: false
+      properties:
+        status:
+          type: string
+          enum: [pending, completed, failed, expired]
+        operation_id:
+          type: string
+          format: uuid
+        result_payload:
+          type: object
+          nullable: true
+          additionalProperties: true
+          description: |
+            Present when `status` is `completed`. Has the same shape as the 200
+            response body for the originating endpoint.
+        failure_reason:
+          type: string
+          nullable: true
+          description: Present when `status` is `failed`.
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+        polling_interval_seconds:
+          type: integer
+          nullable: true
+          default: 5
+
+    # ── Health ──────────────────────────────────────────────────────────────
+
+    LivenessResponse:
+      type: object
+      required: [status]
+      additionalProperties: false
+      properties:
+        status:
+          type: string
+          example: ok
+
+    ReadinessCheck:
+      type: object
+      required: [db, product_key, catalog]
+      additionalProperties: false
+      properties:
+        db:
+          type: string
+          enum: [ok, error]
+          description: PostgreSQL reachability.
+        product_key:
+          type: string
+          enum: [loaded, missing]
+          description: Whether the Fernet product key is configured.
+        catalog:
+          type: string
+          enum: [ok, empty]
+          description: Whether the institute catalog has entries.
+
+    ReadinessResponse:
+      type: object
+      required: [status, checks]
+      additionalProperties: false
+      properties:
+        status:
+          type: string
+          enum: [ready, not_ready]
+        checks:
+          $ref: "#/components/schemas/ReadinessCheck"
+
+    # ── Errors ──────────────────────────────────────────────────────────────
+
+    ErrorResponse:
+      type: object
+      required: [error, message]
+      additionalProperties: false
+      properties:
+        error:
+          type: string
+          description: Machine-readable error code.
+          example: unauthorized
+        message:
+          type: string
+          description: Human-readable explanation.
+          example: Missing API key

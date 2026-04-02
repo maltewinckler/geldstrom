@@ -1,7 +1,4 @@
-"""Security mechanisms for FinTS dialog messages.
-
-These mechanisms handle message signing and encryption for FinTS dialogs.
-"""
+"""Security mechanisms for FinTS dialog messages (signing and encryption)."""
 
 from __future__ import annotations
 
@@ -60,11 +57,7 @@ class StandaloneEncryptionMechanism:
     """
     PIN/TAN "encryption" mechanism for dialog messages.
 
-    This wraps messages in the required HNVSK/HNVSD envelope structure.
-
-    Args:
-        context: Security context
-        security_method_version: 1 for one-step auth, 2 for two-step auth
+    Wraps messages in the required HNVSK/HNVSD envelope structure.
     """
 
     def __init__(
@@ -154,15 +147,6 @@ class StandaloneAuthenticationMechanism:
         security_function: str = "999",
         tan_provider: callable = None,
     ) -> None:
-        """
-        Initialize authentication mechanism.
-
-        Args:
-            context: Security context with bank/user info
-            pin: User PIN
-            security_function: Security function code (999=one-step, else=two-step)
-            tan_provider: Optional callable that returns TAN when needed
-        """
         self._context = context
         self._pin = pin
         self.security_function = security_function

@@ -1,11 +1,4 @@
-"""FinTS Dialog Segments.
-
-These segments handle dialog management including:
-- Message header/trailer (HNHBK, HNHBS)
-- Responses (HIRMG, HIRMS)
-- Synchronization (HKSYN, HISYN)
-- Dialog end (HKEND)
-"""
+"""FinTS Dialog Segments."""
 
 from __future__ import annotations
 
@@ -37,8 +30,6 @@ class HNHBK3(FinTSSegment):
     - Protocol version
     - Dialog identification
     - Message number
-
-    Source: FinTS 3.0 Formals
     """
 
     SEGMENT_TYPE: ClassVar[str] = "HNHBK"
@@ -78,12 +69,7 @@ class HNHBK3(FinTSSegment):
 
 
 class HNHBS1(FinTSSegment):
-    """Nachrichtenabschluss (Message Trailer), version 1.
-
-    The last segment of every FinTS message.
-
-    Source: FinTS 3.0 Formals
-    """
+    """Nachrichtenabschluss (Message Trailer), version 1."""
 
     SEGMENT_TYPE: ClassVar[str] = "HNHBS"
     SEGMENT_VERSION: ClassVar[int] = 1
@@ -101,12 +87,7 @@ class HNHBS1(FinTSSegment):
 
 
 class HIRMG2(FinTSSegment):
-    """Rückmeldungen zur Gesamtnachricht (Global Message Responses), version 2.
-
-    Contains response codes for the entire message.
-
-    Source: FinTS 3.0 Formals
-    """
+    """Rückmeldungen zur Gesamtnachricht (Global Message Responses), version 2."""
 
     SEGMENT_TYPE: ClassVar[str] = "HIRMG"
     SEGMENT_VERSION: ClassVar[int] = 2
@@ -119,12 +100,7 @@ class HIRMG2(FinTSSegment):
 
 
 class HIRMS2(FinTSSegment):
-    """Rückmeldungen zu Segmenten (Segment Responses), version 2.
-
-    Contains response codes for specific segments.
-
-    Source: FinTS 3.0 Formals
-    """
+    """Rückmeldungen zu Segmenten (Segment Responses), version 2."""
 
     SEGMENT_TYPE: ClassVar[str] = "HIRMS"
     SEGMENT_VERSION: ClassVar[int] = 2
@@ -145,8 +121,6 @@ class HKSYN3(FinTSSegment):
     """Synchronisierung (Synchronization Request), version 3.
 
     Requests synchronization with the bank to obtain system ID.
-
-    Source: FinTS 3.0 Formals
     """
 
     SEGMENT_TYPE: ClassVar[str] = "HKSYN"
@@ -161,8 +135,6 @@ class HISYN4(FinTSSegment):
     """Synchronisierungsantwort (Synchronization Response), version 4.
 
     Response containing the assigned system ID.
-
-    Source: FinTS 3.0 Formals
     """
 
     SEGMENT_TYPE: ClassVar[str] = "HISYN"
@@ -193,12 +165,7 @@ class HISYN4(FinTSSegment):
 
 
 class HKEND1(FinTSSegment):
-    """Dialogende (Dialog End), version 1.
-
-    Terminates the current dialog.
-
-    Source: FinTS 3.0 Formals
-    """
+    """Dialogende (Dialog End), version 1."""
 
     SEGMENT_TYPE: ClassVar[str] = "HKEND"
     SEGMENT_VERSION: ClassVar[int] = 1

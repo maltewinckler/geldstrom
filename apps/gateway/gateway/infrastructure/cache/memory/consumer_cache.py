@@ -15,7 +15,6 @@ _CACHED_STATUSES = frozenset((ConsumerStatus.ACTIVE, ConsumerStatus.DISABLED))
 
 
 def _consumer_key_prefix(consumer_id: UUID) -> str:
-    """Return the first 8 hex chars of the consumer UUID (matches API key prefix)."""
     return consumer_id.hex[:8]
 
 
@@ -70,7 +69,6 @@ class InMemoryApiConsumerCache(ConsumerCache):
                     self._prefix_index.pop(prefix, None)
 
     async def get_by_key_prefix(self, prefix: str) -> ApiConsumer | None:
-        """Look up a consumer by the first 8 hex chars of the API key."""
         async with self._lock:
             cid = self._prefix_index.get(prefix)
             if cid is None:

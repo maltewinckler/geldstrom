@@ -22,12 +22,7 @@ _BLZ_RE = re.compile(r"^\d{8}$")
 
 
 class InstituteCsvReader:
-    """Parse raw institute CSV rows into domain objects.
-
-    Returns a tuple of ``(valid_institutes, skipped_rows)``.
-    Rows with an empty or non-8-digit BLZ are silently dropped (blank rows).
-    Rows with a valid BLZ that fail for any other reason are reported as skipped.
-    """
+    """Parse raw institute CSV rows into ``(valid_institutes, skipped_rows)``."""
 
     def read(self, path: Path) -> tuple[list[FinTSInstitute], list[SkippedRow]]:
         institutes: list[FinTSInstitute] = []

@@ -32,11 +32,7 @@ logger = logging.getLogger(__name__)
 
 
 class FinTSAccountDiscovery(AccountDiscoveryPort):
-    """
-    FinTS 3.0 implementation of AccountDiscoveryPort.
-
-    Discovers accounts and bank capabilities via FinTS dialogs.
-    """
+    """FinTS 3.0 implementation of AccountDiscoveryPort."""
 
     def __init__(
         self,
@@ -45,14 +41,6 @@ class FinTSAccountDiscovery(AccountDiscoveryPort):
         tan_config: TANConfig | None = None,
         challenge_handler: ChallengeHandler | None = None,
     ) -> None:
-        """
-        Initialize with credentials for building clients.
-
-        Args:
-            credentials: Bank connection credentials
-            tan_config: Configuration for TAN handling (polling, timeout)
-            challenge_handler: Handler for presenting 2FA challenges to user
-        """
         self._credentials = credentials
         self._tan_config = tan_config or TANConfig()
         self._challenge_handler = challenge_handler
@@ -61,15 +49,6 @@ class FinTSAccountDiscovery(AccountDiscoveryPort):
         self,
         state: FinTSSessionState,
     ) -> BankCapabilities:
-        """
-        Fetch bank capabilities from BPD.
-
-        Args:
-            state: Current session state
-
-        Returns:
-            BankCapabilities with supported operations
-        """
         helper = FinTSConnectionHelper(
             self._credentials,
             tan_config=self._tan_config,
@@ -77,10 +56,7 @@ class FinTSAccountDiscovery(AccountDiscoveryPort):
         )
 
         with helper.connect(state) as ctx:
-            # Get supported operations from BPD
             supported_ops = ctx.parameters.bpd.get_supported_operations()
-
-            # Convert to domain format
             supported = {name for name, enabled in supported_ops.items() if enabled}
             return BankCapabilities(
                 supported_operations=frozenset(supported),
@@ -91,15 +67,6 @@ class FinTSAccountDiscovery(AccountDiscoveryPort):
         self,
         state: FinTSSessionState,
     ) -> Sequence[Account]:
-        """
-        Fetch all accounts available to the user.
-
-        Args:
-            state: Current session state
-
-        Returns:
-            Sequence of Account domain objects
-        """
         from geldstrom.infrastructure.fints.operations import AccountOperations
 
         helper = FinTSConnectionHelper(
@@ -110,8 +77,6 @@ class FinTSAccountDiscovery(AccountDiscoveryPort):
 
         with helper.connect(state) as ctx:
             ops = AccountOperations(ctx.dialog, ctx.parameters)
-
-            # Fetch SEPA accounts and UPD accounts
             sepa_accounts = ops.fetch_sepa_accounts()
             upd_accounts = list(ops.get_accounts_from_upd())
             if not upd_accounts and sepa_accounts:
@@ -140,14 +105,11 @@ class FinTSAccountDiscovery(AccountDiscoveryPort):
                 len(upd_accounts),
             )
 
-            # Merge and convert to domain
             return self._accounts_from_operations(
                 self._credentials.route,
                 upd_accounts,
                 sepa_accounts,
             )
-
-    # --- Helpers ---
 
     def _accounts_from_operations(
         self,
@@ -155,7 +117,6 @@ class FinTSAccountDiscovery(AccountDiscoveryPort):
         upd_accounts,
         sepa_accounts: Sequence[SEPAAccount],
     ) -> Sequence[Account]:
-        """Convert operations result to domain Account objects."""
 
         sepa_lookup = {account_key(sepa): sepa for sepa in sepa_accounts}
         domain_accounts: list[Account] = []

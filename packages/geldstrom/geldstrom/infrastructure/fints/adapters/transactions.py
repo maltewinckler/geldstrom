@@ -27,11 +27,7 @@ logger = logging.getLogger(__name__)
 
 
 class FinTSTransactionHistory(TransactionHistoryPort):
-    """
-    FinTS 3.0 implementation of TransactionHistoryPort.
-
-    Fetches transaction history via HKKAZ (MT940) or HKCAZ (CAMT) segments.
-    """
+    """FinTS 3.0 implementation of TransactionHistoryPort via HKKAZ/HKCAZ segments."""
 
     def __init__(
         self,
@@ -40,14 +36,6 @@ class FinTSTransactionHistory(TransactionHistoryPort):
         tan_config: TANConfig | None = None,
         challenge_handler: ChallengeHandler | None = None,
     ) -> None:
-        """
-        Initialize with credentials.
-
-        Args:
-            credentials: Bank connection credentials
-            tan_config: Configuration for TAN handling (polling, timeout)
-            challenge_handler: Handler for presenting 2FA challenges to user
-        """
         self._credentials = credentials
         self._tan_config = tan_config or TANConfig()
         self._challenge_handler = challenge_handler
@@ -61,19 +49,6 @@ class FinTSTransactionHistory(TransactionHistoryPort):
         *,
         include_pending: bool = False,
     ) -> TransactionFeed:
-        """
-        Fetch transaction history for an account.
-
-        Args:
-            state: Current session state
-            account_id: Account identifier
-            start_date: Optional start date filter
-            end_date: Optional end date filter
-            include_pending: Whether to include pending transactions
-
-        Returns:
-            TransactionFeed with transaction entries
-        """
         from geldstrom.infrastructure.fints.operations import (
             AccountOperations,
             TransactionOperations,
@@ -88,13 +63,9 @@ class FinTSTransactionHistory(TransactionHistoryPort):
         with helper.connect(state) as ctx:
             account_ops = AccountOperations(ctx.dialog, ctx.parameters)
             tx_ops = TransactionOperations(ctx.dialog, ctx.parameters)
-
-            # Find SEPA account
             sepa_account = locate_sepa_account(account_ops, account_id)
-
-            # Format selection strategy:
-            # - If include_pending=True, prefer CAMT (only format that supports pending)
-            # - Otherwise, prefer MT940 (more widely supported, falls back to CAMT)
+            # Prefer CAMT when pending transactions are needed (only format that supports it);
+            # otherwise prefer MT940 (more widely supported).
             if include_pending:
                 return self._fetch_with_camt_preferred(
                     tx_ops,
@@ -141,7 +112,6 @@ class FinTSTransactionHistory(TransactionHistoryPort):
         end_date: date | None,
         include_pending: bool,
     ) -> TransactionFeed:
-        """Fetch transactions preferring CAMT (for pending support), falling back to MT940."""
         try:
             result = tx_ops.fetch_camt(sepa_account, start_date, end_date)
             return self._transactions_from_camt(
@@ -151,7 +121,6 @@ class FinTSTransactionHistory(TransactionHistoryPort):
                 has_more=result.has_more,
             )
         except FinTSUnsupportedOperation:
-            # CAMT not available; fall back to MT940 (no pending support)
             logger.warning(
                 "Bank does not support CAMT; falling back to MT940 "
                 "(pending transactions will not be included)"
@@ -161,8 +130,6 @@ class FinTSTransactionHistory(TransactionHistoryPort):
                 account_id, result.transactions, has_more=result.has_more
             )
 
-    # --- MT940 parsing ---
-
     def _transactions_from_mt940(
         self,
         account_id: str,
@@ -170,7 +137,6 @@ class FinTSTransactionHistory(TransactionHistoryPort):
         *,
         has_more: bool = False,
     ) -> TransactionFeed:
-        """Convert MT940 transactions to TransactionFeed."""
         entries = [
             self._transaction_entry(account_id, idx, tx)
             for idx, tx in enumerate(transactions)
@@ -185,8 +151,6 @@ class FinTSTransactionHistory(TransactionHistoryPort):
         idx: int,
         tx,
     ) -> TransactionEntry:
-        """Convert single MT940 transaction to TransactionEntry."""
-        # Debug: log all available MT940 fields
         if logger.isEnabledFor(logging.DEBUG):
             self._log_mt940_fields(tx, idx)
 
@@ -218,8 +182,6 @@ class FinTSTransactionHistory(TransactionHistoryPort):
             counterpart_iban=counterpart_iban,
         )
 
-    # --- CAMT parsing ---
-
     def _transactions_from_camt(
         self,
         account_id: str,
@@ -228,7 +190,6 @@ class FinTSTransactionHistory(TransactionHistoryPort):
         *,
         has_more: bool = False,
     ) -> TransactionFeed:
-        """Convert CAMT streams to TransactionFeed."""
         entries: list[TransactionEntry] = []
 
         entries.extend(
@@ -248,7 +209,6 @@ class FinTSTransactionHistory(TransactionHistoryPort):
         streams: Iterable[bytes] | None,
         pending: bool,
     ) -> Sequence[TransactionEntry]:
-        """Parse CAMT streams into transaction entries."""
         if not streams:
             return ()
 
@@ -269,7 +229,6 @@ class FinTSTransactionHistory(TransactionHistoryPort):
         payload: bytes,
         pending: bool,
     ) -> Sequence[TransactionEntry]:
-        """Parse single CAMT document into entries."""
         try:
             root = ET.fromstring(payload)
         except ET.ParseError:
@@ -298,8 +257,6 @@ class FinTSTransactionHistory(TransactionHistoryPort):
         pending: bool,
         namespace: str | None,
     ) -> TransactionEntry | None:
-        """Parse single CAMT entry element."""
-        # Debug: log CAMT element structure
         if logger.isEnabledFor(logging.DEBUG):
             self._log_camt_element(element, namespace)
 
@@ -417,31 +374,18 @@ class FinTSTransactionHistory(TransactionHistoryPort):
         namespace: str | None,
         counterpart_tag: str,
     ) -> str | None:
-        """Find counterpart name from CAMT party elements.
-
-        Banks use varying structures for counterparty info. We search for the
-        first <Nm> element under the party tag, regardless of intermediate
-        wrappers (e.g., <Pty>, <PstlAdr>).
-
-        Search order:
-        1. Direct party (Dbtr/Cdtr) - any nested Nm
-        2. Ultimate party (UltmtDbtr/UltmtCdtr) - any nested Nm
-        """
-        # Find RltdPties element
+        """Find counterpart name from CAMT party elements."""
         rltd_pties = element.find(
             f".//{self._ns(namespace, 'NtryDtls')}/{self._ns(namespace, 'TxDtls')}"
             f"/{self._ns(namespace, 'RltdPties')}"
         )
         if rltd_pties is None:
             return None
-
-        # Search order: direct party first, then ultimate party
         party_tags = [counterpart_tag, f"Ultmt{counterpart_tag}"]
 
         for tag in party_tags:
             party_elem = rltd_pties.find(self._ns(namespace, tag))
             if party_elem is not None:
-                # Find first Nm anywhere under this party element
                 nm_elem = party_elem.find(f".//{self._ns(namespace, 'Nm')}")
                 if nm_elem is not None and nm_elem.text:
                     name = nm_elem.text.strip()
@@ -510,20 +454,15 @@ class FinTSTransactionHistory(TransactionHistoryPort):
             return None
 
     def _log_mt940_fields(self, tx, idx: int) -> None:
-        """Log all available fields in MT940 transaction for debugging."""
         logger.debug("MT940 Transaction #%d - Available fields:", idx)
         for key, value in tx.data.items():
-            # Truncate long values
             value_str = str(value)
             if len(value_str) > 100:
                 value_str = value_str[:100] + "..."
             logger.debug("  %s: %s", key, value_str)
 
     def _log_camt_element(self, element: ET.Element, namespace: str | None) -> None:
-        """Log CAMT entry element structure for debugging counterparty fields."""
         logger.debug("CAMT Entry - Checking counterparty locations:")
-
-        # Check RltdPties structure
         rltd_pties = element.find(
             f".//{self._ns(namespace, 'NtryDtls')}/{self._ns(namespace, 'TxDtls')}"
             f"/{self._ns(namespace, 'RltdPties')}"
@@ -531,10 +470,7 @@ class FinTSTransactionHistory(TransactionHistoryPort):
         if rltd_pties is None:
             logger.debug("  RltdPties: NOT FOUND")
             return
-
         logger.debug("  RltdPties: FOUND")
-
-        # Check all party-related elements
         party_tags = ["Dbtr", "Cdtr", "UltmtDbtr", "UltmtCdtr"]
         for tag in party_tags:
             party_elem = rltd_pties.find(self._ns(namespace, tag))
@@ -542,14 +478,10 @@ class FinTSTransactionHistory(TransactionHistoryPort):
                 # Direct name
                 name = party_elem.findtext(self._ns(namespace, "Nm"))
                 logger.debug("  %s/Nm: %s", tag, name or "(empty)")
-
-                # Party wrapper (used by Triodos)
                 pty_elem = party_elem.find(self._ns(namespace, "Pty"))
                 if pty_elem is not None:
                     pty_name = pty_elem.findtext(self._ns(namespace, "Nm"))
                     logger.debug("  %s/Pty/Nm: %s", tag, pty_name or "(empty)")
-
-                # Check postal address
                 pstl_addr = party_elem.find(self._ns(namespace, "PstlAdr"))
                 if pstl_addr is not None:
                     addr_name = pstl_addr.findtext(self._ns(namespace, "Nm"))
@@ -557,7 +489,6 @@ class FinTSTransactionHistory(TransactionHistoryPort):
             else:
                 logger.debug("  %s: NOT FOUND", tag)
 
-        # Check account elements for IBAN
         acct_tags = ["DbtrAcct", "CdtrAcct"]
         for tag in acct_tags:
             acct_elem = rltd_pties.find(self._ns(namespace, tag))
@@ -565,7 +496,6 @@ class FinTSTransactionHistory(TransactionHistoryPort):
                 iban = self._find_text(rltd_pties, namespace, tag, "Id", "IBAN")
                 logger.debug("  %s/Id/IBAN: %s", tag, iban or "(empty)")
 
-        # Log AddtlNtryInf as potential source
         addtl_info = element.findtext(self._ns(namespace, "AddtlNtryInf"))
         if addtl_info:
             truncated = (
@@ -575,14 +505,12 @@ class FinTSTransactionHistory(TransactionHistoryPort):
 
     @staticmethod
     def _extract_xml_namespace(element: ET.Element) -> str | None:
-        """Extract namespace from XML element."""
         if element.tag.startswith("{"):
             return element.tag[1:].split("}", 1)[0]
         return None
 
     @staticmethod
     def _ns(namespace: str | None, tag: str) -> str:
-        """Format tag with namespace."""
         return f"{{{namespace}}}{tag}" if namespace else tag
 
     def _stable_camt_entry_id(
@@ -595,8 +523,6 @@ class FinTSTransactionHistory(TransactionHistoryPort):
         digest = hashlib.sha1(payload).hexdigest()[:12]
         return f"{account_id}-camt-{digest}"
 
-    # --- Feed helpers ---
-
     def _transaction_feed_from_entries(
         self,
         account_id: str,
@@ -604,7 +530,6 @@ class FinTSTransactionHistory(TransactionHistoryPort):
         *,
         has_more: bool = False,
     ) -> TransactionFeed:
-        """Build TransactionFeed from entries."""
         if entries:
             start_date = min(entry.booking_date for entry in entries)
             end_date = max(entry.booking_date for entry in entries)

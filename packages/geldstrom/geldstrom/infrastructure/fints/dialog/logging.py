@@ -21,12 +21,6 @@ def mask_credentials(text: str) -> str:
     """Mask sensitive credentials from log output.
 
     Replaces PIN and TAN values with '***' to prevent credential leakage.
-
-    Args:
-        text: Log message text that may contain credentials
-
-    Returns:
-        Text with credentials masked
     """
     result = text
     for pattern, replacement in _CREDENTIAL_PATTERNS:

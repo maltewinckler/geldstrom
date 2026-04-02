@@ -13,13 +13,7 @@ from geldstrom.domain.model.bank import BankRoute
 
 @dataclass(frozen=True)
 class FinTSSessionState:
-    """
-    Snapshot of everything required to resume a read-only FinTS session.
-
-    Implements the SessionToken protocol from the domain layer while
-    providing FinTS 3.0-specific session details like system_id and
-    bank parameter versions.
-    """
+    """FinTS 3.0 session snapshot implementing the domain SessionToken protocol."""
 
     route: BankRoute
     user_id: str
@@ -30,23 +24,20 @@ class FinTSSessionState:
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     version: str = "1"
 
-    # --- SessionToken protocol implementation ---
+    # SessionToken protocol
 
     @property
     def is_valid(self) -> bool:
-        """FinTS sessions remain valid until explicitly closed or system_id changes."""
         return bool(self.system_id)
 
     def serialize(self) -> bytes:
-        """Serialize session state to JSON bytes for storage/transfer."""
         return json.dumps(self.to_dict()).encode("utf-8")
 
     @classmethod
     def deserialize(cls, data: bytes) -> FinTSSessionState:
-        """Restore session state from serialized JSON bytes."""
         return cls.from_dict(json.loads(data.decode("utf-8")))
 
-    # --- FinTS-specific methods ---
+    # FinTS-specific
 
     def to_dict(self) -> dict[str, Any]:
         return {

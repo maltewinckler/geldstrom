@@ -22,21 +22,17 @@ class ApplicationFactory(Protocol):
     @property
     def caches(self) -> CacheFactory: ...
 
-    # --- Crypto ---
     @property
     def api_key_verifier(self) -> ApiKeyVerifier: ...
 
-    # --- Banking ---
     @property
     def banking_connector(self) -> BankingConnector: ...
 
-    # --- Utilities ---
     @property
     def id_provider(self) -> IdProvider: ...
 
     @property
     def operation_session_ttl_seconds(self) -> int: ...
 
-    # --- Readiness ---
     @property
     def readiness_service(self) -> GatewayReadinessPort: ...

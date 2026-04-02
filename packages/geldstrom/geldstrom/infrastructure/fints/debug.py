@@ -1,22 +1,4 @@
-"""Debugging utilities for FinTS protocol development.
-
-This module provides tools for debugging parser issues, capturing raw responses,
-and analyzing bank communication during development and migration.
-
-Usage:
-    from geldstrom.infrastructure.fints.debug import (
-        ParserDebugger,
-        capture_bank_response,
-        analyze_segments,
-    )
-
-    # Capture and analyze a bank connection
-    debugger = ParserDebugger()
-    with debugger.capture():
-        client.connect()
-
-    print(debugger.report())
-"""
+"""Debugging utilities for FinTS protocol development and migration."""
 
 from __future__ import annotations
 
@@ -141,24 +123,7 @@ class ParserReport:
 
 
 class ParserDebugger:
-    """Debugger for analyzing FinTS parser behavior.
-
-    This class captures parser warnings and analyzes segment recognition
-    during bank communication.
-
-    Example:
-        debugger = ParserDebugger()
-
-        with debugger.capture():
-            # Code that triggers parsing
-            client.connect()
-
-        # Print analysis
-        print(debugger.report.summary())
-
-        # Or save to file
-        debugger.save_report("debug_report.json")
-    """
+    """Captures parser warnings and analyzes segment recognition during bank communication."""
 
     def __init__(self):
         self.report = ParserReport()
@@ -166,24 +131,10 @@ class ParserDebugger:
         self._captured_warnings: list[warnings.WarningMessage] = []
 
     def capture(self):
-        """Context manager to capture parser warnings.
-
-        Usage:
-            with debugger.capture():
-                # ... parsing happens here ...
-        """
+        """Context manager to capture parser warnings."""
         return _CaptureContext(self)
 
     def analyze_bytes(self, data: bytes, source: str = "unknown") -> ParserReport:
-        """Analyze raw FinTS message bytes.
-
-        Args:
-            data: Raw FinTS wire format bytes
-            source: Description of where the data came from
-
-        Returns:
-            ParserReport with analysis results
-        """
         report = ParserReport()
 
         # Capture log records during parsing
@@ -282,16 +233,7 @@ class _CaptureContext:
 
 
 def analyze_segments(data: bytes) -> ParserReport:
-    """Analyze raw FinTS data for segment recognition.
-
-    This is a convenience function for quick analysis.
-
-    Args:
-        data: Raw FinTS wire format bytes
-
-    Returns:
-        ParserReport with analysis results
-    """
+    """Convenience wrapper: parse and return a ParserReport for raw FinTS bytes."""
     debugger = ParserDebugger()
     return debugger.analyze_bytes(data)
 
@@ -301,20 +243,7 @@ def capture_bank_response(
     credentials,
     operations: Sequence[str] | None = None,
 ) -> dict[str, Any]:
-    """Capture raw bank responses for offline debugging.
-
-    This function connects to a bank and saves all responses
-    for later analysis.
-
-    Args:
-        output_dir: Directory to save captured data
-        credentials: GatewayCredentials for bank connection
-        operations: Optional list of operations to perform
-                   ("accounts", "balance", "transactions")
-
-    Returns:
-        Dict with capture summary
-    """
+    """Connect to a bank, save all raw responses for offline debugging."""
     from geldstrom.infrastructure.fints.adapters.connection import FinTSConnectionHelper
     from geldstrom.infrastructure.fints.operations import AccountOperations
 

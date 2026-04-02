@@ -6,24 +6,17 @@ from pydantic import BaseModel, SecretStr, computed_field
 
 
 class BankCredentials(BaseModel, frozen=True):
-    """
-    Core credentials required to authenticate with a bank.
-
-    This is the protocol-agnostic representation of banking credentials.
-    Infrastructure adapters may wrap this with additional protocol-specific
-    fields (e.g., FinTS product registration details).
-    """
+    """Protocol-agnostic credentials for authenticating with a bank."""
 
     user_id: str
-    secret: SecretStr  # PIN, password, or other authentication secret
-    customer_id: str | None = None  # Often same as user_id
-    two_factor_method: str | None = None  # Preferred 2FA method identifier
-    two_factor_device: str | None = None  # Preferred 2FA device/medium
+    secret: SecretStr
+    customer_id: str | None = None
+    two_factor_method: str | None = None
+    two_factor_device: str | None = None
 
     @computed_field
     @property
     def effective_customer_id(self) -> str:
-        """Return customer_id if set, otherwise user_id."""
         return self.customer_id or self.user_id
 
     def masked(self) -> dict[str, str | None]:

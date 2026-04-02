@@ -51,7 +51,6 @@ class FetchTransactionsInput:
 
     @property
     def validated_iban(self) -> RequestedIban:
-        """Parse and validate the IBAN, raising ValidationError on bad input."""
         try:
             return RequestedIban(self.iban)
         except DomainError as exc:

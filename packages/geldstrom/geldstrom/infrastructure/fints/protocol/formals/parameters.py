@@ -1,8 +1,4 @@
-"""FinTS Parameter Data Element Groups (DEGs).
-
-This module contains Pydantic models for BPD (Bank Parameter Data)
-and UPD (User Parameter Data) related structures.
-"""
+"""FinTS Parameter DEGs (BPD/UPD structures)."""
 
 from __future__ import annotations
 
@@ -17,18 +13,9 @@ from ..types import (
 from .enums import Language, ServiceType
 from .identifiers import BankIdentifier
 
-# =============================================================================
-# Language and Version DEGs
-# =============================================================================
-
 
 class SupportedLanguages(FinTSDataElementGroup):
-    """Unterstützte Sprachen.
-
-    Lists languages supported by the bank for dialog communication.
-
-    Source: FinTS 3.0 Formals
-    """
+    """Unterstützte Sprachen — dialog languages supported by the bank."""
 
     languages: list[Language] = Field(
         min_length=1,
@@ -38,12 +25,7 @@ class SupportedLanguages(FinTSDataElementGroup):
 
 
 class SupportedHBCIVersions(FinTSDataElementGroup):
-    """Unterstützte HBCI-Versionen.
-
-    Lists FinTS/HBCI protocol versions supported by the bank.
-
-    Source: FinTS 3.0 Formals
-    """
+    """Unterstützte HBCI-Versionen — FinTS/HBCI protocol versions supported by the bank."""
 
     versions: list[FinTSCode] = Field(
         min_length=1,
@@ -52,18 +34,8 @@ class SupportedHBCIVersions(FinTSDataElementGroup):
     )
 
 
-# =============================================================================
-# Communication DEGs
-# =============================================================================
-
-
 class CommunicationParameter(FinTSDataElementGroup):
-    """Kommunikationsparameter.
-
-    Defines connection parameters for a specific service type.
-
-    Source: FinTS 3.0 Formals
-    """
+    """Kommunikationsparameter — connection parameters for a service type."""
 
     service_type: ServiceType = Field(
         description="Kommunikationsdienst",
@@ -92,12 +64,7 @@ class CommunicationParameter(FinTSDataElementGroup):
 
 
 class CommunicationAccess(FinTSDataElementGroup):
-    """Kommunikationszugang.
-
-    Groups communication parameters for multiple access methods.
-
-    Source: FinTS 3.0 Formals
-    """
+    """Kommunikationszugang — communication parameters for multiple access methods."""
 
     parameters: list[CommunicationParameter] = Field(
         min_length=1,
@@ -106,18 +73,8 @@ class CommunicationAccess(FinTSDataElementGroup):
     )
 
 
-# =============================================================================
-# Account Information DEGs
-# =============================================================================
-
-
 class AccountLimit(FinTSDataElementGroup):
-    """Kontolimit.
-
-    Defines transaction limits for an account.
-
-    Source: FinTS 3.0 Formals
-    """
+    """Kontolimit — transaction limits for an account."""
 
     limit_type: FinTSCode | None = Field(
         default=None,
@@ -139,12 +96,7 @@ class AccountLimit(FinTSDataElementGroup):
 
 
 class AllowedTransaction(FinTSDataElementGroup):
-    """Erlaubter Geschäftsvorfall.
-
-    Defines a transaction type allowed for an account.
-
-    Source: FinTS 3.0 Formals
-    """
+    """Erlaubter Geschäftsvorfall — a transaction type allowed for an account."""
 
     transaction_code: FinTSAlphanumeric = Field(
         max_length=6,
@@ -162,12 +114,7 @@ class AllowedTransaction(FinTSDataElementGroup):
 
 
 class AccountInformation(FinTSDataElementGroup):
-    """Kontoinformation (UPD-Eintrag).
-
-    Detailed information about a user's account from UPD.
-
-    Source: FinTS 3.0 Formals
-    """
+    """Kontoinformation (UPD-Eintrag) — account details from User Parameter Data."""
 
     account_number: FinTSAlphanumeric = Field(
         max_length=30,
@@ -219,18 +166,8 @@ class AccountInformation(FinTSDataElementGroup):
     )
 
 
-# =============================================================================
-# SEPA Account Parameter DEGs
-# =============================================================================
-
-
 class GetSEPAAccountParameter(FinTSDataElementGroup):
-    """Parameter SEPA-Kontoverbindung anfordern.
-
-    Defines parameters for SEPA account information requests.
-
-    Source: FinTS 3.0 Messages - Multibankfähige Geschäftsvorfälle
-    """
+    """Parameter SEPA-Kontoverbindung anfordern — SEPA account request parameters."""
 
     single_account_query_allowed: bool = Field(
         description="Einzelkontenabruf erlaubt",
@@ -250,16 +187,12 @@ class GetSEPAAccountParameter(FinTSDataElementGroup):
 
 
 __all__ = [
-    # Language/Version
     "SupportedLanguages",
     "SupportedHBCIVersions",
-    # Communication
     "CommunicationParameter",
     "CommunicationAccess",
-    # Account
     "AccountLimit",
     "AllowedTransaction",
     "AccountInformation",
-    # SEPA
     "GetSEPAAccountParameter",
 ]

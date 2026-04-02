@@ -1,18 +1,4 @@
-"""FinTS Protocol Base Models.
-
-This module provides base classes for all FinTS protocol models:
-- FinTSModel: Base for all protocol models
-- FinTSDataElementGroup: Base for Data Element Groups (DEGs)
-- FinTSSegment: Base for FinTS segments
-- SegmentHeader: Common segment header
-- SegmentSequence: Collection of segments with query methods
-
-These base classes provide:
-1. Common configuration for all protocol models
-2. Wire format parsing via from_wire_list()
-3. Wire format serialization via to_wire_list()
-4. Segment discovery via find_segments()
-"""
+"""FinTS protocol base models: FinTSModel, FinTSSegment, SegmentSequence, and helpers."""
 
 from __future__ import annotations
 
@@ -31,10 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 def _is_string_type(annotation: Any) -> bool:
-    """Check if annotation is a string type.
-
-    Used to determine if None should be converted to empty string.
-    """
+    """Return True if annotation is a string type."""
     if annotation is str:
         return True
     # Check for annotated types like FinTSAlphanumeric
@@ -48,11 +31,7 @@ def _is_string_type(annotation: Any) -> bool:
 
 
 def _unwrap_optional(annotation: Any) -> tuple[Any, Any]:
-    """Unwrap Optional[X] or X | None to get the actual type.
-
-    Returns:
-        (actual_type, origin) where origin is the __origin__ of actual_type
-    """
+    """Unwrap Optional[X] or X | None, returning (actual_type, origin)."""
     origin = getattr(annotation, "__origin__", None)
     if origin is Union or isinstance(annotation, types.UnionType):
         for arg in getattr(annotation, "__args__", ()):
@@ -62,11 +41,7 @@ def _unwrap_optional(annotation: Any) -> tuple[Any, Any]:
 
 
 def _get_list_inner_type(annotation: Any) -> Any | None:
-    """Extract the inner type from a list annotation.
-
-    Handles list[X], list[Optional[X]], etc.
-    Returns None if not a valid list type.
-    """
+    """Extract the inner type from a list[X] annotation."""
     args = getattr(annotation, "__args__", ())
     if not args:
         return None
@@ -92,17 +67,7 @@ def _parse_list_of_degs(
     cls_name: str,
     field_name: str,
 ) -> tuple[list[Any], int]:
-    """Parse a list of DEGs from wire data.
-
-    Some banks send fewer fields than the model defines (e.g., omitting optional
-    fields). This function tries to detect DEG boundaries by:
-    1. Using the expected field count as a starting point
-    2. If parsing fails, looking for the next element that looks like a new DEG
-       (e.g., a 3-digit code for TwoStepParameters)
-
-    Returns:
-        (parsed_items, new_data_index)
-    """
+    """Parse a list of DEGs from wire data, detecting boundaries between items."""
     inner_field_count = _count_model_fields(inner_type)
     list_values = []
     remaining_data = data[data_index:]
@@ -156,15 +121,7 @@ def _parse_list_of_degs(
 
 
 def _find_deg_boundary(data: list[Any], start: int, expected_size: int) -> int:
-    """Find the actual end of a DEG in the data.
-
-    Looks for patterns that indicate the start of a new DEG:
-    - A 2-3 digit numeric code (typical security_function)
-    - After at least half the expected fields
-
-    Returns:
-        Index of the boundary, or start + expected_size if not found
-    """
+    """Find the actual end of a DEG by looking for a new-DEG start pattern."""
     min_fields = expected_size // 2  # At least half the expected fields
 
     for i in range(start + min_fields, min(start + expected_size, len(data))):
@@ -188,13 +145,7 @@ def _parse_nested_model(
     data: list[Any],
     data_index: int,
 ) -> tuple[Any, int]:
-    """Parse a nested FinTSModel from wire data.
-
-    Handles both structured (value is list) and flat data.
-
-    Returns:
-        (parsed_value, new_data_index)
-    """
+    """Parse a nested FinTSModel from wire data, returning (parsed_value, new_index)."""
     if isinstance(value, list):
         # Already structured - use as-is
         return model_type.from_wire_list(value), data_index + 1
@@ -216,24 +167,7 @@ def _is_optional_type(annotation: Any) -> bool:
 
 
 class FinTSModel(BaseModel):
-    """Base class for all FinTS protocol models.
-
-    This class provides:
-    - Common Pydantic configuration for FinTS models
-    - Wire format parsing via from_wire_list()
-    - Wire format serialization via to_wire_list()
-
-    Example:
-        class Amount(FinTSModel):
-            value: FinTSAmount
-            currency: FinTSCurrency
-
-        # Parse from wire format
-        amount = Amount.from_wire_list(["1234,56", "EUR"])
-
-        # Serialize to wire format
-        wire_data = amount.to_wire_list()
-    """
+    """Base class for all FinTS protocol models with wire-format parse/serialize support."""
 
     model_config = ConfigDict(
         # Allow coercion via validators (e.g., "20231225" → date)
@@ -250,33 +184,7 @@ class FinTSModel(BaseModel):
 
     @classmethod
     def from_wire_list(cls: type[T], data: list[Any] | None) -> T:
-        """Parse model from FinTS DEG/segment data list.
-
-        This method maps positional data from the wire format to model fields
-        in the order they are defined in the model.
-
-        Handles both:
-        - Structured data: nested lists for nested DEGs (e.g., [['280', '12345'], 'user'])
-        - Flat data: all elements in a single list (e.g., ['280', '12345', 'user'])
-
-        Args:
-            data: List of values in field definition order, or None
-
-        Returns:
-            New model instance
-
-        Raises:
-            ValueError: If required fields are missing
-
-        Example:
-            class BankId(FinTSModel):
-                country: FinTSCountry
-                bank_code: FinTSAlphanumeric
-
-            bank = BankId.from_wire_list(["280", "12345678"])
-            assert bank.country == "280"
-            assert bank.bank_code == "12345678"
-        """  # NOQA: E501
+        """Parse model from FinTS DEG/segment positional data list."""
         if data is None:
             data = []
 
@@ -337,19 +245,7 @@ class FinTSModel(BaseModel):
         return cls(**kwargs)
 
     def to_wire_list(self) -> list[Any]:
-        """Export model as FinTS DEG/segment data list.
-
-        This method serializes model fields to a list suitable for
-        FinTS wire format encoding.
-
-        Returns:
-            List of serialized values in field definition order
-
-        Example:
-            amount = Amount(value=Decimal("1234.56"), currency="EUR")
-            wire = amount.to_wire_list()
-            assert wire == ["1234,56", "EUR"]
-        """
+        """Serialize model fields to positional FinTS wire-format list."""
         result: list[Any] = []
 
         for name in self.__class__.model_fields:
@@ -378,39 +274,13 @@ class FinTSModel(BaseModel):
 
 
 class FinTSDataElementGroup(FinTSModel):
-    """Base class for FinTS Data Element Groups (DEGs).
-
-    DEGs are structured groups of data elements that appear within
-    segments. Examples: BankIdentifier, Balance, Amount.
-
-    This class is a semantic marker - it has the same functionality
-    as FinTSModel but indicates the object is a DEG.
-
-    Example:
-        class BankIdentifier(FinTSDataElementGroup):
-            country_identifier: FinTSCountry
-            bank_code: FinTSAlphanumeric
-    """
+    """Base class for FinTS Data Element Groups (DEGs)."""
 
     pass
 
 
 class SegmentHeader(FinTSDataElementGroup):
-    """FinTS Segment Header (Segmentkopf).
-
-    Every FinTS segment starts with a header containing:
-    - type: Segment type identifier (e.g., "HISAL", "HKSAL")
-    - number: Segment number within the message
-    - version: Segment version number
-    - reference: Optional reference to another segment
-
-    Example:
-        header = SegmentHeader.from_wire_list(["HISAL", "5", "6", "3"])
-        assert header.type == "HISAL"
-        assert header.number == 5
-        assert header.version == 6
-        assert header.reference == 3
-    """
+    """FinTS Segment Header (Segmentkopf): type, number, version, reference."""
 
     type: FinTSAlphanumeric = Field(
         max_length=6,
@@ -429,42 +299,7 @@ class SegmentHeader(FinTSDataElementGroup):
 
 
 class FinTSSegment(FinTSModel):
-    """Base class for FinTS Segments.
-
-    Segments are the main building blocks of FinTS messages.
-    Each segment has:
-    - A header with type, number, version
-    - Segment-specific data fields
-
-    Subclasses should define:
-    - SEGMENT_TYPE: The segment type identifier (e.g., "HISAL")
-    - SEGMENT_VERSION: The segment version number
-
-    Example:
-        class HISAL6(FinTSSegment):
-            SEGMENT_TYPE = "HISAL"
-            SEGMENT_VERSION = 6
-
-            account: AccountIdentifier
-            balance_booked: Balance
-            # ... more fields
-
-    Segments can be instantiated with just the data fields - the header
-    will be auto-generated from SEGMENT_TYPE and SEGMENT_VERSION:
-
-        # Auto-header generation
-        seg = HKIDN2(
-            bank_identifier=bank_id,
-            customer_id="customer123",
-            system_id="0",
-            system_id_status=SystemIDStatus.ID_NECESSARY,
-        )
-        # seg.header is auto-generated with type="HKIDN", version=2, number=0
-
-    Auto-Registration:
-        Segment classes are automatically registered when defined.
-        Use FinTSSegment.get_segment_class(type, version) to look up.
-    """
+    """Base class for FinTS segments with auto-registration and header auto-generation."""
 
     # Class-level metadata (override in subclasses)
     SEGMENT_TYPE: ClassVar[str] = ""
@@ -504,14 +339,7 @@ class FinTSSegment(FinTSModel):
     @model_validator(mode="before")
     @classmethod
     def _auto_generate_header(cls, data: Any) -> Any:
-        """Auto-generate header if not provided.
-
-        This allows segments to be instantiated with just data fields:
-            HKIDN2(bank_identifier=..., customer_id=..., ...)
-
-        Instead of requiring explicit header:
-            HKIDN2(header=SegmentHeader(...), bank_identifier=..., ...)
-        """
+        """Auto-generate header from SEGMENT_TYPE/SEGMENT_VERSION if not provided."""
         if isinstance(data, dict) and ("header" not in data or data["header"] is None):
             # Get segment type/version from class
             segment_type = getattr(cls, "SEGMENT_TYPE", "")
@@ -528,26 +356,12 @@ class FinTSSegment(FinTSModel):
 
     @classmethod
     def segment_id(cls) -> str:
-        """Get segment identifier (type + version).
-
-        Returns:
-            Segment ID like "HISAL6"
-        """
+        """Return the segment identifier (e.g. 'HISAL6')."""
         return f"{cls.SEGMENT_TYPE}{cls.SEGMENT_VERSION}"
 
     @classmethod
     def from_wire_list(cls: type[T], data: list[Any] | None) -> T:
-        """Parse segment from FinTS wire format.
-
-        The first element is always the header, followed by segment data.
-        Handles both structured data (nested lists) and flat data.
-
-        Args:
-            data: List starting with header, then segment fields
-
-        Returns:
-            Parsed segment instance
-        """
+        """Parse segment from FinTS wire data (header first, then segment fields)."""
         if data is None or len(data) == 0:
             raise ValueError("Segment data cannot be empty")
 
@@ -605,26 +419,7 @@ class FinTSSegment(FinTSModel):
 
 
 class SegmentSequence(FinTSModel):
-    """Collection of FinTS segments with query methods.
-
-    This class provides functionality to:
-    - Store a list of segments
-    - Find segments by type, version, or custom criteria
-    - Parse from/serialize to wire format
-
-    Example:
-        seq = SegmentSequence(segments=[seg1, seg2, seg3])
-
-        # Find all HISAL segments
-        for seg in seq.find_segments(query="HISAL"):
-            print(seg.balance_booked)
-
-        # Find first HIBPA segment
-        bpa = seq.find_segment_first(query="HIBPA")
-
-        # Find highest version of HKSAL
-        highest = seq.find_segment_highest_version(query="HKSAL")
-    """
+    """Collection of FinTS segments with find/serialize/parse methods."""
 
     segments: list[FinTSSegment] = Field(default_factory=list)
 
@@ -634,27 +429,7 @@ class SegmentSequence(FinTSModel):
         callback: Callable[[FinTSSegment], bool] | None = None,
         recurse: bool = True,
     ) -> Iterator[FinTSSegment]:
-        """Find segments matching the given criteria.
-
-        Args:
-            query: Segment type to match. Can be:
-                   - String: matches SEGMENT_TYPE (e.g., "HISAL")
-                   - Type: matches by isinstance
-            callback: Custom filter function(segment) -> bool
-            recurse: Whether to recurse into nested segments
-
-        Yields:
-            Matching segments
-
-        Example:
-            # Find all balance responses
-            for seg in seq.find_segments(query="HISAL"):
-                print(seg)
-
-            # Custom filter
-            for seg in seq.find_segments(callback=lambda s: s.header.number > 5):
-                print(seg)
-        """
+        """Yield segments matching query string/type and optional callback filter."""
         for segment in self.segments:
             # Check if this segment matches the criteria
             matches = True
@@ -710,14 +485,7 @@ class SegmentSequence(FinTSModel):
         callback: Callable[[FinTSSegment], bool] | None = None,
         recurse: bool = True,
     ) -> FinTSSegment | None:
-        """Find the first segment matching the criteria.
-
-        Args:
-            Same as find_segments()
-
-        Returns:
-            First matching segment, or None if not found
-        """
+        """Return the first segment matching the criteria, or None."""
         for segment in self.find_segments(
             query=query,
             callback=callback,
@@ -733,17 +501,7 @@ class SegmentSequence(FinTSModel):
         recurse: bool = True,
         default: FinTSSegment | None = None,
     ) -> FinTSSegment | None:
-        """Find the segment with the highest version matching criteria.
-
-        Args:
-            query: Segment type to match
-            callback: Custom filter function
-            recurse: Whether to recurse into nested segments
-            default: Value to return if no match found
-
-        Returns:
-            Segment with highest version, or default if not found
-        """
+        """Return the segment with the highest version matching the criteria."""
         highest: FinTSSegment | None = None
 
         for segment in self.find_segments(
@@ -775,18 +533,6 @@ class SegmentSequence(FinTSModel):
         print_doc: bool = True,
         first_line_suffix: str = "",
     ) -> None:
-        """Print a human-readable representation of the segment sequence.
-
-        Args:
-            stream: Output stream (defaults to sys.stdout)
-            level: Current indentation level
-            indent: Indentation string per level
-            prefix: Prefix for each line
-            first_level_indent: Whether to indent the first line
-            trailer: Suffix for the last line
-            print_doc: Whether to include docstrings
-            first_line_suffix: Suffix for the first line
-        """
         import sys
 
         stream = stream or sys.stdout
@@ -819,20 +565,10 @@ class SegmentSequence(FinTSModel):
         stream.write(f"{prefix}{level * indent}]){trailer}\n")
 
     # =========================================================================
-    # Serialization Methods (Phase 1 additions)
+    # Serialization
     # =========================================================================
 
     def render_bytes(self) -> bytes:
-        """Serialize all segments to FinTS wire format.
-
-        Returns:
-            Raw bytes in FinTS wire format, ready to send to a bank.
-
-        Example:
-            seq = SegmentSequence(segments=[seg1, seg2])
-            raw = seq.render_bytes()
-            # raw is now b"HNHBK:1:3+...'"
-        """
         from .parser import FinTSSerializer
 
         serializer = FinTSSerializer()
@@ -847,22 +583,6 @@ class SegmentSequence(FinTSModel):
         data: bytes,
         robust_mode: bool = True,
     ) -> SegmentSequence:
-        """Parse a FinTS message from raw bytes.
-
-        Args:
-            data: Raw bytes from bank response
-            robust_mode: If True (default), unknown segments become warnings.
-                        If False, unknown segments raise exceptions.
-
-        Returns:
-            SegmentSequence containing parsed segments
-
-        Example:
-            raw = b"HNHBK:1:3+...'"
-            seq = SegmentSequence.from_bytes(raw)
-            for seg in seq.find_segments(query="HISAL"):
-                print(seg)
-        """
         from .parser import FinTSParser
 
         parser = FinTSParser(robust_mode=robust_mode)
@@ -870,31 +590,12 @@ class SegmentSequence(FinTSModel):
         return cls(segments=list(result.segments))
 
     def __init__(self, segments: list[FinTSSegment] | bytes | None = None, **kwargs):
-        """Initialize a SegmentSequence.
-
-        Args:
-            segments: Either a list of segment objects, or raw bytes to parse.
-                     If bytes, uses the Pydantic parser.
-            **kwargs: Additional Pydantic model arguments.
-
-        Example:
-            # From segment list
-            seq = SegmentSequence(segments=[seg1, seg2])
-
-            # From raw bytes (parses automatically)
-            seq = SegmentSequence(b"HNHBK:1:3+...'")
-        """
         if isinstance(segments, bytes):
             # Parse bytes using Pydantic parser
             parsed = self.from_bytes(segments)
             super().__init__(segments=parsed.segments, **kwargs)
         else:
             super().__init__(segments=segments or [], **kwargs)
-
-
-# =============================================================================
-# Helper Functions
-# =============================================================================
 
 
 def _is_fints_model_type(annotation: Any) -> bool:
@@ -950,17 +651,7 @@ def _extract_model_type(annotation: Any) -> type[FinTSModel] | None:
 
 
 def _count_model_fields(model_type: type[FinTSModel]) -> int:
-    """Count total wire elements a model consumes, including nested models.
-
-    This recursively counts fields, expanding nested FinTSModel types
-    to their full field count.
-
-    Args:
-        model_type: The model type to count fields for
-
-    Returns:
-        Total number of wire elements consumed by this model
-    """
+    """Count total wire elements consumed by model (recursing into nested models)."""
     count = 0
     for field_info in model_type.model_fields.values():
         annotation = field_info.annotation

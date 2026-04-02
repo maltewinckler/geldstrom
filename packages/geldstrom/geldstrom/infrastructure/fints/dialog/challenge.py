@@ -1,9 +1,4 @@
-"""FinTS-specific Challenge implementation.
-
-This module provides a concrete Challenge implementation that wraps
-HITAN segment data from FinTS responses, bridging the protocol layer
-to the domain's abstract Challenge interface.
-"""
+"""FinTS-specific Challenge implementation bridging HITAN segments to domain interface."""
 
 from __future__ import annotations
 
@@ -31,12 +26,6 @@ class FinTSChallenge(Challenge):
     """
 
     def __init__(self, hitan: Any) -> None:
-        """
-        Initialize from an HITAN segment.
-
-        Args:
-            hitan: HITAN segment from bank response
-        """
         self._hitan = hitan
         self._task_reference = getattr(hitan, "task_reference", None)
 

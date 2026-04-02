@@ -102,5 +102,4 @@ class ConcreteAdminFactory:
         return PostgresProductRegistrationNotifier(self._engine)
 
     async def dispose(self) -> None:
-        """Release database engine resources."""
         await self._engine.dispose()

@@ -4,14 +4,7 @@ import mt940
 
 
 def mt940_to_array(data: str):
-    """Parse MT940 data into transaction objects.
-
-    Args:
-        data: MT940 formatted string (with @@ as line separators)
-
-    Returns:
-        Parsed transactions
-    """
+    """Parse MT940 data into transaction objects."""
     data = data.replace("@@", "\r\n")
     data = data.replace("-0000", "+0000")
     transactions = mt940.models.Transactions()
@@ -21,14 +14,7 @@ def mt940_to_array(data: str):
 def decode_phototan_image(data: bytes) -> dict:
     """Decode photoTAN data into its mime type and image data.
 
-    The markup of the data is taken from:
-    https://github.com/hbci4j/hbci4java/blob/master/src/main/java/org/kapott/hbci/manager/MatrixCode.java
-
-    Args:
-        data: Raw photoTAN challenge data
-
-    Returns:
-        Dictionary with 'mime_type' and 'image' keys
+    Format from: https://github.com/hbci4j/hbci4java/blob/master/src/main/java/org/kapott/hbci/manager/MatrixCode.java
     """
     # Mime type length is the first two bytes of data
     mime_type_length = int.from_bytes(data[:2], byteorder="big")

@@ -1,9 +1,4 @@
-"""Helper functions for FinTS operations.
-
-This module provides helpers for:
-- Accessing segment fields and metadata
-- Version negotiation between client and bank
-"""
+"""Helper functions for FinTS operations."""
 
 from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any
@@ -16,12 +11,6 @@ if TYPE_CHECKING:
 
 def get_account_type_for_segment(segment_class: type[Any]) -> type[Any] | None:
     """Get the account field type for a segment class.
-
-    Args:
-        segment_class: The segment class to inspect
-
-    Returns:
-        The type of the 'account' field, or None if not found
 
     Example:
         account_type = get_account_type_for_segment(HKSAL6)
@@ -37,18 +26,7 @@ def get_account_type_for_segment(segment_class: type[Any]) -> type[Any] | None:
 def build_account_field(segment_class: type[Any], account: "SEPAAccount") -> Any:
     """Build an account field for a segment from a SEPAAccount.
 
-    This combines get_account_type_for_segment() and from_sepa_account()
-    into a single call for convenience.
-
-    Args:
-        segment_class: The segment class (e.g., HKSAL6, HKKAZ7)
-        account: The SEPAAccount to convert
-
-    Returns:
-        Account field instance suitable for the segment
-
-    Raises:
-        ValueError: If segment has no account field or conversion fails
+    Combines get_account_type_for_segment() and from_sepa_account() for convenience.
     """
     account_type = get_account_type_for_segment(segment_class)
     if account_type is None:
@@ -57,28 +35,14 @@ def build_account_field(segment_class: type[Any], account: "SEPAAccount") -> Any
 
 
 def get_segment_version(segment_class: type[Any]) -> int:
-    """Get the version number from a segment class.
-
-    Args:
-        segment_class: The segment class to inspect
-
-    Returns:
-        The segment version number
-    """
+    """Get the version number from a segment class."""
     if hasattr(segment_class, "SEGMENT_VERSION"):
         return segment_class.SEGMENT_VERSION
     return getattr(segment_class, "VERSION", 0)
 
 
 def get_segment_type(segment_class: type[Any]) -> str:
-    """Get the type string from a segment class.
-
-    Args:
-        segment_class: The segment class to inspect
-
-    Returns:
-        The segment type string (e.g., "HKSAL", "HKKAZ")
-    """
+    """Get the type string from a segment class."""
     if hasattr(segment_class, "SEGMENT_TYPE"):
         return segment_class.SEGMENT_TYPE
     return getattr(segment_class, "TYPE", "")
@@ -90,21 +54,7 @@ def find_highest_supported_version(
     *,
     raise_if_missing: str | None = None,
 ) -> type | None:
-    """
-    Find the highest version of a segment supported by both bank and client.
-
-    Args:
-        bpd_segments: BPD segments from ParameterStore
-        segment_classes: Segment classes the client supports (e.g., HKSAL5, HKSAL6)
-        raise_if_missing: If provided, raise FinTSUnsupportedOperation with this
-            message if no supported version is found
-
-    Returns:
-        Highest supported segment class, or None if not supported
-
-    Raises:
-        FinTSUnsupportedOperation: If raise_if_missing is set and no version found
-    """
+    """Find the highest version of a segment supported by both bank and client."""
     # Build version map
     version_map = {get_segment_version(cls): cls for cls in segment_classes}
 

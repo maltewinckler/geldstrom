@@ -1,15 +1,4 @@
-"""Shared connection helper for FinTS adapters.
-
-This module provides a unified way to create dialog connections
-with proper security mechanisms.
-
-Key features:
-- Standalone security mechanisms (no legacy client dependency)
-- Two-step TAN support with HKTAN segments
-- System ID synchronization
-- BPD/UPD parameter management
-- Decoupled TAN handling (app-based approval)
-"""
+"""Shared connection helper for FinTS adapters."""
 
 from __future__ import annotations
 
@@ -53,12 +42,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class ConnectionContext:
-    """
-    Active connection context for FinTS operations.
-
-    Provides access to dialog, parameters, and credentials needed
-    for executing operations.
-    """
+    """Active dialog context for FinTS operations."""
 
     dialog: Dialog
     parameters: ParameterStore
@@ -67,21 +51,7 @@ class ConnectionContext:
 
 
 class FinTSConnectionHelper:
-    """
-    Helper class for creating and managing FinTS connections.
-
-    This encapsulates the complexity of:
-    - Building dialogs with proper security mechanisms
-    - Managing BPD/UPD parameters
-    - Handling session state serialization
-    - Two-step TAN authentication
-
-    Usage:
-        helper = FinTSConnectionHelper(credentials)
-        with helper.connect(state) as ctx:
-            ops = AccountOperations(ctx.dialog, ctx.parameters)
-            accounts = ops.fetch_sepa_accounts()
-    """
+    """Creates and manages FinTS dialog connections."""
 
     def __init__(
         self,
@@ -90,14 +60,6 @@ class FinTSConnectionHelper:
         tan_config: TANConfig | None = None,
         challenge_handler: ChallengeHandler | None = None,
     ) -> None:
-        """
-        Initialize with credentials.
-
-        Args:
-            credentials: Bank connection credentials
-            tan_config: Configuration for TAN handling (polling, timeout)
-            challenge_handler: Handler for presenting 2FA challenges to user
-        """
         self._credentials = credentials
         self._tan_config = tan_config or TANConfig()
         self._challenge_handler = challenge_handler
@@ -107,59 +69,29 @@ class FinTSConnectionHelper:
         self,
         state: FinTSSessionState | None = None,
     ) -> Iterator[ConnectionContext]:
-        """
-        Open a connection and yield a context for operations.
-
-        The connection process:
-        1. If no system ID: open sync dialog to get system ID + BPD
-        2. Open main dialog with system ID (and optional HKTAN for two-step)
-        3. Main dialog receives UPD if authenticated properly
-
-        Args:
-            state: Optional existing session state
-
-        Yields:
-            ConnectionContext with active dialog and parameters
-        """
         creds = self._credentials
-
-        # Build bank identifier
         bank_id = BankIdentifier(
             country_identifier=BankIdentifier.COUNTRY_ALPHA_TO_NUMERIC.get("DE", "280"),
             bank_code=creds.route.bank_code,
         )
-
-        # Determine system ID
         system_id = state.system_id if state else SYSTEM_ID_UNASSIGNED
-
-        # Build parameter store from state or empty
         parameters = self._build_parameters(state)
-
-        # Build connection
         connection_config = ConnectionConfig(
             url=creds.server_url,
             timeout=30.0,
         )
         connection = HTTPSDialogConnection(connection_config)
-
-        # Phase 1: If we don't have a system ID, obtain one via sync dialog
-        # This also fetches initial BPD so we know which TAN mechanisms exist
+        # Phase 1: obtain system ID via sync dialog if not already known.
         if system_id == SYSTEM_ID_UNASSIGNED:
             system_id = self._ensure_system_id(connection, bank_id, parameters, creds)
-            # Close and reopen connection for main dialog
-            # (legacy client creates fresh connection for each dialog)
             connection.close()
             connection = HTTPSDialogConnection(connection_config)
-
-        # Phase 2: Open main dialog with proper authentication
-        # If TAN method is configured, use two-step auth which gets UPD
+        # Phase 2: open main dialog.
         dialog, extra_init_segments = self._create_main_dialog(
             connection, bank_id, system_id, parameters, creds
         )
 
         try:
-            # Initialize dialog - with HKTAN if using two-step auth
-            # Note: Dialog.initialize() handles decoupled TAN (3955) internally
             dialog.initialize(
                 extra_segments=extra_init_segments,
                 decoupled_timeout=self._tan_config.timeout_seconds,
@@ -175,7 +107,6 @@ class FinTSConnectionHelper:
             )
 
         finally:
-            # Close dialog
             if dialog.is_open:
                 try:
                     dialog.end()
@@ -191,16 +122,6 @@ class FinTSConnectionHelper:
         parameters: ParameterStore,
         creds: GatewayCredentials,
     ) -> tuple[Dialog, list]:
-        """
-        Create the main dialog with appropriate authentication.
-
-        If a TAN method is configured in credentials, uses two-step auth
-        with HKTAN segment. Otherwise uses one-step auth.
-
-        Returns:
-            Tuple of (Dialog, extra_init_segments)
-        """
-        # Build dialog config
         dialog_config = DialogConfig(
             bank_identifier=bank_id,
             user_id=creds.user_id,
@@ -209,22 +130,15 @@ class FinTSConnectionHelper:
             product_name=creds.product_id,
             product_version=creds.product_version,
         )
-
-        # Create security context for standalone mechanisms
         security_context = SecurityContext(
             bank_identifier=bank_id,
             user_id=creds.user_id,
             system_id=system_id,
         )
-
-        # Determine security function and HKTAN segment
-        # IMPORTANT: The legacy client sends HKTAN with tan_process='4' in the
-        # main dialog init (not sync dialog) to receive UPD from the bank.
-        security_function = "999"  # Default: one-step
+        security_function = "999"
         extra_init_segments = []
 
         if creds.tan_method:
-            # Two-step TAN authentication requested
             security_function = creds.tan_method
             logger.info(
                 "Using two-step TAN: security_function=%s, tan_medium=%s",
@@ -232,17 +146,11 @@ class FinTSConnectionHelper:
                 creds.tan_medium,
             )
 
-            # Build HKTAN segment for dialog init
-            # NOTE: tan_medium_name must be None (not the actual TAN medium!)
-            # This matches legacy client behavior exactly.
             hktan = self._build_hktan_for_init(parameters)
             if hktan:
                 extra_init_segments.append(hktan)
-
-        # Create security mechanisms
-        # IMPORTANT: HNVSK (encryption) uses security_method_version=2 for two-step TAN
-        # while HNSHK (signature) uses security_method_version=1
-        # This matches legacy client behavior exactly!
+        # HNVSK (encryption) uses security_method_version=2 for two-step TAN,
+        # HNSHK (signature) uses version=1.
         enc_version = 2 if creds.tan_method else 1
         enc_mechanism = StandaloneEncryptionMechanism(
             security_context,
@@ -250,7 +158,7 @@ class FinTSConnectionHelper:
         )
         auth_mechanism = StandaloneAuthenticationMechanism(
             context=security_context,
-            pin=str(creds.pin),  # Convert Password to str
+            pin=str(creds.pin),
             security_function=security_function,
         )
 
@@ -270,19 +178,10 @@ class FinTSConnectionHelper:
         self,
         parameters: ParameterStore,
     ) -> Any:
-        """
-        Build HKTAN segment for dialog initialization (tan_process='4').
+        """Build HKTAN segment (tan_process='4') for dialog initialization.
 
-        Uses BPD to determine the HKTAN version supported by the bank.
-        The legacy client sends HKTAN with:
-        - tan_process='4'
-        - segment_type='HKIDN' (for version >= 6)
-        - tan_medium_name=None (NOT the actual TAN medium!)
-
-        Returns:
-            HKTAN segment or None if not supported
+        NOTE: tan_medium_name must be None — setting it causes bank error 9110.
         """
-        # Find highest version HITANS in BPD to determine supported HKTAN version
         hitans = None
         for seg in parameters.bpd.segments.find_segments("HITANS"):
             if hitans is None or seg.header.version > hitans.header.version:
@@ -292,7 +191,6 @@ class FinTSConnectionHelper:
             logger.warning("No HITANS in BPD, cannot build HKTAN")
             return None
 
-        # Get HKTAN version from HITANS version (use highest available)
         hktan_version = hitans.header.version
         hktan_class = HKTAN_VERSIONS.get(hktan_version)
         if not hktan_class:
@@ -313,15 +211,8 @@ class FinTSConnectionHelper:
 
         # Create segment with tan_process='4' (dialog initialization)
         seg = hktan_class(tan_process="4")
-
-        # For HKTAN >= 6, set segment_type to HKIDN (the init segment type)
         if hktan_version >= 6 and hasattr(seg, "segment_type"):
             seg.segment_type = "HKIDN"
-
-        # IMPORTANT: Do NOT set tan_medium_name!
-        # The legacy client sends it as None, and setting it causes
-        # bank error 9110 "Falsche Segmentzusammenstellung"
-
         return seg
 
     def _ensure_system_id(
@@ -331,25 +222,7 @@ class FinTSConnectionHelper:
         parameters: ParameterStore,
         creds: GatewayCredentials,
     ) -> str:
-        """
-        Obtain a system ID from the bank via HKSYN3/HISYN4.
-
-        This opens a separate dialog using one-step auth (security function 999)
-        to get the system ID and initial BPD. The BPD is needed to know which
-        TAN mechanisms the bank supports.
-
-        Args:
-            connection: HTTP connection to reuse
-            bank_id: Bank identifier
-            parameters: Parameter store to update with BPD
-            creds: Credentials
-
-        Returns:
-            System ID from the bank
-        """
         logger.info("No system ID, requesting from bank via sync dialog...")
-
-        # Build dialog config without system ID
         dialog_config = DialogConfig(
             bank_identifier=bank_id,
             user_id=creds.user_id,
@@ -358,21 +231,16 @@ class FinTSConnectionHelper:
             product_name=creds.product_id,
             product_version=creds.product_version,
         )
-
-        # Create security context
         security_context = SecurityContext(
             bank_identifier=bank_id,
             user_id=creds.user_id,
             system_id=SYSTEM_ID_UNASSIGNED,
         )
-
-        # For sync dialog, always use one-step auth (security_function=999)
-        # Some banks (like DKB) reject two-step TAN during sync/identification
-        # The actual TAN method is only used in the main dialog
+        # One-step auth (999) for sync — some banks reject two-step during identification.
         security_function = "999"
         enc_mechanism = StandaloneEncryptionMechanism(
             security_context,
-            security_method_version=1,  # One-step for sync
+            security_method_version=1,
         )
         auth_mechanism = StandaloneAuthenticationMechanism(
             context=security_context,
@@ -380,25 +248,22 @@ class FinTSConnectionHelper:
             security_function=security_function,
         )
 
-        # Create sync dialog (no HKTAN injection needed for HKSYN)
         sync_dialog = Dialog(
             connection=connection,
             config=dialog_config,
             parameters=parameters,
             enc_mechanism=enc_mechanism,
             auth_mechanisms=[auth_mechanism],
-            security_function=security_function,  # Pass for consistency
+            security_function=security_function,
         )
 
         try:
-            # Initialize with HKSYN3 to request system ID
             response = sync_dialog.initialize(
                 extra_segments=[
                     HKSYN3(synchronization_mode=SynchronizationMode.NEW_SYSTEM_ID)
                 ]
             )
 
-            # Extract system ID from HISYN4 response
             hisyn = response.find_segment_first(HISYN4)
             if not hisyn or not hisyn.system_id:
                 raise ValueError("Could not obtain system ID from bank")
@@ -414,7 +279,6 @@ class FinTSConnectionHelper:
             return system_id
 
         finally:
-            # Close sync dialog
             if sync_dialog.is_open:
                 try:
                     sync_dialog.end()
@@ -425,7 +289,6 @@ class FinTSConnectionHelper:
         self,
         state: FinTSSessionState | None,
     ) -> ParameterStore:
-        """Build parameter store from state or create empty."""
         if state and state.client_blob:
             try:
                 data = self._extract_params_dict(state.client_blob)
@@ -451,26 +314,11 @@ class FinTSConnectionHelper:
         self,
         client_blob: bytes | Mapping[str, Any],
     ) -> Mapping[str, Any] | None:
-        """Extract parameter dictionary from client blob.
-
-        The client blob can be:
-        1. Compressed bytes (legacy format, for session state migration)
-        2. A plain dictionary (from ParameterStore.to_dict())
-
-        Args:
-            client_blob: Either compressed bytes or a dictionary
-
-        Returns:
-            Dictionary suitable for ParameterStore.from_dict()
-        """
+        """Extract parameter dictionary from client blob (bytes or dict)."""
         if isinstance(client_blob, dict):
-            # Already a dictionary (new format)
             return client_blob
-
         if isinstance(client_blob, bytes):
-            # Legacy compressed format
             try:
-                # decompress_datablob returns (version, data) when no object provided
                 _version, data = decompress_datablob(DATA_BLOB_MAGIC, client_blob)
                 return data
             except (ValueError, Exception) as e:
@@ -483,16 +331,6 @@ class FinTSConnectionHelper:
         self,
         ctx: ConnectionContext,
     ) -> FinTSSessionState:
-        """
-        Create session state from active connection context.
-
-        Args:
-            ctx: Active connection context
-
-        Returns:
-            FinTSSessionState for persistence
-        """
-        # Store in compressed format for compatibility with legacy client
         params_dict = ctx.parameters.to_dict()
         params_dict["system_id"] = ctx.system_id
         client_blob = compress_datablob(DATA_BLOB_MAGIC, 1, params_dict)

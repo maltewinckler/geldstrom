@@ -27,10 +27,6 @@ app = typer.Typer(
 )
 console = Console()
 
-# ---------------------------------------------------------------------------
-# Reusable option type aliases
-# ---------------------------------------------------------------------------
-
 _EnvFile = Annotated[
     Path,
     typer.Option("--env-file", help=".env file path", show_default=True),
@@ -52,11 +48,6 @@ _TanMethod = Annotated[
 _TanMedium = Annotated[
     str | None, typer.Option("--tan-medium", help="TAN medium / device name")
 ]
-
-
-# ---------------------------------------------------------------------------
-# Internal helpers
-# ---------------------------------------------------------------------------
 
 
 def _make_client(creds: Creds) -> GatewayClient:
@@ -107,11 +98,6 @@ def _await_2fa(client: GatewayClient, body: dict) -> dict:
     # expired
     console.print("[red]Operation expired before 2FA was confirmed.[/red]")
     raise typer.Exit(1)
-
-
-# ---------------------------------------------------------------------------
-# Commands
-# ---------------------------------------------------------------------------
 
 
 @app.command()

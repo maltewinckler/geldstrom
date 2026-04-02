@@ -1,8 +1,4 @@
-"""Base types and protocols for FinTS clients.
-
-This module defines the interface that all FinTS client implementations
-should satisfy.
-"""
+"""Base types and protocols for FinTS clients."""
 
 from __future__ import annotations
 
@@ -21,56 +17,28 @@ from geldstrom.domain.model.tan import TANMethod
 
 
 class BankClient(Protocol):
-    """
-    Protocol defining the interface for a bank client.
+    """Protocol defining the interface for a bank client."""
 
-    All client implementations should satisfy this protocol.
-    `FinTS3Client` is the primary implementation.
-    """
-
-    def connect(self) -> Sequence[Account]:
-        """Establish connection and fetch account list."""
-        ...
-
-    def disconnect(self) -> None:
-        """Close the session."""
-        ...
-
-    def list_accounts(self) -> Sequence[Account]:
-        """Return available accounts (may trigger connect if needed)."""
-        ...
-
-    def get_balance(self, account: Account | str) -> BalanceSnapshot:
-        """Fetch current balance for an account."""
-        ...
-
+    def connect(self) -> Sequence[Account]: ...
+    def disconnect(self) -> None: ...
+    def list_accounts(self) -> Sequence[Account]: ...
+    def get_balance(self, account: Account | str) -> BalanceSnapshot: ...
     def get_transactions(
         self,
         account: Account | str,
         start_date: date | None = None,
         end_date: date | None = None,
-    ) -> TransactionFeed:
-        """Fetch transaction history for an account."""
-        ...
-
-    def get_tan_methods(self) -> Sequence[TANMethod]:
-        """Get available TAN authentication methods."""
-        ...
+    ) -> TransactionFeed: ...
+    def get_tan_methods(self) -> Sequence[TANMethod]: ...
 
     @property
-    def session_state(self) -> SessionToken | None:
-        """Current session state for persistence."""
-        ...
+    def session_state(self) -> SessionToken | None: ...
 
     @property
-    def capabilities(self) -> BankCapabilities | None:
-        """Bank's advertised capabilities."""
-        ...
+    def capabilities(self) -> BankCapabilities | None: ...
 
     @property
-    def is_connected(self) -> bool:
-        """Whether the client is currently connected."""
-        ...
+    def is_connected(self) -> bool: ...
 
 
 __all__ = [
