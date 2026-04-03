@@ -38,12 +38,7 @@ from ..types import (
 
 
 class HKKAZ5(FinTSSegment):
-    """Kontoumsätze anfordern/Zeitraum, version 5.
-
-    Request MT940 transactions using Account2 format.
-
-    Source: HBCI Homebanking-Computer-Interface, Schnittstellenspezifikation
-    """
+    """Kontoumsätze anfordern/Zeitraum, version 5."""
 
     SEGMENT_TYPE: ClassVar[str] = "HKKAZ"
     SEGMENT_VERSION: ClassVar[int] = 5
@@ -76,12 +71,7 @@ class HKKAZ5(FinTSSegment):
 
 
 class HKKAZ6(FinTSSegment):
-    """Kontoumsätze anfordern/Zeitraum, version 6.
-
-    Request MT940 transactions using Account3 format.
-
-    Source: FinTS 3.0 Messages - Multibankfähige Geschäftsvorfälle
-    """
+    """Kontoumsätze anfordern/Zeitraum, version 6."""
 
     SEGMENT_TYPE: ClassVar[str] = "HKKAZ"
     SEGMENT_VERSION: ClassVar[int] = 6
@@ -114,12 +104,7 @@ class HKKAZ6(FinTSSegment):
 
 
 class HKKAZ7(FinTSSegment):
-    """Kontoumsätze anfordern/Zeitraum, version 7.
-
-    Request MT940 transactions using international account format.
-
-    Source: FinTS 3.0 Messages - Multibankfähige Geschäftsvorfälle
-    """
+    """Kontoumsätze anfordern/Zeitraum, version 7."""
 
     SEGMENT_TYPE: ClassVar[str] = "HKKAZ"
     SEGMENT_VERSION: ClassVar[int] = 7
@@ -181,28 +166,19 @@ class HIKAZBase(FinTSSegment):
 
 
 class HIKAZ5(HIKAZBase):
-    """Kontoumsätze rückmelden/Zeitraum, version 5.
-
-    Source: HBCI Homebanking-Computer-Interface, Schnittstellenspezifikation
-    """
+    """Kontoumsätze rückmelden/Zeitraum, version 5."""
 
     SEGMENT_VERSION: ClassVar[int] = 5
 
 
 class HIKAZ6(HIKAZBase):
-    """Kontoumsätze rückmelden/Zeitraum, version 6.
-
-    Source: FinTS 3.0 Messages - Multibankfähige Geschäftsvorfälle
-    """
+    """Kontoumsätze rückmelden/Zeitraum, version 6."""
 
     SEGMENT_VERSION: ClassVar[int] = 6
 
 
 class HIKAZ7(HIKAZBase):
-    """Kontoumsätze rückmelden/Zeitraum, version 7.
-
-    Source: FinTS 3.0 Messages - Multibankfähige Geschäftsvorfälle
-    """
+    """Kontoumsätze rückmelden/Zeitraum, version 7."""
 
     SEGMENT_VERSION: ClassVar[int] = 7
 
@@ -223,8 +199,6 @@ class HKCAZ1(FinTSSegment):
     """Kontoumsätze anfordern/Zeitraum (CAMT), version 1.
 
     Request transactions in CAMT XML format.
-
-    Source: FinTS 3.0 Messages - Multibankfähige Geschäftsvorfälle
     """
 
     SEGMENT_TYPE: ClassVar[str] = "HKCAZ"
@@ -274,8 +248,6 @@ class HICAZ1(FinTSSegment):
     """Kontoumsätze rückmelden/Zeitraum (CAMT), version 1.
 
     Response containing transactions in CAMT XML format.
-
-    Source: FinTS 3.0 Messages - Multibankfähige Geschäftsvorfälle
     """
 
     SEGMENT_TYPE: ClassVar[str] = "HICAZ"

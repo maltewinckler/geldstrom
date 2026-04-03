@@ -1,8 +1,4 @@
-"""FinTS TAN-related Data Element Groups (DEGs).
-
-This module contains Pydantic models for TAN (Transaction Authentication Number)
-related data structures used in PIN/TAN security procedures.
-"""
+"""FinTS TAN-related Data Element Groups (DEGs) for PIN/TAN procedures."""
 
 from __future__ import annotations
 
@@ -105,21 +101,13 @@ class TANMediaBase(FinTSDataElementGroup):
 
 
 class TANMedia4(TANMediaBase):
-    """TAN-Medium-Liste, version 4.
-
-    Source: FinTS 3.0 Sicherheitsverfahren PIN/TAN
-    """
+    """TAN-Medium-Liste, version 4."""
 
     pass
 
 
 class TANMedia5(TANMediaBase):
-    """TAN-Medium-Liste, version 5.
-
-    Adds security_function field.
-
-    Source: FinTS 3.0 Sicherheitsverfahren PIN/TAN
-    """
+    """TAN-Medium-Liste, version 5 (adds security_function)."""
 
     security_function: FinTSNumeric | None = Field(
         default=None,
@@ -127,16 +115,8 @@ class TANMedia5(TANMediaBase):
     )
 
 
-# =============================================================================
-# Challenge DEGs
-# =============================================================================
-
-
 class ChallengeValidUntil(FinTSDataElementGroup):
-    """Gültigkeitsdatum und -uhrzeit für Challenge.
-
-    Source: FinTS 3.0 Sicherheitsverfahren PIN/TAN
-    """
+    """Gültigkeitsdatum und -uhrzeit für Challenge."""
 
     date: FinTSDate = Field(
         description="Datum",
@@ -147,12 +127,7 @@ class ChallengeValidUntil(FinTSDataElementGroup):
 
 
 class ParameterChallengeClass(FinTSDataElementGroup):
-    """Parameter Challenge-Klasse.
-
-    Contains up to 9 challenge class parameters.
-
-    Source: FinTS 3.0 Sicherheitsverfahren PIN/TAN
-    """
+    """Parameter Challenge-Klasse (up to 9 class parameters)."""
 
     parameters: list[FinTSAlphanumeric] | None = Field(
         default=None,
@@ -162,12 +137,7 @@ class ParameterChallengeClass(FinTSDataElementGroup):
 
 
 class ResponseHHDUC(FinTSDataElementGroup):
-    """Antwort HHD_UC (Chipkarten-Antwort).
-
-    Response data from chip card TAN generators.
-
-    Source: FinTS 3.0 Sicherheitsverfahren PIN/TAN
-    """
+    """Antwort HHD_UC (Chipkarten-Antwort) — chip card TAN generator response data."""
 
     atc: FinTSAlphanumeric = Field(
         max_length=5,
@@ -188,11 +158,9 @@ class ResponseHHDUC(FinTSDataElementGroup):
 
 
 __all__ = [
-    # TAN Media
     "TANMediaBase",
     "TANMedia4",
     "TANMedia5",
-    # Challenge
     "ChallengeValidUntil",
     "ParameterChallengeClass",
     "ResponseHHDUC",

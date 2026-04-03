@@ -8,16 +8,7 @@ from typing import Any
 
 
 def compress_datablob(magic: bytes, version: int, data: dict) -> bytes:
-    """Compress a dictionary into a datablob format.
-
-    Args:
-        magic: Magic bytes to identify the blob type
-        version: Version number for the data format
-        data: Dictionary to compress
-
-    Returns:
-        Compressed bytes in format: magic;encoding_version;data_version;compressed_data
-    """
+    """Compress a dictionary into a datablob format."""
     data = dict(data)
     for k, v in data.items():
         if k.endswith("_bin") and v:
@@ -32,19 +23,7 @@ def decompress_datablob(
     blob: bytes,
     obj: object = None,
 ) -> tuple[int, Mapping[str, Any]] | None:
-    """Decompress a datablob back into a dictionary.
-
-    Args:
-        magic: Expected magic bytes
-        blob: Compressed blob to decompress
-        obj: Optional object with _set_data_vN method to populate
-
-    Returns:
-        Tuple of (version, data) if obj is None, otherwise None
-
-    Raises:
-        ValueError: If blob format is invalid
-    """
+    """Decompress a datablob back into a dictionary."""
     if not blob.startswith(magic):
         raise ValueError("Incorrect data blob")
     s = blob.split(b";", 3)

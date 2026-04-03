@@ -13,45 +13,19 @@ from geldstrom.domain.model.bank import BankRoute
 
 @runtime_checkable
 class SessionToken(Protocol):
-    """
-    Protocol-agnostic interface for authenticated sessions.
-
-    This protocol defines the minimal contract that any session implementation
-    must satisfy, regardless of the underlying banking protocol (FinTS, PSD2,
-    EBICS, etc.).
-
-    Infrastructure adapters provide concrete implementations with protocol-specific
-    details while conforming to this interface.
-    """
+    """Protocol-agnostic interface for authenticated bank sessions."""
 
     @property
-    def user_id(self) -> str:
-        """User identifier for this session."""
-        ...
+    def user_id(self) -> str: ...
 
     @property
-    def is_valid(self) -> bool:
-        """Whether the session is still valid (not expired or revoked)."""
-        ...
+    def is_valid(self) -> bool: ...
 
-    def serialize(self) -> bytes:
-        """
-        Serialize session state for storage or transfer.
-
-        Returns an opaque byte sequence that can be used to restore the session
-        via the corresponding deserialize class method of the concrete implementation.
-        """
-        ...
+    def serialize(self) -> bytes: ...
 
 
 class SessionHandle(BaseModel, frozen=True):
-    """
-    Lightweight, protocol-agnostic representation of an authenticated session.
-
-    This is a simple domain value object for cases where only basic session
-    information is needed. Concrete protocol implementations (FinTS, PSD2, etc.)
-    should implement the SessionToken protocol with protocol-specific state.
-    """
+    """Lightweight value object for basic session state."""
 
     route: BankRoute
     user_id: str
@@ -60,11 +34,9 @@ class SessionHandle(BaseModel, frozen=True):
 
     @property
     def is_valid(self) -> bool:
-        """Sessions are valid unless explicitly invalidated."""
         return True
 
     def serialize(self) -> bytes:
-        """Serialize to bytes via token field."""
         return self.token
 
     def to_dict(self) -> dict[str, Any]:

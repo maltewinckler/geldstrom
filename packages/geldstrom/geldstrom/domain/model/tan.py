@@ -8,30 +8,17 @@ from pydantic import BaseModel, Field
 
 
 class TANMethodType(StrEnum):
-    """Types of TAN authentication methods."""
-
     DECOUPLED = "decoupled"  # App-based approval (SecureGo+, etc.)
-    PUSH = "push"  # Push notification
-    SMS = "sms"  # SMS TAN
-    CHIPTAN = "chiptan"  # Chip-based TAN generator
-    PHOTO_TAN = "photo_tan"  # Photo/QR-based TAN
-    MANUAL = "manual"  # Manual TAN entry
+    PUSH = "push"
+    SMS = "sms"
+    CHIPTAN = "chiptan"
+    PHOTO_TAN = "photo_tan"
+    MANUAL = "manual"
     UNKNOWN = "unknown"
 
 
 class TANMethod(BaseModel, frozen=True):
-    """
-    Describes a TAN (Transaction Authentication Number) method.
-
-    TAN methods are used for two-factor authentication (2FA) in German
-    online banking. Each bank supports different methods, and users may
-    have multiple methods configured.
-
-    Example:
-        >>> method = TANMethod(code="920", name="SecureGo+", is_decoupled=True)
-        >>> print(method)
-        920: SecureGo+
-    """
+    """Describes a single TAN authentication method advertised by the bank."""
 
     code: str = Field(description="Security function code (e.g., '920', '946')")
     name: str = Field(description="Human-readable name (e.g., 'SecureGo+')")

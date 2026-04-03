@@ -31,10 +31,6 @@ class GatewayClient:
             timeout=timeout,
         )
 
-    # ------------------------------------------------------------------
-    # Internal helpers
-    # ------------------------------------------------------------------
-
     def _banking_body(self, creds: Creds) -> dict:
         return {
             "protocol": "fints",
@@ -54,10 +50,6 @@ class GatewayClient:
                 detail = resp.text
             raise GatewayError(resp.status_code, detail)
         return resp.status_code, resp.json()
-
-    # ------------------------------------------------------------------
-    # Endpoints
-    # ------------------------------------------------------------------
 
     def health(self) -> dict:
         resp = self._http.get("/health/live")
@@ -93,10 +85,6 @@ class GatewayClient:
         resp.raise_for_status()
         return resp.json()
 
-    # ------------------------------------------------------------------
-    # 2FA polling with live spinner
-    # ------------------------------------------------------------------
-
     def wait_for_operation(
         self,
         operation_id: str,
@@ -104,10 +92,7 @@ class GatewayClient:
         console: Console,
         poll_interval: int = 5,
     ) -> dict:
-        """Poll until the operation reaches a terminal state, showing a spinner.
-
-        Returns the full status dict; callers check ``result["status"]``.
-        """
+        """Poll until the operation reaches a terminal state, showing a spinner."""
         expires = _parse_dt(expires_at)
 
         with console.status("", spinner="dots") as status:

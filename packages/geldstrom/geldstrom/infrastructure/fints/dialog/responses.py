@@ -74,15 +74,7 @@ class ProcessedResponse:
         return None
 
     def find_segment_first(self, segment_type) -> object | None:
-        """
-        Find the first segment of a given type in the raw response.
-
-        Args:
-            segment_type: Segment class to search for
-
-        Returns:
-            First matching segment or None
-        """
+        """Find the first segment of a given type in the raw response."""
         if self.raw_response is None:
             return None
         return self.raw_response.find_segment_first(segment_type)
@@ -116,15 +108,7 @@ class ResponseProcessor:
         self._callbacks.remove(callback)
 
     def process(self, response: FinTSInstituteMessage) -> ProcessedResponse:
-        """
-        Process an institute response message.
-
-        Args:
-            response: The institute response to process
-
-        Returns:
-            ProcessedResponse with extracted data
-        """
+        """Process an institute response message."""
         # Extract dialog ID and message number
         header = response.find_segment_first(HNHBK3)
         dialog_id = header.dialog_id if header else "0"

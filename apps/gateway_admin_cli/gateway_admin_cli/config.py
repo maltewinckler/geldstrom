@@ -9,32 +9,23 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    """Environment-backed settings for the admin CLI.
-
-    Reads from ``config/admin_cli.env`` (relative to the repository root).
-    Superuser credentials use the canonical ``POSTGRES_*`` names so that the
-    same file is consumed by both the postgres Docker image and this CLI without
-    any duplication.
-    """
+    """Environment-backed settings for the admin CLI."""
 
     model_config = SettingsConfigDict(
         env_file="config/admin_cli.env",
         extra="ignore",
     )
 
-    # Superuser credentials — canonical postgres image variable names
     postgres_user: str
     postgres_password: SecretStr
     postgres_db: str = "geldstrom"
     postgres_host: str = "localhost"
     postgres_port: int = 5432
 
-    # Argon2id
     admin_argon2_time_cost: int = 2
     admin_argon2_memory_cost: int = 65_536
     admin_argon2_parallelism: int = 2
 
-    # Gateway app user — different prefix, mapped explicitly
     gateway_db_user: str = Field(validation_alias="GATEWAY_DB_USER")
     gateway_db_password: SecretStr = Field(validation_alias="GATEWAY_DB_PASSWORD")
 

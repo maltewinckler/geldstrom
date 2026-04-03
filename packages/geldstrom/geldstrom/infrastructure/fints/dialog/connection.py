@@ -55,12 +55,6 @@ class HTTPSDialogConnection:
     """HTTPS implementation of DialogConnection for FinTS 3.0."""
 
     def __init__(self, config: ConnectionConfig | str) -> None:
-        """
-        Initialize HTTPS connection.
-
-        Args:
-            config: ConnectionConfig or URL string for simple initialization
-        """
         if isinstance(config, str):
             config = ConnectionConfig(url=config)
         self._config = config
@@ -74,21 +68,7 @@ class HTTPSDialogConnection:
         return self._config.url
 
     def send_raw(self, data: bytes) -> bytes:
-        """
-        Send raw bytes and receive raw response.
-
-        The data is base64 encoded before sending and the response
-        is base64 decoded, per FinTS 3.0 HTTPS transport specification.
-
-        Args:
-            data: Raw message bytes to send
-
-        Returns:
-            Raw response bytes from the server
-
-        Raises:
-            FinTSConnectionError: If the connection fails
-        """
+        """Send raw bytes base64-encoded per FinTS 3.0 HTTPS transport spec."""
         try:
             response = self._session.post(
                 self._config.url,
@@ -105,18 +85,7 @@ class HTTPSDialogConnection:
         return base64.b64decode(response.content.decode("iso-8859-1"))
 
     def send(self, msg: FinTSMessage) -> FinTSInstituteMessage:
-        """
-        Send a FinTS message and receive the institute response.
-
-        This is a higher-level method that handles logging and
-        parsing of the response into a FinTSInstituteMessage.
-
-        Args:
-            msg: FinTS message to send
-
-        Returns:
-            Parsed institute response message
-        """
+        """Send a FinTS message and return the parsed institute response."""
         # Log outgoing message
         log_out = io.StringIO()
         with Password.protect():

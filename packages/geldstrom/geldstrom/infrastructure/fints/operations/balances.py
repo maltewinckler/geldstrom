@@ -1,7 +1,4 @@
-"""Balance query operations for FinTS.
-
-This module handles HKSAL segment exchanges for fetching account balances.
-"""
+"""Balance query operations for FinTS (HKSAL segments)."""
 
 from __future__ import annotations
 
@@ -28,11 +25,7 @@ SUPPORTED_HKSAL = (HKSAL7, HKSAL6, HKSAL5)
 
 @dataclass
 class MT940Balance:
-    """
-    Balance information in MT940-compatible format.
-
-    This mirrors the mt940.models.Balance structure for compatibility.
-    """
+    """Balance in MT940-compatible format."""
 
     amount: Decimal
     currency: str
@@ -41,7 +34,6 @@ class MT940Balance:
 
     @property
     def is_credit(self) -> bool:
-        """Return True if balance is positive (credit)."""
         return self.status == "C"
 
 
@@ -58,87 +50,46 @@ class BalanceResult:
 
 
 class BalanceOperations:
-    """
-    Handles balance query operations.
-
-    This class provides methods to fetch account balances via HKSAL.
-
-    Usage:
-        ops = BalanceOperations(dialog, parameters)
-        balance = ops.fetch_balance(account)
-    """
+    """Handles account balance queries via HKSAL segments."""
 
     def __init__(
         self,
         dialog: Dialog,
         parameters: ParameterStore,
     ) -> None:
-        """
-        Initialize balance operations.
-
-        Args:
-            dialog: Active dialog for sending requests
-            parameters: Parameter store with BPD
-        """
         self._dialog = dialog
         self._parameters = parameters
 
     def fetch_balance(self, account: SEPAAccount) -> BalanceResult:
-        """
-        Fetch the current balance for an account.
-
-        Args:
-            account: SEPA account to query
-
-        Returns:
-            BalanceResult with booked and pending balances
-
-        Raises:
-            FinTSUnsupportedOperation: If bank doesn't support balance queries
-        """
         logger.info(
             "Fetching balance for account %s", account.iban or account.accountnumber
         )
 
-        # Find highest supported HKSAL version
         hksal_class = find_highest_supported_version(
             self._parameters.bpd.segments,
             SUPPORTED_HKSAL,
             raise_if_missing="Bank does not support balance queries (HKSAL)",
         )
-
-        # Build and send HKSAL request
         segment = hksal_class(
             account=build_account_field(hksal_class, account),
             all_accounts=False,
         )
         response = self._dialog.send(segment)
-
-        # Extract balance from HISAL response
         return self._extract_balance(response, segment)
 
     def _extract_balance(self, response, request_segment) -> BalanceResult:
-        """Extract balance from HISAL response segment."""
         if response.raw_response is None:
             raise ValueError("No response received for balance query")
-
         for seg in response.raw_response.response_segments(request_segment, "HISAL"):
-            # Convert balance to MT940-compatible format
             booked = self._balance_to_mt940(seg.balance_booked)
-
-            # Extract optional fields
             pending_balance = getattr(seg, "balance_pending", None)
             pending = None
             if pending_balance:
                 pending = self._balance_to_mt940(pending_balance)
-
             available_amt = getattr(seg, "available_amount", None)
             available = available_amt.amount if available_amt else None
-
             credit_amt = getattr(seg, "line_of_credit", None)
             credit_line = credit_amt.amount if credit_amt else None
-
-            # Extract booking timestamp (prefer combined timestamp over separate fields)
             booking_ts = getattr(seg, "booking_timestamp", None)
             if booking_ts:
                 booking_date = booking_ts.date
@@ -146,7 +97,6 @@ class BalanceOperations:
             else:
                 booking_date = getattr(seg, "booking_date", None)
                 booking_time = getattr(seg, "booking_time", None)
-
             return BalanceResult(
                 booked=booked,
                 pending=pending,
@@ -155,19 +105,13 @@ class BalanceOperations:
                 booking_date=booking_date,
                 booking_time=booking_time,
             )
-
         raise ValueError("No HISAL response segment found")
 
     def _balance_to_mt940(self, balance_field) -> MT940Balance | None:
-        """Convert FinTS balance field to MT940Balance."""
         if balance_field is None:
             return None
-
-        # Check if credit_debit is set (required for conversion)
         if getattr(balance_field, "credit_debit", None) is None:
             return None
-
-        # Use the Pydantic model's conversion method
         if hasattr(balance_field, "as_mt940_Balance"):
             try:
                 mt940 = balance_field.as_mt940_Balance()
@@ -179,8 +123,6 @@ class BalanceOperations:
                 )
             except (AttributeError, TypeError):
                 pass
-
-        # Fallback: manual extraction from amount field
         amount_field = balance_field.amount
         if hasattr(amount_field, "amount"):
             amount_value = amount_field.amount

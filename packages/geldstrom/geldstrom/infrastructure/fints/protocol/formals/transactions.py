@@ -1,8 +1,4 @@
-"""FinTS Transaction-related Data Element Groups (DEGs).
-
-This module contains Pydantic models for transaction-related data structures
-including CAMT statements and SEPA transfer parameters.
-"""
+"""FinTS transaction-related DEGs (CAMT statements, SEPA transfer parameters)."""
 
 from __future__ import annotations
 
@@ -16,18 +12,9 @@ from ..types import (
     FinTSNumeric,
 )
 
-# =============================================================================
-# CAMT/Statement DEGs
-# =============================================================================
-
 
 class SupportedMessageTypes(FinTSDataElementGroup):
-    """Unterstützte camt-Messages.
-
-    Lists the CAMT message formats supported by the bank.
-
-    Source: FinTS 3.0 Messages - Multibankfähige Geschäftsvorfälle (SEPA)
-    """
+    """Unterstützte camt-Messages — CAMT formats supported by the bank."""
 
     expected_type: list[FinTSAlphanumeric] = Field(
         min_length=1,
@@ -37,12 +24,7 @@ class SupportedMessageTypes(FinTSDataElementGroup):
 
 
 class BookedCamtStatements(FinTSDataElementGroup):
-    """Gebuchte camt-Umsätze.
-
-    Contains booked transactions in CAMT XML format.
-
-    Source: FinTS 3.0 Messages - Multibankfähige Geschäftsvorfälle
-    """
+    """Gebuchte camt-Umsätze — booked transactions in CAMT XML format."""
 
     camt_statements: list[FinTSBinary] = Field(
         min_length=1,
@@ -51,12 +33,7 @@ class BookedCamtStatements(FinTSDataElementGroup):
 
 
 class SupportedSEPAPainMessages(FinTSDataElementGroup):
-    """Unterstützte SEPA pain messages.
-
-    Lists the SEPA pain.* message formats supported for transfers/debits.
-
-    Source: FinTS 3.0 Messages - Multibankfähige Geschäftsvorfälle
-    """
+    """Unterstützte SEPA pain messages — pain.* formats supported for transfers."""
 
     sepa_descriptors: list[FinTSAlphanumeric] = Field(
         max_length=99,
@@ -64,18 +41,8 @@ class SupportedSEPAPainMessages(FinTSDataElementGroup):
     )
 
 
-# =============================================================================
-# Transfer Parameter DEGs
-# =============================================================================
-
-
 class BatchTransferParameter(FinTSDataElementGroup):
-    """Parameter SEPA-Sammelüberweisung.
-
-    Defines limits and requirements for batch SEPA transfers.
-
-    Source: FinTS 3.0 Messages - Multibankfähige Geschäftsvorfälle
-    """
+    """Parameter SEPA-Sammelüberweisung — limits and requirements for batch SEPA transfers."""
 
     max_transfer_count: FinTSNumeric = Field(
         ge=0,
@@ -91,10 +58,8 @@ class BatchTransferParameter(FinTSDataElementGroup):
 
 
 __all__ = [
-    # CAMT/Statement
     "SupportedMessageTypes",
     "BookedCamtStatements",
     "SupportedSEPAPainMessages",
-    # Transfer
     "BatchTransferParameter",
 ]

@@ -1,8 +1,4 @@
-"""Transaction history operations for FinTS.
-
-This module handles HKKAZ (MT940) and HKCAZ (CAMT) segment exchanges
-for fetching account transaction history with pagination support.
-"""
+"""Transaction history operations for FinTS (HKKAZ/HKCAZ segments)."""
 
 from __future__ import annotations
 
@@ -57,17 +53,7 @@ class CAMTTransactionResult:
 
 
 class TransactionOperations:
-    """
-    Handles transaction history operations.
-
-    This class provides methods to:
-    - Fetch MT940 transactions via HKKAZ
-    - Fetch CAMT XML transactions via HKCAZ
-
-    Usage:
-        ops = TransactionOperations(dialog, parameters)
-        result = ops.fetch_mt940(account, start_date, end_date)
-    """
+    """MT940/CAMT transaction history via HKKAZ and HKCAZ segments."""
 
     def __init__(
         self,
@@ -75,14 +61,6 @@ class TransactionOperations:
         parameters: ParameterStore,
         max_pages: int = 100,
     ) -> None:
-        """
-        Initialize transaction operations.
-
-        Args:
-            dialog: Active dialog for sending requests
-            parameters: Parameter store with BPD
-            max_pages: Maximum pages to fetch in pagination
-        """
         self._dialog = dialog
         self._parameters = parameters
         self._paginator = TouchdownPaginator(dialog, max_pages=max_pages)
@@ -93,20 +71,6 @@ class TransactionOperations:
         start_date: date | None = None,
         end_date: date | None = None,
     ) -> MT940TransactionResult:
-        """
-        Fetch transaction history in MT940 format.
-
-        Args:
-            account: SEPA account to query
-            start_date: Start of date range (optional)
-            end_date: End of date range (optional)
-
-        Returns:
-            MT940TransactionResult with parsed transactions
-
-        Raises:
-            FinTSUnsupportedOperation: If bank doesn't support HKKAZ
-        """
         logger.info(
             "Fetching MT940 transactions for %s from %s to %s",
             account.iban or account.accountnumber,
@@ -114,14 +78,11 @@ class TransactionOperations:
             end_date,
         )
 
-        # Find highest supported HKKAZ version
         hkkaz_class = find_highest_supported_version(
             self._parameters.bpd.segments,
             SUPPORTED_HKKAZ,
             raise_if_missing="Bank does not support transaction queries (HKKAZ)",
         )
-
-        # Build account field
         account_field = build_account_field(hkkaz_class, account)
 
         def segment_factory(touchdown: str | None):
@@ -136,14 +97,11 @@ class TransactionOperations:
         def extract_mt940(seg) -> bytes | None:
             return getattr(seg, "statement_booked", None)
 
-        # Fetch with pagination
         result = self._paginator.fetch(
             segment_factory=segment_factory,
             response_type="HIKAZ",
             extract_items=extract_mt940,
         )
-
-        # Combine and parse MT940
         mt940_segments = [s for s in result.items if s]
         combined = self._decode_mt940_segments(mt940_segments)
         transactions = mt940_to_array(combined)
@@ -160,20 +118,6 @@ class TransactionOperations:
         start_date: date | None = None,
         end_date: date | None = None,
     ) -> CAMTTransactionResult:
-        """
-        Fetch transaction history in CAMT XML format.
-
-        Args:
-            account: SEPA account to query
-            start_date: Start of date range (optional)
-            end_date: End of date range (optional)
-
-        Returns:
-            CAMTTransactionResult with raw XML documents
-
-        Raises:
-            FinTSUnsupportedOperation: If bank doesn't support HKCAZ
-        """
         logger.info(
             "Fetching CAMT transactions for %s from %s to %s",
             account.iban or account.accountnumber,
@@ -181,22 +125,15 @@ class TransactionOperations:
             end_date,
         )
 
-        # Find highest supported HKCAZ version
         hkcaz_class = find_highest_supported_version(
             self._parameters.bpd.segments,
             SUPPORTED_HKCAZ,
             raise_if_missing="Bank does not support CAMT queries (HKCAZ)",
         )
-
-        # Get supported CAMT message types from BPD
         camt_messages = self._get_supported_camt_types()
         if not camt_messages:
             camt_messages = ("urn:iso:std:iso:20022:tech:xsd:camt.052.001.02",)
-
-        # HKCAZ expects SupportedMessageTypes DEG
         supported_messages = SupportedMessageTypes(expected_type=list(camt_messages))
-
-        # Build account field
         account_field = build_account_field(hkcaz_class, account)
 
         booked_docs: list[bytes] = []
@@ -223,14 +160,11 @@ class TransactionOperations:
                 pending = seg.statement_pending
             return (booked, pending) if booked or pending else None
 
-        # Fetch with pagination
         result = self._paginator.fetch(
             segment_factory=segment_factory,
             response_type="HICAZ",
             extract_items=extract_camt,
         )
-
-        # Flatten results
         for item in result.items:
             if item:
                 booked, pending = item
@@ -256,26 +190,20 @@ class TransactionOperations:
         return "".join(parts)
 
     def _get_supported_camt_types(self) -> tuple[str, ...]:
-        """Get supported CAMT message types from BPD."""
         segment = self._parameters.bpd.find_segment("HICAZS")
         if not segment:
             return ()
-
         identifiers: list[str] = []
         self._collect_camt_identifiers(segment, identifiers)
-
-        # Deduplicate while preserving order
         seen: set[str] = set()
         ordered: list[str] = []
         for ident in identifiers:
             if ident not in seen:
                 seen.add(ident)
                 ordered.append(ident)
-
         return tuple(ordered)
 
     def _collect_camt_identifiers(self, node, bucket: list[str]) -> None:
-        """Recursively collect CAMT URN identifiers from a segment."""
         if node is None:
             return
 
@@ -291,8 +219,6 @@ class TransactionOperations:
             for item in node:
                 self._collect_camt_identifiers(item, bucket)
             return
-
-        # Check Pydantic model fields
         model_fields = getattr(node, "model_fields", None)
         if model_fields:
             for name in model_fields:

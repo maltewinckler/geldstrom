@@ -1,7 +1,4 @@
-"""FinTS Response DEGs.
-
-These DEGs handle response messages from banks.
-"""
+"""FinTS Response DEGs."""
 
 from __future__ import annotations
 
@@ -12,20 +9,9 @@ from ..types import FinTSAlphanumeric, FinTSDigits, FinTSID, FinTSNumeric
 
 
 class Response(FinTSDataElementGroup):
-    """Rückmeldung (Response).
+    """Rückmeldung (Response) - code, reference, text, and optional parameters.
 
-    Contains a response code, reference, text, and optional parameters
-    from the bank.
-
-    Source: FinTS 3.0 Formals
-
-    Response code ranges:
-    - 0010-0100: Success
-    - 3000-3999: Warning
-    - 9000-9999: Error
-
-    Example:
-        response = Response.from_wire_list(["0010", "3", "Auftrag entgegengenommen"])
+    Response code ranges: 0010-0100 Success, 3000-3999 Warning, 9000-9999 Error.
     """
 
     code: FinTSDigits = Field(
@@ -67,12 +53,7 @@ class Response(FinTSDataElementGroup):
 
 
 class ReferenceMessage(FinTSDataElementGroup):
-    """Bezugsnachricht (Reference Message).
-
-    References a previous message in a dialog.
-
-    Source: FinTS 3.0 Formals
-    """
+    """Bezugsnachricht (Reference Message) - references a previous dialog message."""
 
     dialog_id: FinTSID = Field(
         description="Dialog-ID",

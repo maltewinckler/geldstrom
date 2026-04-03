@@ -12,7 +12,6 @@ _HEADER = "X-Request-ID"
 
 
 def _valid_request_id(value: str) -> bool:
-    """Return True only if *value* is a well-formed UUID string."""
     try:
         uuid.UUID(value)
         return True

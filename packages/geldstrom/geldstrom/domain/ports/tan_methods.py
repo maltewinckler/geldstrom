@@ -10,32 +10,12 @@ from geldstrom.domain.model.tan import TANMethod
 
 
 class TANMethodsPort(Protocol):
-    """
-    Abstract interface for querying available TAN methods.
-
-    TAN methods are typically discovered during session initialization
-    when the bank sends BPD (Bank Parameter Data) containing HITANS
-    segments. However, implementations should support querying TAN methods
-    without requiring full authentication (to solve the chicken-and-egg
-    problem of needing to know TAN methods before choosing one).
-    """
+    """Query available TAN methods from bank parameters."""
 
     def get_tan_methods(
         self,
         state: SessionToken | None = None,
-    ) -> Sequence[TANMethod]:
-        """
-        Get available TAN methods from bank parameters.
-
-        Args:
-            state: Optional session state with cached BPD. If not provided
-                   or BPD is empty, the implementation should fetch BPD
-                   using a lightweight method that doesn't require 2FA.
-
-        Returns:
-            Sequence of available TAN methods
-        """
-        ...
+    ) -> Sequence[TANMethod]: ...
 
 
 __all__ = ["TANMethodsPort"]

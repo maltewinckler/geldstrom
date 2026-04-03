@@ -60,8 +60,6 @@ class PostgresNotifyListener:
         self._handler_tasks: set[asyncio.Task[None]] = set()
 
     async def start(self) -> None:
-        """Start the background listener loop if it is not already running."""
-
         if self._runner_task is not None and not self._runner_task.done():
             if self._startup_future is not None:
                 await self._startup_future
@@ -77,8 +75,6 @@ class PostgresNotifyListener:
             raise
 
     async def stop(self) -> None:
-        """Stop the background listener loop and close the current connection."""
-
         self._stop_event.set()
         self._ready_event.clear()
         startup_future = self._startup_future

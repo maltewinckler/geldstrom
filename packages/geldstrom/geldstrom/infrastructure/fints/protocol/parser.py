@@ -1,26 +1,4 @@
-"""FinTS Protocol Parser - Pydantic-based segment parsing.
-
-This module provides a parser that converts FinTS wire format into
-Pydantic-based segment models.
-
-Key Components:
-- FinTSParser: Parses wire data into Pydantic segments
-- FinTSSerializer: Serializes Pydantic segments back to wire format
-
-Segment classes are auto-registered via FinTSSegment.__init_subclass__.
-Use registry.get_segment_class() or FinTSSegment.get_segment_class() to look up.
-
-Example:
-    from geldstrom.infrastructure.fints.protocol.parser import FinTSParser
-
-    # Parse a message
-    parser = FinTSParser()
-    segments = parser.parse_message(raw_bytes)
-
-    # Access parsed segments
-    for seg in segments.find_segments("HISAL"):
-        print(f"Balance: {seg.balance_booked.signed_amount}")
-"""
+"""FinTS protocol parser and serializer (Pydantic-based)."""
 
 from __future__ import annotations
 
@@ -55,56 +33,18 @@ class FinTSParserError(ValueError):
     pass
 
 
-# =============================================================================
-# Parser
-# =============================================================================
-
-
 class FinTSParser:
-    """Parser for FinTS wire format into Pydantic models.
+    """Converts FinTS wire bytes to Pydantic segment models.
 
-    The parser converts raw FinTS bytes into structured Pydantic segment
-    models, providing type safety and validation.
-
-    Error Handling:
-        - Unknown segment types: In robust_mode, returns GenericSegment with
-          a warning. This is expected for bank-specific segments.
-        - Parameter segment parse errors (HI???S): In robust_mode, returns
-          GenericSegment with warning. Banks have variations in these.
-        - Other known segment parse errors: ALWAYS raises FinTSParserError.
-          This indicates a bug in our Pydantic model definition.
-        - Header parse errors: In robust_mode, skips segment with a warning.
-
-    Example:
-        parser = FinTSParser()
-
-        # Parse a full message
-        segments = parser.parse_message(raw_bytes)
-
-        # Access parsed segments
-        for seg in segments.find_segments("HISAL"):
-            print(f"Balance: {seg.balance_booked.signed_amount}")
+    Unknown segments → GenericSegment (robust_mode=True) or error.
+    Parameter segment (HI???S) parse errors → GenericSegment in robust_mode.
+    Other model parse errors → always FinTSParserError (bug in model definition).
     """
 
     def __init__(self, robust_mode: bool = True):
-        """Initialize parser.
-
-        Args:
-            robust_mode: If True, unknown segments become warnings (not errors).
-                        Known segment parse errors always raise regardless.
-        """
         self.robust_mode = robust_mode
 
     def parse_message(self, data: bytes) -> SegmentSequence:
-        """Parse a FinTS message into a SegmentSequence.
-
-        Args:
-            data: Raw FinTS message bytes
-
-        Returns:
-            SegmentSequence containing parsed segments
-        """
-        # Explode into raw segments
         raw_segments = self.explode_segments(data)
 
         # Parse each segment
@@ -117,23 +57,6 @@ class FinTSParser:
         return SegmentSequence(segments=segments)
 
     def parse_segment(self, raw_segment: list[Any]) -> FinTSSegment | None:
-        """Parse a single raw segment into a Pydantic model.
-
-        Args:
-            raw_segment: Exploded segment data (list of DEGs)
-
-        Returns:
-            Parsed segment or None if parsing failed
-
-        Behavior:
-            - Unknown segment types: In robust_mode, returns GenericSegment with
-              a warning. This is expected for bank-specific segments.
-            - Parameter segment parse errors (HI???S): In robust_mode, returns
-              GenericSegment with warning. Banks have variations in these.
-            - Other known segment parse errors: ALWAYS raises FinTSParserError.
-              This indicates a bug in our Pydantic model definition.
-            - Header parse errors: In robust_mode, returns None with a warning.
-        """
         if not raw_segment:
             return None
 
@@ -193,11 +116,7 @@ class FinTSParser:
         header: SegmentHeader,
         raw_segment: list[Any],
     ) -> FinTSSegment:
-        """Create a fallback segment for unknown segment types.
-
-        This allows the parser to continue processing even when
-        encountering unknown bank-specific segments.
-        """
+        """Create a fallback segment for unknown segment types."""
         from .segments.params import GenericSegment
 
         # Create a minimal segment with just the header and raw data
@@ -245,10 +164,7 @@ class FinTSParser:
         raw_segment: list[Any],
         header: SegmentHeader,
     ) -> T:
-        """Parse segment data into a specific class.
-
-        Maps raw wire data (list of DEGs) to Pydantic model fields.
-        """
+        """Parse segment data into a specific class."""
         from .base import _extract_model_type
 
         data: dict[str, Any] = {"header": header}
@@ -298,12 +214,7 @@ class FinTSParser:
             raise FinTSParserError(f"Validation failed for {cls.__name__}: {e}") from e
 
     def _unwrap_field_type(self, annotation: Any) -> tuple[Any, bool]:
-        """Extract the inner type from an annotation.
-
-        Returns (inner_type, is_list) where:
-        - inner_type: The actual type (unwrapped from Optional/Union)
-        - is_list: Whether the field is a list type
-        """
+        """Return (inner_type, is_list) for the given field annotation."""
         origin = getattr(annotation, "__origin__", None)
 
         # Handle X | None or Optional[X]
@@ -328,11 +239,7 @@ class FinTSParser:
         start_index: int,
         inner_type: type,
     ) -> tuple[list[Any], int]:
-        """Parse a variable-length list of DEGs from raw data.
-
-        Consumes values until encountering a non-list value (next field).
-        Returns (parsed_items, new_index).
-        """
+        """Consume list[DEG] entries until a non-list value; return (items, new_index)."""
         items = []
         index = start_index
 
@@ -395,28 +302,12 @@ class FinTSParser:
         return segments
 
 
-# =============================================================================
-# Serializer
-# =============================================================================
 class FinTSSerializer:
-    """Serializer for Pydantic segments to FinTS wire format.
-
-    Example:
-        serializer = FinTSSerializer()
-        raw_bytes = serializer.serialize_message(segment_sequence)
-    """
+    """Serializes Pydantic FinTS segments to wire-format bytes."""
 
     def serialize_message(
         self, message: SegmentSequence | list[FinTSSegment] | FinTSSegment
     ) -> bytes:
-        """Serialize segments to FinTS wire format.
-
-        Args:
-            message: Segments to serialize
-
-        Returns:
-            Wire format bytes
-        """
         if isinstance(message, FinTSSegment):
             message = SegmentSequence(segments=[message])
         elif isinstance(message, list):
@@ -465,11 +356,6 @@ class FinTSSerializer:
         return result
 
     def _serialize_value(self, value: Any) -> Any:
-        """Serialize a single value to wire format.
-
-        Returns the value as-is for types that escape_value handles specially
-        (date, time, int, bytes), or converts to string for others.
-        """
         import datetime
 
         if value is None:
@@ -506,10 +392,7 @@ class FinTSSerializer:
 
     @staticmethod
     def _implode_deg(deg: list | tuple) -> bytes:
-        """Serialize a DEG (data element group) to bytes.
-
-        Handles nested DEGs recursively.
-        """
+        """Serialize a DEG (data element group) to bytes."""
         # Find highest non-empty index to trim trailing empty values
         highest_index = max(
             ((i + 1) for (i, e) in enumerate(deg) if e != b"" and e is not None),
@@ -554,11 +437,7 @@ class FinTSSerializer:
 
 
 def reset_unknown_segment_warnings() -> None:
-    """Clear the cache of unknown segment types.
-
-    Call this to re-enable warnings for previously seen unknown segments.
-    Useful for testing or starting a new session.
-    """
+    """Clear the cache of unknown segment types to re-enable duplicate warnings."""
     _unknown_segment_types.clear()
 
 

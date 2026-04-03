@@ -1,8 +1,4 @@
-"""Domain port implementations for FinTS 3.0 protocol.
-
-These adapters implement the domain ports using the FinTS 3.0 protocol.
-They use the new dialog/operations infrastructure for all bank communication.
-"""
+"""Domain port implementations for FinTS 3.0 protocol."""
 
 from __future__ import annotations
 

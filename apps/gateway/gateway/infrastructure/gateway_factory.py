@@ -81,11 +81,7 @@ class _InMemoryCacheFactory(CacheFactory):
 
 
 class GatewayApplicationFactory:
-    """Concrete factory providing all application service dependencies.
-
-    Implements the ApplicationFactory protocol.
-    Owns the PostgresNotifyListener and database engine lifecycle.
-    """
+    """Concrete application factory providing all service dependencies."""
 
     def __init__(self, settings) -> None:  # type: ignore[no-untyped-def]
         self._settings = settings

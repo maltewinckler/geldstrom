@@ -1,11 +1,4 @@
-"""FinTS Authentication Segments.
-
-These segments handle authentication including:
-- Identification (HKIDN)
-- Processing preparation (HKVVB)
-- TAN handling (HKTAN, HITAN)
-- TAN media (HKTAB, HITAB)
-"""
+"""FinTS Authentication Segments."""
 
 from __future__ import annotations
 
@@ -42,12 +35,7 @@ from ..types import (
 
 
 class HKIDN2(FinTSSegment):
-    """Identifikation (Identification), version 2.
-
-    Identifies the customer and system to the bank.
-
-    Source: FinTS 3.0 Formals
-    """
+    """Identifikation (Identification), version 2."""
 
     SEGMENT_TYPE: ClassVar[str] = "HKIDN"
     SEGMENT_VERSION: ClassVar[int] = 2
@@ -64,12 +52,7 @@ class HKIDN2(FinTSSegment):
 
 
 class HKVVB3(FinTSSegment):
-    """Verarbeitungsvorbereitung (Processing Preparation), version 3.
-
-    Sets up the dialog with version and language info.
-
-    Source: FinTS 3.0 Formals
-    """
+    """Verarbeitungsvorbereitung (Processing Preparation), version 3."""
 
     SEGMENT_TYPE: ClassVar[str] = "HKVVB"
     SEGMENT_VERSION: ClassVar[int] = 3
@@ -104,10 +87,7 @@ class HKTANBase(FinTSSegment):
 
 
 class HKTAN2(HKTANBase):
-    """Zwei-Schritt-TAN-Einreichung, version 2.
-
-    Source: FinTS 3.0 Sicherheitsverfahren PIN/TAN
-    """
+    """Zwei-Schritt-TAN-Einreichung, version 2."""
 
     SEGMENT_VERSION: ClassVar[int] = 2
 
@@ -136,10 +116,7 @@ class HKTAN2(HKTANBase):
 
 
 class HKTAN6(HKTANBase):
-    """Zwei-Schritt-TAN-Einreichung, version 6.
-
-    Source: FinTS 3.0 Sicherheitsverfahren PIN/TAN
-    """
+    """Zwei-Schritt-TAN-Einreichung, version 6."""
 
     SEGMENT_VERSION: ClassVar[int] = 6
 
@@ -195,10 +172,7 @@ class HKTAN6(HKTANBase):
 
 
 class HKTAN7(HKTANBase):
-    """Zwei-Schritt-TAN-Einreichung, version 7.
-
-    Source: FinTS 3.0 Sicherheitsverfahren PIN/TAN
-    """
+    """Zwei-Schritt-TAN-Einreichung, version 7."""
 
     SEGMENT_VERSION: ClassVar[int] = 7
 
@@ -283,10 +257,7 @@ class HITANBase(FinTSSegment):
 
 
 class HITAN6(HITANBase):
-    """Zwei-Schritt-TAN-Einreichung Rückmeldung, version 6.
-
-    Source: FinTS 3.0 Sicherheitsverfahren PIN/TAN
-    """
+    """Zwei-Schritt-TAN-Einreichung Rückmeldung, version 6."""
 
     SEGMENT_VERSION: ClassVar[int] = 6
 
@@ -306,10 +277,7 @@ class HITAN6(HITANBase):
 
 
 class HITAN7(HITANBase):
-    """Zwei-Schritt-TAN-Einreichung Rückmeldung, version 7.
-
-    Source: FinTS 3.0 Sicherheitsverfahren PIN/TAN
-    """
+    """Zwei-Schritt-TAN-Einreichung Rückmeldung, version 7."""
 
     SEGMENT_VERSION: ClassVar[int] = 7
 
@@ -334,12 +302,7 @@ class HITAN7(HITANBase):
 
 
 class HKTAB4(FinTSSegment):
-    """TAN-Generator/Liste anzeigen Bestand, version 4.
-
-    Request TAN media list.
-
-    Source: FinTS 3.0 Sicherheitsverfahren PIN/TAN
-    """
+    """TAN-Generator/Liste anzeigen Bestand, version 4."""
 
     SEGMENT_TYPE: ClassVar[str] = "HKTAB"
     SEGMENT_VERSION: ClassVar[int] = 4
@@ -353,12 +316,7 @@ class HKTAB4(FinTSSegment):
 
 
 class HKTAB5(FinTSSegment):
-    """TAN-Generator/Liste anzeigen Bestand, version 5.
-
-    Request TAN media list.
-
-    Source: FinTS 3.0 Sicherheitsverfahren PIN/TAN
-    """
+    """TAN-Generator/Liste anzeigen Bestand, version 5."""
 
     SEGMENT_TYPE: ClassVar[str] = "HKTAB"
     SEGMENT_VERSION: ClassVar[int] = 5
@@ -372,12 +330,7 @@ class HKTAB5(FinTSSegment):
 
 
 class HITAB4(FinTSSegment):
-    """TAN-Generator/Liste anzeigen Bestand Rückmeldung, version 4.
-
-    Response with TAN media list.
-
-    Source: FinTS 3.0 Sicherheitsverfahren PIN/TAN
-    """
+    """TAN-Generator/Liste anzeigen Bestand Rückmeldung, version 4."""
 
     SEGMENT_TYPE: ClassVar[str] = "HITAB"
     SEGMENT_VERSION: ClassVar[int] = 4
@@ -393,12 +346,7 @@ class HITAB4(FinTSSegment):
 
 
 class HITAB5(FinTSSegment):
-    """TAN-Generator/Liste anzeigen Bestand Rückmeldung, version 5.
-
-    Response with TAN media list.
-
-    Source: FinTS 3.0 Sicherheitsverfahren PIN/TAN
-    """
+    """TAN-Generator/Liste anzeigen Bestand Rückmeldung, version 5."""
 
     SEGMENT_TYPE: ClassVar[str] = "HITAB"
     SEGMENT_VERSION: ClassVar[int] = 5

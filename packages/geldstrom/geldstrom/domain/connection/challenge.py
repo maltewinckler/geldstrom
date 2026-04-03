@@ -11,24 +11,7 @@ from pydantic import BaseModel, PositiveFloat, model_validator
 
 
 class TANConfig(BaseModel):
-    """
-    Configuration for TAN (Transaction Authentication Number) handling.
-
-    This configuration controls how the client handles second-factor
-    authentication challenges. Currently focused on decoupled TAN
-    (app-based confirmation), but designed for future extensibility
-    to other TAN methods.
-
-    Attributes:
-        poll_interval: Seconds between status checks during decoupled TAN
-                       polling (default: 2.0)
-        timeout_seconds: Maximum seconds to wait for TAN confirmation
-                         (default: 120.0)
-
-    Example:
-        >>> config = TANConfig(poll_interval=3.0, timeout_seconds=180.0)
-        >>> client = FinTS3Client(..., tan_config=config)
-    """
+    """TAN polling configuration."""
 
     poll_interval: PositiveFloat = 2.0
     timeout_seconds: PositiveFloat = 120.0
@@ -41,84 +24,51 @@ class TANConfig(BaseModel):
 
 
 class ChallengeType(Enum):
-    """
-    Types of second-factor authentication challenges.
-
-    These are protocol-agnostic categories that cover common 2FA methods
-    across different banking protocols (FinTS, PSD2, EBICS, etc.).
-    """
-
-    TEXT = "text"  # Simple text challenge (e.g., "Enter TAN from letter")
-    MATRIX_CODE = "matrix_code"  # QR code or matrix image to scan
-    FLICKER = "flicker"  # Optical flicker code for TAN generators (chipTAN)
-    PUSH = "push"  # Push notification to mobile app
-    DECOUPLED = "decoupled"  # Confirmation in separate channel (app, device)
-    PHOTO_TAN = "photo_tan"  # Photo/image-based TAN (similar to matrix but colored)
+    TEXT = "text"
+    MATRIX_CODE = "matrix_code"
+    FLICKER = "flicker"
+    PUSH = "push"
+    DECOUPLED = "decoupled"
+    PHOTO_TAN = "photo_tan"
 
 
 class ChallengeData(BaseModel, frozen=True):
-    """
-    Binary or structured data associated with a challenge.
+    """Binary data for visual challenges (matrix code, flicker, photo TAN)."""
 
-    For matrix codes, flicker codes, or photo TANs, this holds the
-    raw data needed to render or transmit the challenge.
-    """
-
-    mime_type: str | None = None  # e.g., "image/png" for matrix codes
-    data: bytes  # Raw challenge data
+    mime_type: str | None = None
+    data: bytes
 
 
 class Challenge(metaclass=ABCMeta):
-    """
-    Abstract base for second-factor authentication challenges.
-
-    This represents the protocol-agnostic concept of a 2FA challenge
-    that requires user interaction before a banking operation can proceed.
-
-    Concrete implementations (e.g., FinTS NeedTANResponse) add
-    protocol-specific details and serialization.
-    """
+    """Abstract base for protocol-agnostic 2FA challenges."""
 
     @property
     @abstractmethod
-    def challenge_type(self) -> ChallengeType:
-        """The type of challenge presented to the user."""
+    def challenge_type(self) -> ChallengeType: ...
 
     @property
     @abstractmethod
-    def challenge_text(self) -> str | None:
-        """Human-readable challenge text to display."""
+    def challenge_text(self) -> str | None: ...
 
     @property
     @abstractmethod
-    def challenge_html(self) -> str | None:
-        """HTML-formatted challenge text (if available)."""
+    def challenge_html(self) -> str | None: ...
 
     @property
     @abstractmethod
-    def challenge_data(self) -> ChallengeData | None:
-        """Binary data for visual challenges (QR, flicker, photo)."""
+    def challenge_data(self) -> ChallengeData | None: ...
 
     @property
     @abstractmethod
-    def is_decoupled(self) -> bool:
-        """Whether this challenge uses a decoupled confirmation flow."""
+    def is_decoupled(self) -> bool: ...
 
     @abstractmethod
-    def get_data(self) -> bytes:
-        """Serialize this challenge for later resumption."""
+    def get_data(self) -> bytes: ...
 
 
 @dataclass
 class ChallengeResult:
-    """
-    Result of presenting a challenge to the user.
-
-    Attributes:
-        response: The user's response (e.g., TAN code), or None for decoupled
-        cancelled: True if the user cancelled the challenge
-        error: Error message if something went wrong
-    """
+    """Result of responding to a 2FA challenge."""
 
     response: str | None = None
     cancelled: bool = False
@@ -126,102 +76,40 @@ class ChallengeResult:
 
     @property
     def is_success(self) -> bool:
-        """Return True if user provided a response."""
         return self.response is not None and not self.cancelled
 
     @property
     def needs_polling(self) -> bool:
-        """Return True if this requires decoupled polling."""
         return self.response is None and not self.cancelled and not self.error
 
 
 @runtime_checkable
 class ChallengeHandler(Protocol):
-    """
-    Protocol for handling 2FA challenges.
+    """Protocol for handling 2FA challenges across different UI environments."""
 
-    Implementations of this protocol are responsible for presenting
-    challenges to users and collecting their responses. This allows
-    different UI implementations (CLI, GUI, web) to handle challenges
-    appropriately.
-
-    Example implementations:
-    - Interactive CLI that prompts for TAN input
-    - GUI dialog showing QR codes or flicker animations
-    - Web handler that returns challenge data to frontend
-    - Automated handler for decoupled flows (just waits)
-    """
-
-    def present_challenge(self, challenge: Challenge) -> ChallengeResult:
-        """
-        Present a challenge to the user and collect their response.
-
-        For interactive challenges (TEXT, MATRIX_CODE, FLICKER, PHOTO_TAN),
-        this should display the challenge and wait for user input.
-
-        For DECOUPLED and PUSH challenges, this may return immediately
-        with needs_polling=True, indicating that poll_decoupled should
-        be called to wait for confirmation.
-
-        Args:
-            challenge: The challenge to present
-
-        Returns:
-            ChallengeResult with user's response or status
-        """
+    def present_challenge(self, challenge: Challenge) -> ChallengeResult: ...
 
 
 @runtime_checkable
 class DecoupledPoller(Protocol):
-    """
-    Protocol for polling decoupled authentication status.
-
-    Decoupled authentication (e.g., app-based confirmation) requires
-    periodic polling to check if the user has confirmed the operation
-    in their banking app.
-    """
+    """Protocol for polling decoupled (app-based) authentication status."""
 
     def poll_status(
         self,
         challenge: Challenge,
         timeout_seconds: float = 120.0,
         poll_interval: float = 2.0,
-    ) -> ChallengeResult:
-        """
-        Poll for decoupled authentication confirmation.
-
-        This method should periodically check if the user has confirmed
-        the operation in their banking app, until either:
-        - Confirmation is received (return success)
-        - Timeout is reached (return error)
-        - User cancels (return cancelled)
-
-        Args:
-            challenge: The decoupled challenge to poll for
-            timeout_seconds: Maximum time to wait for confirmation
-            poll_interval: Seconds between poll attempts
-
-        Returns:
-            ChallengeResult indicating success, timeout, or cancellation
-        """
+    ) -> ChallengeResult: ...
 
 
 class InteractiveChallengeHandler:
-    """
-    Simple interactive challenge handler for CLI applications.
-
-    This handler prints challenge information and prompts for TAN input.
-    For decoupled challenges, it returns immediately with needs_polling=True.
-    """
+    """Simple CLI challenge handler that prompts for TAN input."""
 
     def present_challenge(self, challenge: Challenge) -> ChallengeResult:
-        """Present challenge and collect response interactively."""
         if challenge.is_decoupled:
-            # Decoupled challenges need polling, not direct input
             print(f"Please confirm in your banking app: {challenge.challenge_text}")
             return ChallengeResult()  # needs_polling will be True
 
-        # Display challenge info
         if challenge.challenge_text:
             print(f"Challenge: {challenge.challenge_text}")
 
@@ -232,7 +120,6 @@ class InteractiveChallengeHandler:
             else:
                 print(f"Visual challenge ({data.mime_type}): {len(data.data)} bytes")
 
-        # Prompt for TAN
         try:
             tan = input("Enter TAN: ").strip()
             if not tan:

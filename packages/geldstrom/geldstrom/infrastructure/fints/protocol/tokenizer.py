@@ -1,23 +1,4 @@
-"""FinTS Wire Format Tokenizer.
-
-This module provides low-level tokenization of FinTS wire format data.
-The tokenizer breaks raw bytes into tokens for parsing.
-
-Token Types:
-- CHAR: Character data (text)
-- BINARY: Binary data (prefixed with @length@)
-- PLUS: Field separator (+)
-- COLON: DEG element separator (:)
-- APOSTROPHE: Segment terminator (')
-- EOF: End of data
-
-Example:
-    state = ParserState(b"HNHBK:1:3+280+12345'")
-    while state.peek() != Token.EOF:
-        token = state.peek()
-        value = state.consume()
-        print(f"{token}: {value}")
-"""
+"""FinTS wire-format tokenizer (CHAR, BINARY, PLUS, COLON, APOSTROPHE, EOF)."""
 
 from __future__ import annotations
 
@@ -49,16 +30,7 @@ class Token(Enum):
 
 
 class ParserState:
-    """Stateful tokenizer for FinTS wire format.
-
-    Provides peek/consume interface for parsing FinTS data.
-
-    Example:
-        state = ParserState(b"HNHBK:1:3+280'")
-        state.peek()  # Token.CHAR
-        state.consume()  # "HNHBK"
-        state.consume(Token.COLON)  # b":"
-    """
+    """Stateful peek/consume tokenizer for FinTS wire format."""
 
     def __init__(
         self,
@@ -79,14 +51,6 @@ class ParserState:
         return self._token
 
     def consume(self, token: Token | None = None) -> Any:
-        """Consume and return the next token value.
-
-        Args:
-            token: Expected token type (optional). Raises if mismatch.
-
-        Returns:
-            The token's value
-        """
         self.peek()
         if token and token != self._token:
             raise ValueError(f"Expected {token}, got {self._token}")

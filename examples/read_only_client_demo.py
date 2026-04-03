@@ -27,9 +27,6 @@ import argparse
 import json
 from pathlib import Path
 
-from geldstrom import SessionToken
-from geldstrom.infrastructure.fints import FinTSSessionState
-
 from _common import (
     add_common_args,
     create_client,
@@ -38,6 +35,9 @@ from _common import (
     print_separator,
     setup_logging,
 )
+
+from geldstrom import SessionToken
+from geldstrom.infrastructure.fints import FinTSSessionState
 
 SESSION_FILE = Path(".session_state.json")
 

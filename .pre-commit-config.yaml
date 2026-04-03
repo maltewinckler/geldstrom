@@ -1,0 +1,12 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.5
+    hooks:
+      # Linter — mirrors: uv run ruff check packages/ apps/ tests/
+      - id: ruff
+        args: [--fix]
+        files: ^(packages|apps|tests)/
+
+      # Formatter — mirrors: uv run ruff format --check packages/ apps/ tests/
+      - id: ruff-format
+        files: ^(packages|apps|tests)/

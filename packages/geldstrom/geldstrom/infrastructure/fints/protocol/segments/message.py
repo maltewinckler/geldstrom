@@ -1,11 +1,4 @@
-"""FinTS Message Security Segments.
-
-These segments handle message-level security including:
-- Encryption header (HNVSK)
-- Encrypted data container (HNVSD)
-- Signature header (HNSHK)
-- Signature trailer (HNSHA)
-"""
+"""FinTS Message Security Segments."""
 
 from __future__ import annotations
 
@@ -41,12 +34,7 @@ from ..types import (
 
 
 class HNVSK3(FinTSSegment):
-    """Verschlüsselungskopf (Encryption Header), version 3.
-
-    Contains encryption metadata for the message.
-
-    Source: FinTS 3.0 Sicherheitsverfahren HBCI
-    """
+    """Verschlüsselungskopf (Encryption Header), version 3."""
 
     SEGMENT_TYPE: ClassVar[str] = "HNVSK"
     SEGMENT_VERSION: ClassVar[int] = 3
@@ -82,12 +70,7 @@ class HNVSK3(FinTSSegment):
 
 
 class HNVSD1(FinTSSegment):
-    """Verschlüsselte Daten (Encrypted Data Container), version 1.
-
-    Contains the encrypted message payload.
-
-    Source: FinTS 3.0 Sicherheitsverfahren HBCI
-    """
+    """Verschlüsselte Daten (Encrypted Data Container), version 1."""
 
     SEGMENT_TYPE: ClassVar[str] = "HNVSD"
     SEGMENT_VERSION: ClassVar[int] = 1
@@ -127,8 +110,6 @@ class HNSHK4(FinTSSegment):
     """Signaturkopf (Signature Header), version 4.
 
     Contains signature metadata and starts the signed area.
-
-    Source: FinTS 3.0 Sicherheitsverfahren HBCI
     """
 
     SEGMENT_TYPE: ClassVar[str] = "HNSHK"
@@ -178,8 +159,6 @@ class HNSHA2(FinTSSegment):
     """Signaturabschluss (Signature Trailer), version 2.
 
     Closes the signed area and contains the signature.
-
-    Source: FinTS 3.0 Sicherheitsverfahren HBCI
     """
 
     SEGMENT_TYPE: ClassVar[str] = "HNSHA"

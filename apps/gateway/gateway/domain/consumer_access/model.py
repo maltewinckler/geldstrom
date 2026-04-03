@@ -30,7 +30,6 @@ class ApiConsumer(BaseModel):
         return value
 
     def is_disabled(self) -> bool:
-        """Return True when this consumer's access has been revoked."""
         return self.status is ConsumerStatus.DISABLED
 
     @model_validator(mode="after")

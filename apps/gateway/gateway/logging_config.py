@@ -80,12 +80,6 @@ class _JsonFormatter(logging.Formatter):
 
 
 def configure_logging(*, json_logs: bool = True, level: str = "INFO") -> None:
-    """Configure secret-safe structured logging for the gateway backend.
-
-    Args:
-        json_logs: Emit JSON-lines format when ``True`` (default), plain text when ``False``.
-        level: Root log level string (e.g. ``"INFO"``, ``"DEBUG"``).
-    """
     formatter: dict[str, Any]
     if json_logs:
         formatter = {

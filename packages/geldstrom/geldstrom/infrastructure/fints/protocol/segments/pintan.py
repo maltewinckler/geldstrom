@@ -1,9 +1,4 @@
-"""FinTS PIN/TAN Parameter Segments.
-
-These segments handle PIN/TAN-specific parameters:
-- HIPINS: PIN/TAN-specific information
-- HITANS: Two-step TAN parameters (versions 1-7)
-"""
+"""FinTS PIN/TAN Parameter Segments."""
 
 from __future__ import annotations
 
@@ -35,12 +30,7 @@ from ..types import (
 
 
 class TransactionTANRequired(FinTSDataElementGroup):
-    """Geschäftsvorfall TAN-pflichtig.
-
-    Specifies whether a TAN is required for a transaction.
-
-    Source: FinTS 3.0 Sicherheitsverfahren PIN/TAN
-    """
+    """Geschäftsvorfall TAN-pflichtig."""
 
     transaction: FinTSAlphanumeric = Field(
         max_length=6,
@@ -52,12 +42,7 @@ class TransactionTANRequired(FinTSDataElementGroup):
 
 
 class ParameterPinTan(FinTSDataElementGroup):
-    """Parameter PIN/TAN-spezifische Informationen.
-
-    Contains PIN/TAN configuration like length limits.
-
-    Source: FinTS 3.0 Sicherheitsverfahren PIN/TAN
-    """
+    """Parameter PIN/TAN-spezifische Informationen."""
 
     min_pin_length: FinTSNumeric | None = Field(
         default=None,
@@ -101,8 +86,6 @@ class TwoStepParametersCommon(FinTSDataElementGroup):
 
     Note: `tan_process` is optional because some banks (e.g., DKB) omit it,
     sending the TAN process at the segment level instead.
-
-    Source: FinTS 3.0 Sicherheitsverfahren PIN/TAN
     """
 
     security_function: FinTSCode = Field(
@@ -123,8 +106,6 @@ class TwoStepParameters1(TwoStepParametersCommon):
     """Two-step TAN parameters, version 1.
 
     Earliest version with basic TAN support.
-
-    Source: FinTS 3.0 Sicherheitsverfahren PIN/TAN
     """
 
     name: FinTSAlphanumeric = Field(
@@ -159,8 +140,6 @@ class TwoStepParameters2(TwoStepParametersCommon):
     """Two-step TAN parameters, version 2.
 
     Adds challenge class support.
-
-    Source: FinTS 3.0 Sicherheitsverfahren PIN/TAN
     """
 
     name: FinTSAlphanumeric = Field(
@@ -207,8 +186,6 @@ class TwoStepParameters3(TwoStepParametersCommon):
     """Two-step TAN parameters, version 3.
 
     Adds initialization mode and TAN media description.
-
-    Source: FinTS 3.0 Sicherheitsverfahren PIN/TAN
     """
 
     name: FinTSAlphanumeric = Field(
@@ -265,8 +242,6 @@ class TwoStepParameters4(TwoStepParametersCommon):
     """Two-step TAN parameters, version 4.
 
     Adds ZKA identification and SMS charge account.
-
-    Source: FinTS 3.0 Sicherheitsverfahren PIN/TAN
     """
 
     zka_id: FinTSAlphanumeric = Field(
@@ -337,8 +312,6 @@ class TwoStepParameters5(TwoStepParametersCommon):
     """Two-step TAN parameters, version 5.
 
     Adds principal account required codes.
-
-    Source: FinTS 3.0 Sicherheitsverfahren PIN/TAN
     """
 
     zka_id: FinTSAlphanumeric = Field(
@@ -417,8 +390,6 @@ class TwoStepParameters6(TwoStepParametersCommon):
     `from_wire_list` method detects this by checking if the value at position 1
     looks like a technical_id (more than 1 character) rather than a TAN process
     code ('1'-'4').
-
-    Source: FinTS 3.0 Sicherheitsverfahren PIN/TAN
     """
 
     zka_id: FinTSAlphanumeric | None = Field(
@@ -528,8 +499,6 @@ class TwoStepParameters7(TwoStepParameters6):
     """Two-step TAN parameters, version 7.
 
     Latest version with full decoupled TAN support.
-
-    Source: FinTS 3.0 Sicherheitsverfahren PIN/TAN
     """
 
     decoupled_max_poll_number: FinTSNumeric | None = Field(
@@ -562,8 +531,6 @@ class ParameterTwostepCommon(FinTSDataElementGroup):
     """Common two-step TAN parameters.
 
     Contains fields common to all HITANS versions.
-
-    Source: FinTS 3.0 Sicherheitsverfahren PIN/TAN
     """
 
     one_step_allowed: FinTSBool = Field(
@@ -581,8 +548,6 @@ class ParameterTwostepTAN1(ParameterTwostepCommon):
     """Parameter for HITANS1.
 
     Version 1 includes security_profile_bank_signature.
-
-    Source: FinTS 3.0 Sicherheitsverfahren PIN/TAN
     """
 
     security_profile_bank_signature: FinTSCode = Field(
@@ -596,10 +561,7 @@ class ParameterTwostepTAN1(ParameterTwostepCommon):
 
 
 class ParameterTwostepTAN2(ParameterTwostepCommon):
-    """Parameter for HITANS2.
-
-    Source: FinTS 3.0 Sicherheitsverfahren PIN/TAN
-    """
+    """Parameter for HITANS2."""
 
     twostep_parameters: list[TwoStepParameters2] = Field(
         min_length=1,
@@ -609,10 +571,7 @@ class ParameterTwostepTAN2(ParameterTwostepCommon):
 
 
 class ParameterTwostepTAN3(ParameterTwostepCommon):
-    """Parameter for HITANS3.
-
-    Source: FinTS 3.0 Sicherheitsverfahren PIN/TAN
-    """
+    """Parameter for HITANS3."""
 
     twostep_parameters: list[TwoStepParameters3] = Field(
         min_length=1,
@@ -622,10 +581,7 @@ class ParameterTwostepTAN3(ParameterTwostepCommon):
 
 
 class ParameterTwostepTAN4(ParameterTwostepCommon):
-    """Parameter for HITANS4.
-
-    Source: FinTS 3.0 Sicherheitsverfahren PIN/TAN
-    """
+    """Parameter for HITANS4."""
 
     twostep_parameters: list[TwoStepParameters4] = Field(
         min_length=1,
@@ -635,10 +591,7 @@ class ParameterTwostepTAN4(ParameterTwostepCommon):
 
 
 class ParameterTwostepTAN5(ParameterTwostepCommon):
-    """Parameter for HITANS5.
-
-    Source: FinTS 3.0 Sicherheitsverfahren PIN/TAN
-    """
+    """Parameter for HITANS5."""
 
     twostep_parameters: list[TwoStepParameters5] = Field(
         min_length=1,
@@ -648,10 +601,7 @@ class ParameterTwostepTAN5(ParameterTwostepCommon):
 
 
 class ParameterTwostepTAN6(ParameterTwostepCommon):
-    """Parameter for HITANS6.
-
-    Source: FinTS 3.0 Sicherheitsverfahren PIN/TAN
-    """
+    """Parameter for HITANS6."""
 
     twostep_parameters: list[TwoStepParameters6] = Field(
         min_length=1,
@@ -661,10 +611,7 @@ class ParameterTwostepTAN6(ParameterTwostepCommon):
 
 
 class ParameterTwostepTAN7(ParameterTwostepCommon):
-    """Parameter for HITANS7.
-
-    Source: FinTS 3.0 Sicherheitsverfahren PIN/TAN
-    """
+    """Parameter for HITANS7."""
 
     twostep_parameters: list[TwoStepParameters7] = Field(
         min_length=1,
@@ -703,12 +650,7 @@ class ParameterSegmentBase(FinTSSegment):
 
 
 class HIPINS1(ParameterSegmentBase):
-    """PIN/TAN-spezifische Informationen, version 1.
-
-    Contains PIN/TAN configuration for the bank.
-
-    Source: FinTS 3.0 Sicherheitsverfahren PIN/TAN
-    """
+    """PIN/TAN-spezifische Informationen, version 1."""
 
     SEGMENT_TYPE: ClassVar[str] = "HIPINS"
     SEGMENT_VERSION: ClassVar[int] = 1
@@ -719,12 +661,7 @@ class HIPINS1(ParameterSegmentBase):
 
 
 class HITANS1(ParameterSegmentBase):
-    """Zwei-Schritt-TAN Parameter, version 1.
-
-    Contains two-step TAN procedure parameters.
-
-    Source: FinTS 3.0 Sicherheitsverfahren PIN/TAN
-    """
+    """Zwei-Schritt-TAN Parameter, version 1."""
 
     SEGMENT_TYPE: ClassVar[str] = "HITANS"
     SEGMENT_VERSION: ClassVar[int] = 1
@@ -735,12 +672,7 @@ class HITANS1(ParameterSegmentBase):
 
 
 class HITANS2(ParameterSegmentBase):
-    """Zwei-Schritt-TAN Parameter, version 2.
-
-    Contains two-step TAN procedure parameters.
-
-    Source: FinTS 3.0 Sicherheitsverfahren PIN/TAN
-    """
+    """Zwei-Schritt-TAN Parameter, version 2."""
 
     SEGMENT_TYPE: ClassVar[str] = "HITANS"
     SEGMENT_VERSION: ClassVar[int] = 2
@@ -751,12 +683,7 @@ class HITANS2(ParameterSegmentBase):
 
 
 class HITANS3(ParameterSegmentBase):
-    """Zwei-Schritt-TAN Parameter, version 3.
-
-    Contains two-step TAN procedure parameters.
-
-    Source: FinTS 3.0 Sicherheitsverfahren PIN/TAN
-    """
+    """Zwei-Schritt-TAN Parameter, version 3."""
 
     SEGMENT_TYPE: ClassVar[str] = "HITANS"
     SEGMENT_VERSION: ClassVar[int] = 3
@@ -767,12 +694,7 @@ class HITANS3(ParameterSegmentBase):
 
 
 class HITANS4(ParameterSegmentBase):
-    """Zwei-Schritt-TAN Parameter, version 4.
-
-    Contains two-step TAN procedure parameters.
-
-    Source: FinTS 3.0 Sicherheitsverfahren PIN/TAN
-    """
+    """Zwei-Schritt-TAN Parameter, version 4."""
 
     SEGMENT_TYPE: ClassVar[str] = "HITANS"
     SEGMENT_VERSION: ClassVar[int] = 4
@@ -783,12 +705,7 @@ class HITANS4(ParameterSegmentBase):
 
 
 class HITANS5(ParameterSegmentBase):
-    """Zwei-Schritt-TAN Parameter, version 5.
-
-    Contains two-step TAN procedure parameters.
-
-    Source: FinTS 3.0 Sicherheitsverfahren PIN/TAN
-    """
+    """Zwei-Schritt-TAN Parameter, version 5."""
 
     SEGMENT_TYPE: ClassVar[str] = "HITANS"
     SEGMENT_VERSION: ClassVar[int] = 5
@@ -799,12 +716,7 @@ class HITANS5(ParameterSegmentBase):
 
 
 class HITANS6(ParameterSegmentBase):
-    """Zwei-Schritt-TAN Parameter, version 6.
-
-    Contains two-step TAN procedure parameters.
-
-    Source: FinTS 3.0 Sicherheitsverfahren PIN/TAN
-    """
+    """Zwei-Schritt-TAN Parameter, version 6."""
 
     SEGMENT_TYPE: ClassVar[str] = "HITANS"
     SEGMENT_VERSION: ClassVar[int] = 6
@@ -818,8 +730,6 @@ class HITANS7(ParameterSegmentBase):
     """Zwei-Schritt-TAN Parameter, version 7.
 
     Contains two-step TAN procedure parameters with decoupled TAN support.
-
-    Source: FinTS 3.0 Sicherheitsverfahren PIN/TAN
     """
 
     SEGMENT_TYPE: ClassVar[str] = "HITANS"

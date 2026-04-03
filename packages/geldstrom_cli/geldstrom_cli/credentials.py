@@ -1,4 +1,4 @@
-"""Credential loading: CLI flags → .env file → interactive prompt."""
+"""Credential loading: CLI flags -> .env file -> interactive prompt."""
 
 from __future__ import annotations
 
@@ -62,8 +62,7 @@ def load_credentials(
         api_key=(
             api_key
             or os.getenv("GATEWAY_API_KEY")
-            or os.getenv("API_KEY")
-            or typer.prompt("API key", default="", hide_input=True)
+            or typer.prompt("Gateway API key", default="", hide_input=True)
             or ""
         ),
         blz=_get(blz, "FINTS_BLZ", "BLZ") or "",

@@ -1,8 +1,4 @@
-"""FinTS Security DEGs.
-
-These DEGs handle security-related information in FinTS messages,
-including encryption, signatures, and authentication.
-"""
+"""FinTS security DEGs (encryption, signatures, authentication)."""
 
 from __future__ import annotations
 
@@ -33,18 +29,7 @@ from .identifiers import BankIdentifier
 
 
 class SecurityProfile(FinTSDataElementGroup):
-    """Sicherheitsprofil (Security Profile).
-
-    Identifies the security method and version used for a message.
-
-    Source: FinTS 3.0 Formals
-
-    Example:
-        profile = SecurityProfile(
-            security_method=SecurityMethod.PIN,
-            security_method_version=1,
-        )
-    """
+    """Sicherheitsprofil (Security Profile) — security method and version."""
 
     security_method: SecurityMethod = Field(
         description="Sicherheitsverfahren",
@@ -55,14 +40,9 @@ class SecurityProfile(FinTSDataElementGroup):
 
 
 class SecurityIdentificationDetails(FinTSDataElementGroup):
-    """Sicherheitsidentifikation, Details (Security Identification Details).
+    """Sicherheitsidentifikation, Details — party providing security for the message.
 
-    Identifies the party providing security for the message.
-
-    Source: FinTS 3.0 Formals
-
-    Note: identifier may be omitted in bank responses when the message
-    is not signed (e.g., some banks like DKB).
+    Note: identifier may be omitted in unsigned bank responses (e.g. DKB).
     """
 
     identified_role: IdentifiedRole = Field(
@@ -80,12 +60,7 @@ class SecurityIdentificationDetails(FinTSDataElementGroup):
 
 
 class SecurityDateTime(FinTSDataElementGroup):
-    """Sicherheitsdatum und -uhrzeit (Security Date/Time).
-
-    Timestamp for security purposes.
-
-    Source: FinTS 3.0 Formals
-    """
+    """Sicherheitsdatum und -uhrzeit (Security Date/Time)."""
 
     date_time_type: DateTimeType = Field(
         description="Datum/Uhrzeit-Typ",
@@ -101,12 +76,7 @@ class SecurityDateTime(FinTSDataElementGroup):
 
 
 class EncryptionAlgorithm(FinTSDataElementGroup):
-    """Verschlüsselungsalgorithmus (Encryption Algorithm).
-
-    Specifies the encryption algorithm and parameters.
-
-    Source: FinTS 3.0 Formals
-    """
+    """Verschlüsselungsalgorithmus (Encryption Algorithm) and parameters."""
 
     usage_encryption: UsageEncryption = Field(
         description="Verwendung der Verschlüsselung",
@@ -135,12 +105,7 @@ class EncryptionAlgorithm(FinTSDataElementGroup):
 
 
 class HashAlgorithm(FinTSDataElementGroup):
-    """Hash-Algorithmus (Hash Algorithm).
-
-    Specifies the hash algorithm for signatures.
-
-    Source: FinTS 3.0 Formals
-    """
+    """Hash-Algorithmus (Hash Algorithm) for signatures."""
 
     usage_hash: FinTSCode = Field(
         max_length=3,
@@ -162,12 +127,7 @@ class HashAlgorithm(FinTSDataElementGroup):
 
 
 class SignatureAlgorithm(FinTSDataElementGroup):
-    """Signaturalgorithmus (Signature Algorithm).
-
-    Specifies the signature algorithm for message authentication.
-
-    Source: FinTS 3.0 Formals
-    """
+    """Signaturalgorithmus (Signature Algorithm) for message authentication."""
 
     usage_signature: FinTSCode = Field(
         max_length=3,
@@ -184,12 +144,7 @@ class SignatureAlgorithm(FinTSDataElementGroup):
 
 
 class KeyName(FinTSDataElementGroup):
-    """Schlüsselname (Key Name).
-
-    Identifies a cryptographic key.
-
-    Source: FinTS 3.0 Formals
-    """
+    """Schlüsselname (Key Name) — identifies a cryptographic key."""
 
     bank_identifier: BankIdentifier = Field(
         description="Kreditinstitutskennung",
@@ -213,12 +168,7 @@ class KeyName(FinTSDataElementGroup):
 
 
 class Certificate(FinTSDataElementGroup):
-    """Zertifikat (Certificate).
-
-    Contains a cryptographic certificate.
-
-    Source: FinTS 3.0 Formals
-    """
+    """Zertifikat (Certificate)."""
 
     certificate_type: FinTSCode = Field(
         description="Zertifikatstyp",
@@ -230,14 +180,7 @@ class Certificate(FinTSDataElementGroup):
 
 
 class UserDefinedSignature(FinTSDataElementGroup):
-    """Benutzerdefinierte Signatur (User Defined Signature).
-
-    Contains PIN and optional TAN for PIN/TAN authentication.
-
-    Source: FinTS 3.0 Sicherheitsverfahren PIN/TAN
-
-    Note: __repr__ always masks PIN/TAN to prevent credential leakage in logs.
-    """
+    """Benutzerdefinierte Signatur — PIN/TAN pair; repr always masks credentials."""
 
     pin: FinTSAlphanumeric = Field(
         max_length=99,
@@ -250,12 +193,10 @@ class UserDefinedSignature(FinTSDataElementGroup):
     )
 
     def __repr__(self) -> str:
-        """Mask sensitive fields in representation to prevent credential leakage."""
         tan_repr = "'***'" if self.tan else "None"
         return f"UserDefinedSignature(pin='***', tan={tan_repr})"
 
     def __str__(self) -> str:
-        """Mask sensitive fields in string representation."""
         return self.__repr__()
 
 

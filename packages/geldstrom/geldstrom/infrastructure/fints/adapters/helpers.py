@@ -9,14 +9,7 @@ if TYPE_CHECKING:
 
 
 def account_key(account: SEPAAccount) -> str:
-    """Create lookup key from SEPA account.
-
-    Args:
-        account: SEPA account object
-
-    Returns:
-        String key in format "accountnumber:subaccount"
-    """
+    """Create lookup key from SEPA account."""
     return f"{account.accountnumber}:{account.subaccount or '0'}"
 
 
@@ -24,18 +17,7 @@ def locate_sepa_account(
     account_ops,
     account_id: str,
 ) -> SEPAAccount:
-    """Find SEPA account by account ID.
-
-    Args:
-        account_ops: AccountOperations instance
-        account_id: Account identifier to find
-
-    Returns:
-        Matching SEPAAccount
-
-    Raises:
-        ValueError: If account not found
-    """
+    """Find SEPA account by account ID."""
     for sepa in account_ops.fetch_sepa_accounts():
         if account_key(sepa) == account_id:
             return sepa

@@ -1,7 +1,4 @@
-"""FinTS Identifier DEGs - Bank and Account Identifiers.
-
-These DEGs identify banks and accounts in FinTS messages.
-"""
+"""FinTS Identifier DEGs - Bank and Account Identifiers."""
 
 from __future__ import annotations
 
@@ -12,20 +9,9 @@ from pydantic import BaseModel, Field, field_validator
 from ..base import FinTSDataElementGroup
 from ..types import FinTSAlphanumeric, FinTSBool, FinTSCountry, FinTSID
 
-# =============================================================================
-# Simple Account Models (for internal use)
-# =============================================================================
-
 
 class SEPAAccount(BaseModel, frozen=True):
-    """Simple SEPA account representation for internal data transfer.
-
-    This is a lightweight Pydantic model used to pass account information
-    between infrastructure layers. It replaces the legacy namedtuple.
-
-    For wire format representation, use AccountInternationalSEPA.
-    For domain representation, use domain.model.Account.
-    """
+    """SEPA account representation for internal data transfer."""
 
     iban: str
     bic: str | None = None
@@ -36,12 +22,10 @@ class SEPAAccount(BaseModel, frozen=True):
     @field_validator("subaccount", mode="before")
     @classmethod
     def _coerce_subaccount(cls, v: str | None) -> str:
-        """Coerce None to empty string for subaccount."""
         return v or ""
 
 
 # Country code mappings (ISO 3166-1 alpha-2 <-> ISO 3166-1 numeric)
-# Source: FinTS 3.0 Kapitel E.4 der SEPA-Geschäftsvorfälle
 COUNTRY_ALPHA_TO_NUMERIC: dict[str, str] = {
     "BE": "056",
     "BG": "100",
@@ -87,16 +71,7 @@ COUNTRY_NUMERIC_TO_ALPHA["276"] = "DE"
 class BankIdentifier(FinTSDataElementGroup):
     """Kreditinstitutskennung (Bank Identifier).
 
-    Identifies a bank using country code and bank code (BLZ in Germany).
-
-    Source: FinTS 3.0 Formals
-
-    Note: bank_code is optional because some banks (e.g., DKB) send incomplete
-    data with just the country code.
-
-    Example:
-        bank = BankIdentifier(country_identifier="280", bank_code="12345678")
-        bank = BankIdentifier.from_wire_list(["280", "12345678"])
+    bank_code is optional — some banks (e.g., DKB) send incomplete data with only the country code.
     """
 
     country_identifier: FinTSCountry = Field(
@@ -114,7 +89,6 @@ class BankIdentifier(FinTSDataElementGroup):
 
     @property
     def country_alpha(self) -> str | None:
-        """Get ISO 3166-1 alpha-2 country code."""
         return COUNTRY_NUMERIC_TO_ALPHA.get(self.country_identifier)
 
     def __eq__(self, other: object) -> bool:
@@ -130,19 +104,7 @@ class BankIdentifier(FinTSDataElementGroup):
 
 
 class AccountIdentifier(FinTSDataElementGroup):
-    """Kontoverbindung (Account Identifier) - Version 3.
-
-    Identifies an account using account number, subaccount, and bank.
-
-    Source: FinTS 3.0 Messages - Multibankfähige Geschäftsvorfälle
-
-    Example:
-        account = AccountIdentifier(
-            account_number="1234567890",
-            subaccount_number="00",
-            bank_identifier=BankIdentifier(country_identifier="280", bank_code="12345678"),
-        )
-    """
+    """Kontoverbindung (Account Identifier) - Version 3."""
 
     account_number: FinTSID = Field(
         description="Konto-/Depotnummer",
@@ -156,7 +118,6 @@ class AccountIdentifier(FinTSDataElementGroup):
 
     @classmethod
     def from_sepa_account(cls, account) -> AccountIdentifier:
-        """Create from SEPAAccount model."""
         return cls(
             account_number=account.accountnumber,
             subaccount_number=account.subaccount or "",
@@ -170,12 +131,7 @@ class AccountIdentifier(FinTSDataElementGroup):
 
 
 class AccountInternational(FinTSDataElementGroup):
-    """Kontoverbindung international (KTI1).
-
-    International account identifier with optional IBAN/BIC.
-
-    Source: FinTS 3.0 Messages - Multibankfähige Geschäftsvorfälle
-    """
+    """Kontoverbindung international (KTI1)."""
 
     iban: FinTSAlphanumeric | None = Field(
         default=None,
@@ -202,7 +158,6 @@ class AccountInternational(FinTSDataElementGroup):
 
     @classmethod
     def from_sepa_account(cls, account) -> AccountInternational:
-        """Create from SEPAAccount model."""
         return cls(
             iban=account.iban,
             bic=account.bic,
@@ -210,12 +165,7 @@ class AccountInternational(FinTSDataElementGroup):
 
 
 class AccountInternationalSEPA(FinTSDataElementGroup):
-    """Kontoverbindung ZV international (KTZ1).
-
-    SEPA account identifier with is_sepa flag.
-
-    Source: FinTS 3.0 Messages - Multibankfähige Geschäftsvorfälle
-    """
+    """Kontoverbindung ZV international (KTZ1)."""
 
     is_sepa: FinTSBool = Field(
         description="Kontoverwendung SEPA",

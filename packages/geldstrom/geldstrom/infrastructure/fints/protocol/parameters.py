@@ -15,13 +15,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class BankParameters:
-    """
-    Bank Parameter Data (BPD) from FinTS dialog.
-
-    BPD contains information about the bank's capabilities, supported
-    operations, and protocol parameters. It is updated during dialog
-    initialization when the bank provides new BPD.
-    """
+    """Bank Parameter Data (BPD) from a FinTS dialog."""
 
     version: int = 0
     bank_name: str | None = None
@@ -29,24 +23,9 @@ class BankParameters:
     bpa: Any = None  # HIBPA segment
 
     def find_segment(self, segment_type: str) -> Any:
-        """
-        Find a segment in BPD by type.
-
-        Args:
-            segment_type: Segment type code (e.g., 'HISALS')
-
-        Returns:
-            The matching segment or None
-        """
         return self.segments.find_segment_first(segment_type)
 
     def get_supported_operations(self) -> Mapping[str, bool]:
-        """
-        Return a mapping of operation types to their support status.
-
-        Returns:
-            Dict mapping operation names to boolean support status
-        """
         from geldstrom.infrastructure.fints import FinTSOperations
 
         return {
@@ -60,18 +39,6 @@ class BankParameters:
 
     @classmethod
     def from_bytes(cls, data: bytes, bpa_data: bytes | None = None) -> BankParameters:
-        """
-        Restore BPD from serialized bytes.
-
-        Args:
-            data: Serialized BPD segment data
-            bpa_data: Optional serialized BPA segment
-
-        Returns:
-            Restored BankParameters instance
-        """
-        # Handle empty/invalid segment data
-        # Empty SegmentSequence renders as b"'" which is not valid
         segments = SegmentSequence()
         if data and len(data) > 1:  # Need at least 2 bytes for valid segment
             try:
@@ -101,24 +68,13 @@ class BankParameters:
 
 @dataclass
 class UserParameters:
-    """
-    User Parameter Data (UPD) from FinTS dialog.
-
-    UPD contains information about the user's accounts and their
-    associated permissions. It is updated when the bank provides new UPD.
-    """
+    """User Parameter Data (UPD) from a FinTS dialog."""
 
     version: int = 0
     segments: SegmentSequence = field(default_factory=SegmentSequence)
     upa: Any = None  # HIUPA segment
 
     def get_accounts(self) -> Sequence[Mapping[str, Any]]:
-        """
-        Extract account information from UPD.
-
-        Returns:
-            List of account dictionaries with relevant fields
-        """
         accounts = []
         count_segments = 0
         for upd in self.segments.find_segments("HIUPD"):
@@ -155,18 +111,6 @@ class UserParameters:
 
     @classmethod
     def from_bytes(cls, data: bytes, upa_data: bytes | None = None) -> UserParameters:
-        """
-        Restore UPD from serialized bytes.
-
-        Args:
-            data: Serialized UPD segment data
-            upa_data: Optional serialized UPA segment
-
-        Returns:
-            Restored UserParameters instance
-        """
-        # Handle empty/invalid segment data
-        # Empty SegmentSequence renders as b"'" which is not valid
         segments = SegmentSequence()
         if data and len(data) > 1:  # Need at least 2 bytes for valid segment
             try:
@@ -189,27 +133,13 @@ class UserParameters:
 
 
 class ParameterStore:
-    """
-    Manages bank and user parameters for a FinTS session.
-
-    This class handles:
-    - Storing and updating BPD/UPD from dialog responses
-    - Caching parameters for session reuse
-    - Serialization/deserialization for persistence
-    """
+    """Manages BPD and UPD for a FinTS session (with update, serialize, restore)."""
 
     def __init__(
         self,
         bpd: BankParameters | None = None,
         upd: UserParameters | None = None,
     ) -> None:
-        """
-        Initialize parameter store.
-
-        Args:
-            bpd: Optional initial bank parameters
-            upd: Optional initial user parameters
-        """
         self._bpd = bpd or BankParameters()
         self._upd = upd or UserParameters()
 
@@ -242,21 +172,7 @@ class ParameterStore:
         upd_version: int | None,
         upd_segments: SegmentSequence | None,
     ) -> None:
-        """
-        Update parameters from a processed dialog response.
-
-        Only updates if the new version is higher than current.
-
-        Args:
-            bpa: Bank parameter administration segment
-            bpd_version: New BPD version
-            bpd_segments: New BPD segments
-            upa: User parameter administration segment
-            upd_version: New UPD version
-            upd_segments: New UPD segments
-        """
-        # Update BPD if newer
-        # Note: Use 'is not None' because empty SegmentSequence is falsy
+        """Update BPD/UPD from a dialog response if the new version is higher."""
         if (
             bpd_version is not None
             and bpd_version >= self._bpd.version
@@ -271,8 +187,6 @@ class ParameterStore:
             )
             logger.debug("Updated BPD to version %d", bpd_version)
 
-        # Update UPD if newer
-        # Note: Use 'is not None' because empty SegmentSequence is falsy
         if (
             upd_version is not None
             and upd_version >= self._upd.version

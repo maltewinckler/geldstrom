@@ -1,8 +1,4 @@
-"""SEPA account discovery operations for FinTS.
-
-This module handles HKSPA/HISPA segment exchanges for discovering
-SEPA-enabled accounts from the bank.
-"""
+"""SEPA account discovery operations for FinTS."""
 
 from __future__ import annotations
 
@@ -27,12 +23,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class AccountInfo:
-    """
-    Basic account information from UPD.
-
-    This is the raw account data from User Parameter Data (HIUPD),
-    before enrichment with SEPA details.
-    """
+    """Raw account data from User Parameter Data (HIUPD)."""
 
     account_number: str
     subaccount_number: str | None
@@ -47,58 +38,21 @@ class AccountInfo:
 
 
 class AccountOperations:
-    """
-    Handles SEPA account discovery operations.
-
-    This class provides methods to:
-    - Fetch SEPA account details via HKSPA
-    - Extract account info from UPD
-
-    Usage:
-        ops = AccountOperations(dialog, parameters)
-        sepa_accounts = ops.fetch_sepa_accounts()
-    """
+    """HKSPA/HISPA-based account discovery."""
 
     def __init__(
         self,
         dialog: Dialog,
         parameters: ParameterStore,
     ) -> None:
-        """
-        Initialize account operations.
-
-        Args:
-            dialog: Active dialog for sending requests
-            parameters: Parameter store with BPD/UPD
-        """
         self._dialog = dialog
         self._parameters = parameters
 
     def fetch_sepa_accounts(self) -> Sequence[SEPAAccount]:
-        """
-        Fetch SEPA account information from the bank.
-
-        Sends HKSPA and parses HISPA response to get SEPA-enabled
-        accounts with IBAN, BIC, and other details.
-
-        Falls back to UPD if HISPA returns no accounts (some banks
-        like DKB only provide account info in UPD).
-
-        Returns:
-            List of SEPAAccount objects
-
-        Raises:
-            FinTSSCARequiredError: If the bank requires strong customer
-                authentication (TAN) but tan_method was not configured.
-        """
+        """Fetch SEPA accounts via HKSPA; falls back to UPD if bank returns none."""
         logger.info("Fetching SEPA accounts via HKSPA")
-
-        # Send HKSPA request
         segment = HKSPA1()
         response = self._dialog.send(segment)
-
-        # Check for SCA required error (9075)
-        # This happens when tan_method is not configured but the bank requires it
         sca_error = response.get_response_by_code(ERROR_CODE_SCA_REQUIRED)
         if sca_error:
             raise FinTSSCARequiredError(
@@ -108,9 +62,7 @@ class AccountOperations:
                 "for basic operations like listing accounts."
             )
 
-        # Extract SEPA accounts from HISPA response
         accounts: list[SEPAAccount] = []
-
         if response.raw_response is not None:
             for seg in response.raw_response.find_segments(HISPA1):
                 logger.debug("Inspecting HISPA segment %s", seg)
@@ -123,7 +75,6 @@ class AccountOperations:
                             logger.debug("Converted to SEPA account %s", sepa)
                             accounts.append(sepa)
 
-        # Fallback to UPD if HISPA returned no accounts
         if not accounts:
             logger.info("HISPA returned no accounts, checking UPD")
             upd_accounts = self._parameters.upd.get_accounts()
@@ -133,10 +84,10 @@ class AccountOperations:
                     accounts.append(
                         SEPAAccount(
                             iban=iban,
-                            bic=None,  # BIC not available in UPD
+                            bic=None,
                             accountnumber=acc.get("account_number") or "",
                             subaccount=acc.get("subaccount_number") or "",
-                            blz=None,  # Will be extracted from bank_identifier
+                            blz=None,
                         )
                     )
 
@@ -144,19 +95,10 @@ class AccountOperations:
         return accounts
 
     def get_accounts_from_upd(self) -> Sequence[AccountInfo]:
-        """
-        Extract account information from cached UPD.
-
-        Returns:
-            List of AccountInfo objects from User Parameter Data
-        """
         upd = self._parameters.upd
         raw_accounts = upd.get_accounts()
-
         accounts: list[AccountInfo] = []
         for acc in raw_accounts:
-            # Extract allowed operations
-            # Pydantic models use 'transaction_code', legacy uses 'transaction'
             allowed_ops = []
             for tx in acc.get("allowed_transactions", []):
                 if hasattr(tx, "transaction_code"):
@@ -169,7 +111,7 @@ class AccountOperations:
                     account_number=acc.get("account_number", ""),
                     subaccount_number=acc.get("subaccount_number"),
                     iban=acc.get("iban"),
-                    bic=None,  # BIC comes from HISPA, not HIUPD
+                    bic=None,
                     currency=acc.get("currency", "EUR"),
                     owner_name=acc.get("owner_name", []),
                     product_name=acc.get("product_name"),
@@ -186,20 +128,7 @@ class AccountOperations:
         upd_accounts: Sequence[AccountInfo],
         sepa_accounts: Sequence[SEPAAccount],
     ) -> Sequence[AccountInfo]:
-        """
-        Merge SEPA details (BIC) into UPD account info.
-
-        Args:
-            upd_accounts: Accounts from UPD
-            sepa_accounts: SEPA accounts with BIC info
-
-        Returns:
-            Updated account info with BIC populated
-        """
-        # Build lookup by IBAN
         sepa_by_iban = {s.iban: s for s in sepa_accounts if s.iban}
-
-        # Also build lookup by account number for fallback
         sepa_by_number = {
             (s.accountnumber, s.subaccount or ""): s for s in sepa_accounts
         }

@@ -6,26 +6,14 @@ from abc import ABCMeta, abstractmethod
 
 
 class NeedRetryResponse(metaclass=ABCMeta):
-    """
-    Base class for responses that require the caller to retry or continue later.
-
-    This is the protocol-agnostic domain concept. Concrete implementations
-    (e.g., FinTS TAN flows) add serialization and protocol-specific fields
-    in infrastructure.
-    """
+    """Base for responses requiring the caller to retry or resume later."""
 
     @abstractmethod
-    def get_data(self) -> bytes:
-        """Return an opaque blob that can be used to resume this response."""
+    def get_data(self) -> bytes: ...
 
 
 class ResponseStatus:
-    """
-    Generic response status levels.
-
-    These are protocol-agnostic categories; mapping from protocol-specific
-    codes happens in infrastructure.
-    """
+    """Protocol-agnostic response status levels."""
 
     UNKNOWN = 0
     SUCCESS = 1

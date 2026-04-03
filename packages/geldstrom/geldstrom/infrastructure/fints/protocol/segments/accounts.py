@@ -1,8 +1,4 @@
-"""FinTS Account Segments (SEPA-Kontoverbindung).
-
-Request segments (HKSPA) request SEPA account information.
-Response segments (HISPA) contain SEPA account details.
-"""
+"""FinTS Account Segments (SEPA-Kontoverbindung)."""
 
 from __future__ import annotations
 
@@ -18,12 +14,7 @@ from ..formals import (
 
 
 class HKSPA1(FinTSSegment):
-    """SEPA-Kontoverbindung anfordern, version 1.
-
-    Request SEPA account information for one or more accounts.
-
-    Source: FinTS 3.0 Messages - Multibankfähige Geschäftsvorfälle
-    """
+    """SEPA-Kontoverbindung anfordern, version 1."""
 
     SEGMENT_TYPE: ClassVar[str] = "HKSPA"
     SEGMENT_VERSION: ClassVar[int] = 1
@@ -36,12 +27,7 @@ class HKSPA1(FinTSSegment):
 
 
 class HISPA1(FinTSSegment):
-    """SEPA-Kontoverbindung rückmelden, version 1.
-
-    Response containing SEPA account details.
-
-    Source: FinTS 3.0 Messages - Multibankfähige Geschäftsvorfälle
-    """
+    """SEPA-Kontoverbindung rückmelden, version 1."""
 
     SEGMENT_TYPE: ClassVar[str] = "HISPA"
     SEGMENT_VERSION: ClassVar[int] = 1

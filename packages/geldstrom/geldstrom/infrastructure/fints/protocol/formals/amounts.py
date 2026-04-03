@@ -1,7 +1,4 @@
-"""FinTS Amount and Balance DEGs.
-
-These DEGs represent monetary amounts and account balances.
-"""
+"""FinTS Amount and Balance DEGs."""
 
 from __future__ import annotations
 
@@ -17,16 +14,7 @@ from .enums import CreditDebit
 
 
 class Amount(FinTSDataElementGroup):
-    """Betrag (Amount) - Version 1.
-
-    Represents a monetary amount with currency.
-
-    Source: FinTS 3.0 Messages - Multibankfähige Geschäftsvorfälle
-
-    Example:
-        amount = Amount(amount=Decimal("1234.56"), currency="EUR")
-        amount = Amount.from_wire_list(["1234,56", "EUR"])
-    """
+    """Betrag (Amount) - monetary amount with currency."""
 
     amount: FinTSAmount = Field(description="Wert (Value)")
     currency: FinTSCurrency = Field(description="Währung (Currency)")
@@ -36,19 +24,7 @@ class Amount(FinTSDataElementGroup):
 
 
 class Balance(FinTSDataElementGroup):
-    """Saldo (Balance) - Version 2.
-
-    Represents an account balance with credit/debit indicator, amount, and date.
-
-    Source: FinTS 3.0 Messages - Multibankfähige Geschäftsvorfälle
-
-    Example:
-        balance = Balance(
-            credit_debit=CreditDebit.CREDIT,
-            amount=Amount(amount=Decimal("1234.56"), currency="EUR"),
-            date=date(2023, 12, 25),
-        )
-    """
+    """Saldo (Balance) - account balance with credit/debit indicator, amount, and date."""
 
     credit_debit: CreditDebit = Field(description="Soll-Haben-Kennzeichen")
     amount: Amount = Field(description="Betrag")
@@ -57,11 +33,7 @@ class Balance(FinTSDataElementGroup):
 
     @property
     def signed_amount(self) -> Decimal:
-        """Get the amount with sign based on credit/debit.
-
-        Returns:
-            Positive for credit, negative for debit.
-        """
+        """Positive for credit, negative for debit."""
         if self.credit_debit == CreditDebit.CREDIT:
             return self.amount.amount
         return -self.amount.amount
@@ -77,12 +49,6 @@ class Balance(FinTSDataElementGroup):
         return self.amount.currency
 
     def as_mt940_balance(self) -> MT940Balance:
-        """Convert to mt940 Balance model.
-
-        Returns:
-            mt940.models.Balance instance
-        """
-
         return MT940Balance(
             self.credit_debit.value,
             f"{self.amount.amount:.12f}".rstrip("0"),
@@ -92,12 +58,7 @@ class Balance(FinTSDataElementGroup):
 
 
 class BalanceSimple(FinTSDataElementGroup):
-    """Saldo (Balance) - Version 1 (simple format).
-
-    Older balance format without nested Amount DEG.
-
-    Source: HBCI Homebanking-Computer-Interface, Schnittstellenspezifikation
-    """
+    """Saldo (Balance) - Version 1, older format without nested Amount DEG."""
 
     credit_debit: CreditDebit = Field(description="Soll-Haben-Kennzeichen")
     amount: FinTSAmount = Field(description="Wert")
@@ -123,28 +84,14 @@ class BalanceSimple(FinTSDataElementGroup):
 
 
 class Timestamp(FinTSDataElementGroup):
-    """Zeitstempel (Timestamp).
-
-    Represents a date with optional time.
-
-    Source: FinTS 3.0 Messages - Multibankfähige Geschäftsvorfälle
-    """
+    """Zeitstempel (Timestamp) - date with optional time."""
 
     date: FinTSDate = Field(description="Datum")
     time: FinTSTime | None = Field(default=None, description="Uhrzeit")
 
 
-# =============================================================================
-# Simple Value Models (for internal use)
-# =============================================================================
-
-
 class Holding(FinTSDataElementGroup):
-    """Securities holding representation.
-
-    Represents a single holding in a depot/securities account.
-    Used for parsing depot information from MT535 messages.
-    """
+    """Securities holding in a depot account."""
 
     ISIN: str = Field(description="ISIN code")
     name: str = Field(description="Security name")

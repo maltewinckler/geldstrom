@@ -55,6 +55,9 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="Banking Gateway API",
         version="1.0.0",
+        docs_url="/docs",
+        redoc_url="/redoc",
+        swagger_ui_parameters={"persistAuthorization": True},
         lifespan=_lifespan,
     )
 

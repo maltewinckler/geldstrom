@@ -21,12 +21,7 @@ from gateway.domain.banking_gateway.value_objects import (
 
 
 class BankingConnectorDispatcher(BankingConnector):
-    """Routes banking operations to the correct protocol-specific connector.
-
-    Currently only FinTS is supported, but this dispatcher allows adding
-    additional protocols (e.g. Open Banking / XS2A) without changing
-    the application layer.
-    """
+    """Routes banking operations to the correct protocol-specific connector."""
 
     def __init__(self, *, fints_connector: BankingConnector) -> None:
         self._connectors: dict[BankProtocol, BankingConnector] = {

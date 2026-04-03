@@ -17,7 +17,6 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    # ── Database connection (components, so Docker can override only the host) ──
     db_user: str = "gateway"
     db_password: SecretStr
     db_host: str = "localhost"
@@ -33,16 +32,17 @@ class Settings(BaseSettings):
             f"@{self.db_host}:{self.db_port}/{self.db_name}"
         )
 
-    # ── Argon2id key hashing ────────────────────────────────────────────────────
     argon2_time_cost: int = 2
     argon2_memory_cost: int = 65_536
     argon2_parallelism: int = 2
-    # ── Operation sessions ──────────────────────────────────────────────────────
     operation_session_ttl_seconds: int = 120
     operation_session_max_count: int = 10_000
-    # ── Rate limiting ───────────────────────────────────────────────────────────
     rate_limit_requests_per_minute: int = 60
-    # ── PostgreSQL NOTIFY reconnect ─────────────────────────────────────────────
     notify_reconnect_backoff_seconds: float = 1.0
-    # ── FinTS product ───────────────────────────────────────────────────────────
     fints_product_version: str = "1.0.0"
+
+    host: str = "0.0.0.0"
+    port: int = 8000
+    workers: int = 1
+    log_level: str = "INFO"
+    json_logs: bool = True

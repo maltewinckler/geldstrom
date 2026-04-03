@@ -44,13 +44,6 @@ class TouchdownPaginator:
     CONTINUE_CODE = "3040"  # "More data available" response code
 
     def __init__(self, dialog: Dialog, max_pages: int = 100) -> None:
-        """
-        Initialize paginator.
-
-        Args:
-            dialog: Dialog to use for sending segments
-            max_pages: Maximum pages to fetch (safety limit)
-        """
         self._dialog = dialog
         self._max_pages = max_pages
 
@@ -61,18 +54,7 @@ class TouchdownPaginator:
         extract_items: Callable[[Any], T] | None = None,
         transform_items: Callable[[Sequence[Any]], T] | None = None,
     ) -> PaginatedResult[T]:
-        """
-        Execute a paginated fetch operation.
-
-        Args:
-            segment_factory: Creates request segment, receives touchdown point
-            response_type: Type of response segment to look for (e.g., "HIKAZ")
-            extract_items: Function to extract items from each response segment
-            transform_items: Optional function to transform all collected items
-
-        Returns:
-            PaginatedResult with all fetched items
-        """
+        """Execute a paginated fetch operation."""
         all_items: list[Any] = []
         touchdown_point: str | None = None
         page = 0

@@ -1,8 +1,4 @@
-"""FinTS Balance Segments (Saldenabfrage/-rückmeldung).
-
-Request segments (HKSAL) query account balances.
-Response segments (HISAL) contain balance information.
-"""
+"""FinTS Balance Segments (Saldenabfrage / Saldenrückmeldung)."""
 
 from __future__ import annotations
 
@@ -41,8 +37,6 @@ class HKSAL5(FinTSSegment):
     """Saldenabfrage, version 5.
 
     Request account balances using Account2 format.
-
-    Source: HBCI Homebanking-Computer-Interface, Schnittstellenspezifikation
     """
 
     SEGMENT_TYPE: ClassVar[str] = "HKSAL"
@@ -71,8 +65,6 @@ class HKSAL6(FinTSSegment):
     """Saldenabfrage, version 6.
 
     Request account balances using Account3 format.
-
-    Source: FinTS 3.0 Messages - Multibankfähige Geschäftsvorfälle
     """
 
     SEGMENT_TYPE: ClassVar[str] = "HKSAL"
@@ -101,8 +93,6 @@ class HKSAL7(FinTSSegment):
     """Saldenabfrage, version 7.
 
     Request account balances using international account format (KTI1).
-
-    Source: FinTS 3.0 Messages - Multibankfähige Geschäftsvorfälle
     """
 
     SEGMENT_TYPE: ClassVar[str] = "HKSAL"
@@ -150,8 +140,6 @@ class HISAL5(FinTSSegment):
     """Saldenrückmeldung, version 5.
 
     Balance response using Account2 format and Balance1 (simple balance).
-
-    Source: HBCI Homebanking-Computer-Interface, Schnittstellenspezifikation
     """
 
     SEGMENT_TYPE: ClassVar[str] = "HISAL"
@@ -200,8 +188,6 @@ class HISAL6(FinTSSegment):
     """Saldenrückmeldung, version 6.
 
     Balance response using Account3 format and Balance2 (nested amount).
-
-    Source: FinTS 3.0 Messages - Multibankfähige Geschäftsvorfälle
     """
 
     SEGMENT_TYPE: ClassVar[str] = "HISAL"
@@ -254,8 +240,6 @@ class HISAL7(FinTSSegment):
     """Saldenrückmeldung, version 7.
 
     Balance response using international account format (KTI1).
-
-    Source: FinTS 3.0 Messages - Multibankfähige Geschäftsvorfälle
     """
 
     SEGMENT_TYPE: ClassVar[str] = "HISAL"
@@ -317,32 +301,12 @@ HISAL_VERSIONS: dict[int, type[HISALBase]] = {
 
 
 def get_hksal_class(version: int) -> type[HKSALBase]:
-    """Get HKSAL class for version.
-
-    Args:
-        version: Segment version number
-
-    Returns:
-        HKSAL class for the version
-
-    Raises:
-        KeyError: If version not supported
-    """
+    """Get HKSAL class for version."""
     return HKSAL_VERSIONS[version]
 
 
 def get_hisal_class(version: int) -> type[HISALBase]:
-    """Get HISAL class for version.
-
-    Args:
-        version: Segment version number
-
-    Returns:
-        HISAL class for the version
-
-    Raises:
-        KeyError: If version not supported
-    """
+    """Get HISAL class for version."""
     return HISAL_VERSIONS[version]
 
 
