@@ -80,7 +80,6 @@ class _JsonFormatter(logging.Formatter):
 
 
 def configure_logging(*, json_logs: bool = True, level: str = "INFO") -> None:
-
     formatter: dict[str, Any]
     if json_logs:
         formatter = {

@@ -117,7 +117,6 @@ class FinTSAccountDiscovery(AccountDiscoveryPort):
         upd_accounts,
         sepa_accounts: Sequence[SEPAAccount],
     ) -> Sequence[Account]:
-
         sepa_lookup = {account_key(sepa): sepa for sepa in sepa_accounts}
         domain_accounts: list[Account] = []
 

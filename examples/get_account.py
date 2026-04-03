@@ -38,7 +38,7 @@ def main() -> None:
                 print(f"  BIC:      {account.bic or 'N/A'}")
                 print(f"  Currency: {account.currency}")
                 print(f"  Owner:    {account.owner.name}")
-                print(f"\n  Capabilities:")
+                print("\n  Capabilities:")
                 print(f"    Balance:      {account.capabilities.can_fetch_balance}")
                 print(f"    Transactions: {account.capabilities.can_list_transactions}")
                 print()

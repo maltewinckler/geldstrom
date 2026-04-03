@@ -212,12 +212,15 @@ class Dialog:
             seg_type = (
                 getattr(seg.header, "type", None) if hasattr(seg, "header") else None
             )
-            if seg_type and seg_type not in DIALOG_SEGMENTS:
-                if self._segment_requires_tan(seg_type):
-                    hktan = self._build_hktan_for_segment(seg_type)
-                    if hktan:
-                        logger.debug("Injecting HKTAN for %s operation", seg_type)
-                        result.append(hktan)
+            if (
+                seg_type
+                and seg_type not in DIALOG_SEGMENTS
+                and self._segment_requires_tan(seg_type)
+            ):
+                hktan = self._build_hktan_for_segment(seg_type)
+                if hktan:
+                    logger.debug("Injecting HKTAN for %s operation", seg_type)
+                    result.append(hktan)
 
         return result
 

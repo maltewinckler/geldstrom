@@ -60,7 +60,6 @@ class PostgresNotifyListener:
         self._handler_tasks: set[asyncio.Task[None]] = set()
 
     async def start(self) -> None:
-
         if self._runner_task is not None and not self._runner_task.done():
             if self._startup_future is not None:
                 await self._startup_future
@@ -76,7 +75,6 @@ class PostgresNotifyListener:
             raise
 
     async def stop(self) -> None:
-
         self._stop_event.set()
         self._ready_event.clear()
         startup_future = self._startup_future
