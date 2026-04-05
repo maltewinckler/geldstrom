@@ -10,6 +10,8 @@ from geldstrom.domain.connection.challenge import (
     ChallengeHandler,
     ChallengeResult,
     ChallengeType,
+    DecoupledTANPending,
+    DetachingChallengeHandler,
     InteractiveChallengeHandler,
     TANConfig,
 )
@@ -150,4 +152,59 @@ class TestChallengeHandlerProtocol:
     def test_interactive_handler_satisfies_protocol(self) -> None:
         """InteractiveChallengeHandler should satisfy ChallengeHandler protocol."""
         handler = InteractiveChallengeHandler()
+        assert isinstance(handler, ChallengeHandler)
+
+
+class TestChallengeResultDetach:
+    """Tests for ChallengeResult.detach flag."""
+
+    def test_detach_defaults_to_false(self) -> None:
+        result = ChallengeResult()
+        assert result.detach is False
+
+    def test_detach_true_needs_polling(self) -> None:
+        result = ChallengeResult(detach=True)
+        assert result.needs_polling is True
+        assert result.detach is True
+
+    def test_detach_true_not_cancelled_not_error(self) -> None:
+        result = ChallengeResult(detach=True)
+        assert result.cancelled is False
+        assert result.error is None
+        assert result.is_success is False
+
+
+class TestDecoupledTANPending:
+    """Tests for DecoupledTANPending exception."""
+
+    def test_carries_challenge_and_task_reference(self) -> None:
+        challenge = MockDecoupledChallenge()
+        exc = DecoupledTANPending(challenge, "task-ref-abc")
+        assert exc.challenge is challenge
+        assert exc.task_reference == "task-ref-abc"
+
+    def test_is_an_exception(self) -> None:
+        exc = DecoupledTANPending(MockDecoupledChallenge(), "ref")
+        assert isinstance(exc, Exception)
+
+    def test_message_is_descriptive(self) -> None:
+        exc = DecoupledTANPending(MockDecoupledChallenge(), "ref")
+        assert "poll externally" in str(exc)
+
+
+class TestDetachingChallengeHandler:
+    """Tests for DetachingChallengeHandler."""
+
+    def test_returns_detach_true_for_decoupled(self) -> None:
+        handler = DetachingChallengeHandler()
+        result = handler.present_challenge(MockDecoupledChallenge(is_decoupled=True))
+        assert result.detach is True
+
+    def test_raises_for_non_decoupled(self) -> None:
+        handler = DetachingChallengeHandler()
+        with pytest.raises(ValueError, match="Non-decoupled"):
+            handler.present_challenge(MockDecoupledChallenge(is_decoupled=False))
+
+    def test_satisfies_challenge_handler_protocol(self) -> None:
+        handler = DetachingChallengeHandler()
         assert isinstance(handler, ChallengeHandler)

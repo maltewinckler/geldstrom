@@ -22,7 +22,7 @@ from .helpers import build_account_field, find_highest_supported_version
 from .pagination import TouchdownPaginator
 
 if TYPE_CHECKING:
-    from geldstrom.infrastructure.fints.dialog import Dialog
+    from geldstrom.infrastructure.fints.dialog import Dialog, ProcessedResponse
     from geldstrom.infrastructure.fints.protocol import ParameterStore
 
 logger = logging.getLogger(__name__)
@@ -223,3 +223,44 @@ class TransactionOperations:
         if model_fields:
             for name in model_fields:
                 self._collect_camt_identifiers(getattr(node, name, None), bucket)
+
+    @staticmethod
+    def parse_mt940_from_response(
+        response: ProcessedResponse,
+    ) -> MT940TransactionResult:
+        """Parse MT940 transaction data from a raw ProcessedResponse (e.g. after TAN approval)."""
+        if response.raw_response is None:
+            return MT940TransactionResult(transactions=[])
+        mt940_segments: list[bytes] = []
+        for seg in response.raw_response.find_segments("HIKAZ"):
+            stmt = getattr(seg, "statement_booked", None)
+            if stmt:
+                mt940_segments.append(stmt)
+        parts = []
+        for seg in mt940_segments:
+            if isinstance(seg, bytes):
+                parts.append(seg.decode("iso-8859-1"))
+            else:
+                parts.append(str(seg))
+        combined = "".join(parts)
+        transactions = mt940_to_array(combined) if combined else []
+        return MT940TransactionResult(transactions=transactions)
+
+    @staticmethod
+    def parse_camt_from_response(response: ProcessedResponse) -> CAMTTransactionResult:
+        """Parse CAMT transaction data from a raw ProcessedResponse."""
+        if response.raw_response is None:
+            return CAMTTransactionResult()
+        booked_docs: list[bytes] = []
+        pending_docs: list[bytes] = []
+        for seg in response.raw_response.find_segments("HICAZ"):
+            stmt = getattr(seg, "statement_booked", None)
+            if stmt and hasattr(stmt, "camt_statements"):
+                booked_docs.extend(stmt.camt_statements)
+            pending = getattr(seg, "statement_pending", None)
+            if pending:
+                pending_docs.append(pending)
+        return CAMTTransactionResult(
+            booked_documents=booked_docs,
+            pending_documents=pending_docs,
+        )

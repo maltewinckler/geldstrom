@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from geldstrom.domain.connection import ChallengeHandler
+from geldstrom.domain.connection.challenge import DecoupledTANPending
 from geldstrom.infrastructure.fints.dialog.challenge import FinTSChallenge
 from geldstrom.infrastructure.fints.exceptions import (
     FinTSDialogError,
@@ -115,6 +116,7 @@ class Dialog:
         self._response_processor = response_processor or ResponseProcessor()
         self._state = DialogState()
         self._security_function = security_function
+        self._challenge_handler: ChallengeHandler | None = None
 
     @property
     def is_two_step_tan(self) -> bool:
@@ -141,6 +143,7 @@ class Dialog:
     ) -> ProcessedResponse:
         if self._state.is_open:
             raise FinTSDialogStateError("Dialog is already open")
+        self._challenge_handler = challenge_handler
 
         segments = self._build_init_segments()
         segments.extend(extra_segments)
@@ -166,6 +169,9 @@ class Dialog:
 
             return response
 
+        except DecoupledTANPending:
+            # Dialog must stay open — caller will poll externally.
+            raise
         except Exception as e:
             self._state.is_open = False
             if isinstance(e, (FinTSDialogError, TimeoutError, ValueError)):
@@ -180,6 +186,10 @@ class Dialog:
         challenge_handler: ChallengeHandler | None = None,
     ) -> ProcessedResponse:
         """Send segments; injects HKTAN for business ops and handles decoupled polling."""
+        # Fall back to the handler registered at initialize() time so callers
+        # that don't pass challenge_handler (e.g. operation adapters) still
+        # get the correct detach behaviour for FinTS3ClientDecoupled.
+        effective_handler = challenge_handler or self._challenge_handler
         if not self._state.is_open:
             raise FinTSDialogStateError("Cannot send on dialog that is not open")
 
@@ -196,7 +206,7 @@ class Dialog:
                 response,
                 decoupled_timeout,
                 decoupled_poll_interval,
-                challenge_handler,
+                effective_handler,
             )
             if final_response is not None:
                 return final_response
@@ -288,16 +298,8 @@ class Dialog:
                 raise ValueError("User cancelled the TAN challenge")
             if result.error:
                 raise ValueError(f"Challenge handler error: {result.error}")
-
-        hitans = _find_highest_hitans(self._parameters.bpd.segments)
-        if not hitans:
-            logger.warning("No HITANS in BPD, cannot build status HKTAN")
-            return None
-
-        hktan_class, _ = _get_hktan_class(hitans.header.version)
-        if not hktan_class:
-            logger.warning("No supported HKTAN version found for polling")
-            return None
+            if result.detach:
+                raise DecoupledTANPending(challenge=challenge, task_reference=task_ref)
 
         max_attempts = int(timeout / poll_interval)
         attempts = 0
@@ -312,34 +314,11 @@ class Dialog:
             if attempts > 0:
                 time.sleep(poll_interval)
             attempts += 1
-            status_hktan = hktan_class(tan_process="S")
-            if hasattr(status_hktan, "task_reference"):
-                status_hktan.task_reference = task_ref
-            if hasattr(status_hktan, "further_tan_follows"):
-                status_hktan.further_tan_follows = False
             logger.debug("Poll attempt %d: sending HKTAN status query", attempts)
-            response = self._send_segments([status_hktan], internal=True)
-            # 3956 = still waiting; 0010/0020 = success.
-            if response.get_response_by_code("3956"):
+            response = self.poll_decoupled_once(task_ref)
+            if response is None:
                 logger.debug("Poll attempt %d: still waiting for approval", attempts)
                 continue
-            if response.has_errors:
-                error_resp = next(
-                    (r for r in response.all_responses if r.is_error), None
-                )
-                err_text = error_resp.text if error_resp else "Unknown error"
-                logger.error("Decoupled TAN polling failed: %s", err_text)
-                # Common error: "Die Nachricht enthält Fehler" means bank timeout
-                if (
-                    "Nachricht enthält Fehler" in err_text
-                    or "message" in err_text.lower()
-                ):
-                    raise TimeoutError(
-                        "The bank's TAN request expired. Please try again and approve "
-                        "the request in your banking app before it times out."
-                    )
-                raise ValueError(f"Decoupled TAN rejected: {err_text}")
-
             logger.info("Decoupled TAN approved after %d attempts", attempts)
             return response
 
@@ -348,6 +327,40 @@ class Dialog:
             f"Decoupled TAN not approved within {timeout}s. "
             "Please approve the request in your banking app."
         )
+
+    def poll_decoupled_once(self, task_reference: str) -> ProcessedResponse | None:
+        """Send a single HKTAN status query. Returns response on approval, None if still waiting."""
+        hitans = _find_highest_hitans(self._parameters.bpd.segments)
+        if not hitans:
+            raise ValueError("No HITANS in BPD, cannot build status HKTAN")
+
+        hktan_class, _ = _get_hktan_class(hitans.header.version)
+        if not hktan_class:
+            raise ValueError("No supported HKTAN version found for polling")
+
+        status_hktan = hktan_class(tan_process="S")
+        if hasattr(status_hktan, "task_reference"):
+            status_hktan.task_reference = task_reference
+        if hasattr(status_hktan, "further_tan_follows"):
+            status_hktan.further_tan_follows = False
+
+        response = self._send_segments([status_hktan], internal=True)
+
+        if response.get_response_by_code("3956"):
+            return None
+
+        if response.has_errors:
+            error_resp = next((r for r in response.all_responses if r.is_error), None)
+            err_text = error_resp.text if error_resp else "Unknown error"
+            logger.error("Decoupled TAN polling failed: %s", err_text)
+            if "Nachricht enthält Fehler" in err_text or "message" in err_text.lower():
+                raise TimeoutError(
+                    "The bank's TAN request expired. Please try again and approve "
+                    "the request in your banking app before it times out."
+                )
+            raise ValueError(f"Decoupled TAN rejected: {err_text}")
+
+        return response
 
     def end(self) -> None:
         if not self._state.is_open:

@@ -13,7 +13,10 @@ Example:
 from __future__ import annotations
 
 from .fints3 import FinTS3Client
+from .fints3_decoupled import FinTS3ClientDecoupled, PollResult
 
 __all__ = [
     "FinTS3Client",
+    "FinTS3ClientDecoupled",
+    "PollResult",
 ]

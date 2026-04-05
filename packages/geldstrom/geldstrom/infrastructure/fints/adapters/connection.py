@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from geldstrom.domain.connection import ChallengeHandler, TANConfig
+from geldstrom.domain.connection.challenge import DecoupledTANPending
 from geldstrom.infrastructure.fints.adapters.serialization import (
     compress_datablob,
     decompress_datablob,
@@ -48,6 +49,11 @@ class ConnectionContext:
     parameters: ParameterStore
     credentials: GatewayCredentials
     system_id: str
+    connection: HTTPSDialogConnection | None = None
+    detached: bool = False
+
+    def detach(self) -> None:
+        self.detached = True
 
 
 class FinTSConnectionHelper:
@@ -91,6 +97,15 @@ class FinTSConnectionHelper:
             connection, bank_id, system_id, parameters, creds
         )
 
+        _detached = False
+        ctx = ConnectionContext(
+            dialog=dialog,
+            parameters=parameters,
+            credentials=creds,
+            system_id=system_id,
+            connection=connection,
+        )
+
         try:
             dialog.initialize(
                 extra_segments=extra_init_segments,
@@ -99,20 +114,22 @@ class FinTSConnectionHelper:
                 challenge_handler=self._challenge_handler,
             )
 
-            yield ConnectionContext(
-                dialog=dialog,
-                parameters=parameters,
-                credentials=creds,
-                system_id=system_id,
-            )
+            yield ctx
+
+        except DecoupledTANPending as pending:
+            ctx.detach()
+            _detached = True
+            pending.context = ctx  # type: ignore[attr-defined]
+            raise
 
         finally:
-            if dialog.is_open:
-                try:
-                    dialog.end()
-                except Exception:
-                    logger.exception("Error closing dialog")
-            connection.close()
+            if not _detached:
+                if dialog.is_open:
+                    try:
+                        dialog.end()
+                    except Exception:
+                        logger.exception("Error closing dialog")
+                connection.close()
 
     def _create_main_dialog(
         self,

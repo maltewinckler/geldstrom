@@ -19,7 +19,7 @@ Quick Start:
 """
 
 # --- Client exports (presentation layer) ---
-from geldstrom.clients import FinTS3Client
+from geldstrom.clients import FinTS3Client, FinTS3ClientDecoupled, PollResult
 
 # --- Domain exports ---
 from geldstrom.domain import (
@@ -50,6 +50,8 @@ __all__ = [
     "version",
     # Clients
     "FinTS3Client",
+    "FinTS3ClientDecoupled",
+    "PollResult",
     # Domain models
     "Account",
     "AccountCapabilities",

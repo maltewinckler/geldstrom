@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from datetime import UTC, date, datetime
 from decimal import Decimal
 
@@ -20,6 +21,10 @@ from gateway.infrastructure.banking.geldstrom.connector import GeldstromBankingC
 from gateway.infrastructure.banking.geldstrom.exceptions import (
     GeldstromPendingConfirmation,
 )
+from gateway.infrastructure.banking.geldstrom.registry import (
+    PendingClientRegistry,
+)
+from geldstrom.clients.fints3_decoupled import PollResult
 from geldstrom.domain import (
     Account,
     AccountCapabilities,
@@ -34,6 +39,7 @@ from geldstrom.domain import (
 from geldstrom.domain import (
     TANMethod as GeldstromTanMethod,
 )
+from geldstrom.domain.connection.challenge import DecoupledTANPending
 from geldstrom.infrastructure.fints.session import FinTSSessionState
 
 
@@ -404,3 +410,306 @@ def _balance_snapshot() -> BalanceSnapshot:
         booked=BalanceAmount(amount=Decimal("1234.56"), currency="EUR"),
         pending=BalanceAmount(amount=Decimal("10.00"), currency="EUR"),
     )
+
+
+# ---------------------------------------------------------------------------
+# DecoupledTANPending flow tests
+# ---------------------------------------------------------------------------
+
+
+class _FakeChallenge:
+    """Minimal Challenge stub for DecoupledTANPending tests."""
+
+    @property
+    def challenge_type(self):
+        from geldstrom.domain.connection.challenge import ChallengeType
+
+        return ChallengeType.DECOUPLED
+
+    @property
+    def challenge_text(self):
+        return "Confirm in app"
+
+    @property
+    def challenge_html(self):
+        return None
+
+    @property
+    def challenge_data(self):
+        return None
+
+    @property
+    def is_decoupled(self):
+        return True
+
+    def get_data(self):
+        return b""
+
+
+class DecoupledStubClient:
+    """Stub client that raises DecoupledTANPending and supports poll_tan()."""
+
+    def __init__(
+        self,
+        *,
+        decoupled_on: str | None = None,
+        poll_results: list[PollResult] | None = None,
+        accounts: list[Account] | None = None,
+        feed: TransactionFeed | None = None,
+        balances: list[BalanceSnapshot] | None = None,
+        tan_methods: list[GeldstromTanMethod] | None = None,
+    ) -> None:
+        self._decoupled_on = decoupled_on
+        self._poll_results = list(poll_results or [])
+        self._accounts = accounts or []
+        self._feed = feed
+        self._balances = balances or []
+        self._tan_methods = tan_methods or []
+        self.received_credentials = None
+        self.received_session_state = None
+        self.cleanup_called = False
+
+    def _maybe_raise_decoupled(self, operation: str):
+        if self._decoupled_on == operation:
+            raise DecoupledTANPending(_FakeChallenge(), "task-ref-1")
+
+    def list_accounts(self) -> list[Account]:
+        self._maybe_raise_decoupled("accounts")
+        return self._accounts
+
+    def get_balances(self, account_ids=None) -> list[BalanceSnapshot]:
+        self._maybe_raise_decoupled("balances")
+        return self._balances
+
+    def get_transactions(
+        self, account, start_date=None, end_date=None
+    ) -> TransactionFeed:
+        self._maybe_raise_decoupled("transactions")
+        assert self._feed is not None
+        return self._feed
+
+    def get_tan_methods(self) -> list[GeldstromTanMethod]:
+        self._maybe_raise_decoupled("tan_methods")
+        return self._tan_methods
+
+    def poll_tan(self) -> PollResult:
+        return self._poll_results.pop(0)
+
+    def cleanup_pending(self) -> None:
+        self.cleanup_called = True
+
+    @property
+    def has_pending_tan(self) -> bool:
+        return self._decoupled_on is not None
+
+    @property
+    def pending_challenge(self):
+        return _FakeChallenge() if self._decoupled_on else None
+
+
+class DecoupledStubClientFactory:
+    def __init__(self, clients: list) -> None:
+        self._clients = clients
+
+    def create(self, credentials, session_state=None):
+        client = self._clients.pop(0)
+        client.received_credentials = credentials
+        client.received_session_state = session_state
+        return client
+
+
+def test_decoupled_transactions_returns_pending_with_handle() -> None:
+    """DecoupledTANPending on transactions stores handle and returns PENDING."""
+    registry = PendingClientRegistry()
+    connector = GeldstromBankingConnector(
+        "product-key-1",
+        product_version="0.0.1",
+        client_factory=DecoupledStubClientFactory(
+            [
+                DecoupledStubClient(
+                    decoupled_on="transactions",
+                    accounts=[_account()],
+                )
+            ]
+        ),
+        pending_registry=registry,
+    )
+
+    result = asyncio.run(
+        connector.fetch_transactions(
+            _institute(),
+            _credentials(),
+            RequestedIban("DE89370400440532013000"),
+            date(2026, 1, 1),
+            date(2026, 2, 1),
+        )
+    )
+
+    assert result.status is OperationStatus.PENDING_CONFIRMATION
+    assert result.session_state
+    parsed = json.loads(result.session_state)
+    assert "handle" in parsed
+    assert registry.get(parsed["handle"]) is not None
+
+
+def test_decoupled_accounts_returns_pending_with_handle() -> None:
+    registry = PendingClientRegistry()
+    connector = GeldstromBankingConnector(
+        "product-key-1",
+        product_version="0.0.1",
+        client_factory=DecoupledStubClientFactory(
+            [DecoupledStubClient(decoupled_on="accounts")]
+        ),
+        pending_registry=registry,
+    )
+
+    result = asyncio.run(connector.list_accounts(_institute(), _credentials()))
+
+    assert result.status is OperationStatus.PENDING_CONFIRMATION
+    parsed = json.loads(result.session_state)
+    assert "handle" in parsed
+
+
+def test_decoupled_balances_returns_pending_with_handle() -> None:
+    registry = PendingClientRegistry()
+    connector = GeldstromBankingConnector(
+        "product-key-1",
+        product_version="0.0.1",
+        client_factory=DecoupledStubClientFactory(
+            [DecoupledStubClient(decoupled_on="balances")]
+        ),
+        pending_registry=registry,
+    )
+
+    result = asyncio.run(connector.get_balances(_institute(), _credentials()))
+
+    assert result.status is OperationStatus.PENDING_CONFIRMATION
+    parsed = json.loads(result.session_state)
+    assert "handle" in parsed
+
+
+def test_decoupled_tan_methods_returns_pending_with_handle() -> None:
+    registry = PendingClientRegistry()
+    connector = GeldstromBankingConnector(
+        "product-key-1",
+        product_version="0.0.1",
+        client_factory=DecoupledStubClientFactory(
+            [DecoupledStubClient(decoupled_on="tan_methods")]
+        ),
+        pending_registry=registry,
+    )
+
+    result = asyncio.run(connector.get_tan_methods(_institute(), _credentials()))
+
+    assert result.status is OperationStatus.PENDING_CONFIRMATION
+    parsed = json.loads(result.session_state)
+    assert "handle" in parsed
+
+
+def test_resume_with_handle_polls_and_returns_pending() -> None:
+    """Resuming an in-memory handle that is still pending returns PENDING."""
+    registry = PendingClientRegistry()
+    stub = DecoupledStubClient(
+        decoupled_on="transactions",
+        accounts=[_account()],
+        poll_results=[PollResult(status="pending")],
+    )
+    connector = GeldstromBankingConnector(
+        "product-key-1",
+        product_version="0.0.1",
+        client_factory=DecoupledStubClientFactory([stub]),
+        pending_registry=registry,
+    )
+
+    first = asyncio.run(
+        connector.fetch_transactions(
+            _institute(),
+            _credentials(),
+            RequestedIban("DE89370400440532013000"),
+            date(2026, 1, 1),
+            date(2026, 2, 1),
+        )
+    )
+    resumed = asyncio.run(connector.resume_operation(first.session_state))
+
+    assert resumed.status is OperationStatus.PENDING_CONFIRMATION
+    handle_id = json.loads(first.session_state)["handle"]
+    assert registry.get(handle_id) is not None
+
+
+def test_resume_with_handle_returns_completed_on_approval() -> None:
+    """Resuming an in-memory handle that is approved returns COMPLETED."""
+    registry = PendingClientRegistry()
+    stub = DecoupledStubClient(
+        decoupled_on="transactions",
+        accounts=[_account()],
+        poll_results=[PollResult(status="approved", data=_feed())],
+    )
+    connector = GeldstromBankingConnector(
+        "product-key-1",
+        product_version="0.0.1",
+        client_factory=DecoupledStubClientFactory([stub]),
+        pending_registry=registry,
+    )
+
+    first = asyncio.run(
+        connector.fetch_transactions(
+            _institute(),
+            _credentials(),
+            RequestedIban("DE89370400440532013000"),
+            date(2026, 1, 1),
+            date(2026, 2, 1),
+        )
+    )
+    resumed = asyncio.run(connector.resume_operation(first.session_state))
+
+    assert resumed.status is OperationStatus.COMPLETED
+    assert resumed.result_payload is not None
+    assert "transactions" in resumed.result_payload
+    handle_id = json.loads(first.session_state)["handle"]
+    assert registry.get(handle_id) is None  # removed after approval
+
+
+def test_resume_with_handle_returns_failed_on_error() -> None:
+    registry = PendingClientRegistry()
+    stub = DecoupledStubClient(
+        decoupled_on="transactions",
+        accounts=[_account()],
+        poll_results=[PollResult(status="failed", error="TAN timed out")],
+    )
+    connector = GeldstromBankingConnector(
+        "product-key-1",
+        product_version="0.0.1",
+        client_factory=DecoupledStubClientFactory([stub]),
+        pending_registry=registry,
+    )
+
+    first = asyncio.run(
+        connector.fetch_transactions(
+            _institute(),
+            _credentials(),
+            RequestedIban("DE89370400440532013000"),
+            date(2026, 1, 1),
+            date(2026, 2, 1),
+        )
+    )
+    resumed = asyncio.run(connector.resume_operation(first.session_state))
+
+    assert resumed.status is OperationStatus.FAILED
+    assert "TAN timed out" in (resumed.failure_reason or "")
+
+
+def test_resume_with_unknown_handle_returns_expired() -> None:
+    """If an in-memory handle is not found (server restarted), return EXPIRED."""
+    registry = PendingClientRegistry()
+    connector = GeldstromBankingConnector(
+        "product-key-1",
+        product_version="0.0.1",
+        client_factory=DecoupledStubClientFactory([]),
+        pending_registry=registry,
+    )
+
+    session_state = json.dumps({"handle": "nonexistent-id"}).encode()
+    resumed = asyncio.run(connector.resume_operation(session_state))
+
+    assert resumed.status is OperationStatus.EXPIRED

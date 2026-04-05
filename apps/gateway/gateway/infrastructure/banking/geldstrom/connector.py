@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
-from datetime import date
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
+from uuid import uuid4
 
 from pydantic import SecretStr
 
@@ -26,7 +28,7 @@ from gateway.domain.banking_gateway.value_objects import (
     PresentedBankCredentials,
     RequestedIban,
 )
-from geldstrom.clients import FinTS3Client
+from geldstrom.clients.fints3_decoupled import FinTS3ClientDecoupled, PollResult
 from geldstrom.domain import (
     Account,
     AccountCapabilities,
@@ -38,6 +40,7 @@ from geldstrom.domain import (
     TransactionFeed,
 )
 from geldstrom.domain import TANMethod as GeldstromTanMethod
+from geldstrom.domain.connection.challenge import DecoupledTANPending
 from geldstrom.infrastructure.fints import (
     FinTSClientPINError,
     FinTSClientTemporaryAuthError,
@@ -51,6 +54,7 @@ from geldstrom.infrastructure.fints import (
 
 from .exceptions import GeldstromPendingConfirmation
 from .models import GeldstromClient, GeldstromClientFactory, SerializedPendingOperation
+from .registry import PendingClientRegistry, PendingHandle
 from .serialization import (
     deserialize_fints_session_state,
     deserialize_pending_operation,
@@ -67,7 +71,7 @@ class _DefaultGeldstromClientFactory(GeldstromClientFactory):
         credentials: GatewayCredentials,
         session_state=None,
     ) -> GeldstromClient:
-        return FinTS3Client.from_gateway_credentials(
+        return FinTS3ClientDecoupled.from_gateway_credentials(
             credentials,
             session_state=session_state,
         )
@@ -82,10 +86,12 @@ class GeldstromBankingConnector(BankingConnector):
         *,
         product_version: str,
         client_factory: GeldstromClientFactory | None = None,
+        pending_registry: PendingClientRegistry | None = None,
     ) -> None:
         self._product_key = product_key
         self._product_version = product_version
         self._client_factory = client_factory or _DefaultGeldstromClientFactory()
+        self._pending_registry = pending_registry or PendingClientRegistry()
 
     async def list_accounts(
         self,
@@ -146,6 +152,12 @@ class GeldstromBankingConnector(BankingConnector):
         )
 
     async def resume_operation(self, session_state: bytes) -> ResumeResult:
+        # Check if this is an in-memory handle (DecoupledTANPending flow)
+        handle_id = self._extract_handle_id(session_state)
+        if handle_id is not None:
+            return await asyncio.to_thread(self._resume_from_registry, handle_id)
+
+        # Legacy path: deserialize full FinTS session state
         product_key = self._product_key
         try:
             pending_state = deserialize_pending_operation(session_state)
@@ -173,6 +185,10 @@ class GeldstromBankingConnector(BankingConnector):
         client = self._build_client(institute, credentials, product_key)
         try:
             accounts = client.list_accounts()
+        except DecoupledTANPending:
+            return self._store_pending_handle(
+                client, OperationType.ACCOUNTS, AccountsResult
+            )
         except GeldstromPendingConfirmation as pending:
             return AccountsResult(
                 status=OperationStatus.PENDING_CONFIRMATION,
@@ -209,6 +225,10 @@ class GeldstromBankingConnector(BankingConnector):
             feed = client.get_transactions(
                 account, start_date=start_date, end_date=end_date
             )
+        except DecoupledTANPending:
+            return self._store_pending_handle(
+                client, OperationType.TRANSACTIONS, TransactionsResult
+            )
         except GeldstromPendingConfirmation as pending:
             return TransactionsResult(
                 status=OperationStatus.PENDING_CONFIRMATION,
@@ -237,6 +257,10 @@ class GeldstromBankingConnector(BankingConnector):
         client = self._build_client(institute, credentials, product_key)
         try:
             balances = client.get_balances()
+        except DecoupledTANPending:
+            return self._store_pending_handle(
+                client, OperationType.BALANCES, BalancesResult
+            )
         except GeldstromPendingConfirmation as pending:
             return BalancesResult(
                 status=OperationStatus.PENDING_CONFIRMATION,
@@ -262,6 +286,10 @@ class GeldstromBankingConnector(BankingConnector):
         client = self._build_client(institute, credentials, product_key)
         try:
             methods = client.get_tan_methods()
+        except DecoupledTANPending:
+            return self._store_pending_handle(
+                client, OperationType.TAN_METHODS, TanMethodsResult
+            )
         except GeldstromPendingConfirmation as pending:
             return TanMethodsResult(
                 status=OperationStatus.PENDING_CONFIRMATION,
@@ -277,6 +305,104 @@ class GeldstromBankingConnector(BankingConnector):
             status=OperationStatus.COMPLETED,
             methods=[_serialize_tan_method(method) for method in methods],
         )
+
+    def _store_pending_handle(
+        self,
+        client,
+        operation_type: OperationType,
+        result_cls: type,
+        *,
+        extra_meta: dict | None = None,
+    ):
+        """Store a live client in the registry and return a PENDING result."""
+        handle_id = str(uuid4())
+        expires_at = datetime.now(UTC) + timedelta(minutes=5)
+        self._pending_registry.store(
+            handle_id,
+            PendingHandle(
+                client=client,
+                operation_type=operation_type,
+                expires_at=expires_at,
+                extra_meta=extra_meta or {},
+            ),
+        )
+        session_state = json.dumps({"handle": handle_id}).encode()
+        return result_cls(
+            status=OperationStatus.PENDING_CONFIRMATION,
+            session_state=session_state,
+            expires_at=expires_at,
+        )
+
+    @staticmethod
+    def _extract_handle_id(session_state: bytes) -> str | None:
+        """Return the handle ID if session_state is an in-memory handle marker."""
+        try:
+            parsed = json.loads(session_state)
+            if isinstance(parsed, dict) and "handle" in parsed:
+                return parsed["handle"]
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            pass
+        return None
+
+    def _resume_from_registry(self, handle_id: str) -> ResumeResult:
+        """Poll one round for a pending TAN stored in the in-memory registry."""
+        handle = self._pending_registry.get(handle_id)
+        if handle is None:
+            return ResumeResult(
+                status=OperationStatus.EXPIRED,
+                failure_reason="Pending operation expired or server restarted",
+            )
+
+        result: PollResult = handle.client.poll_tan()
+
+        if result.status == "pending":
+            session_state = json.dumps({"handle": handle_id}).encode()
+            return ResumeResult(
+                status=OperationStatus.PENDING_CONFIRMATION,
+                session_state=session_state,
+                expires_at=handle.expires_at,
+            )
+
+        if result.status == "approved":
+            self._pending_registry.remove(handle_id)
+            payload = self._approved_result_payload(handle.operation_type, result.data)
+            return ResumeResult(
+                status=OperationStatus.COMPLETED,
+                result_payload=payload,
+            )
+
+        # failed / expired
+        self._pending_registry.remove(handle_id)
+        return ResumeResult(
+            status=OperationStatus.FAILED,
+            failure_reason=result.error or "TAN verification failed",
+        )
+
+    def _approved_result_payload(
+        self, operation_type: OperationType, data
+    ) -> dict[str, object]:
+        """Convert approved PollResult.data into a ResumeResult payload dict."""
+        if operation_type is OperationType.TRANSACTIONS:
+            if isinstance(data, TransactionFeed):
+                return {"transactions": _serialize_transactions(data)}
+            return {"transactions": []}
+
+        if operation_type is OperationType.ACCOUNTS:
+            if isinstance(data, (list, tuple)):
+                return {"accounts": [_serialize_account(a) for a in data]}
+            return {"accounts": []}
+
+        if operation_type is OperationType.BALANCES:
+            if isinstance(data, (list, tuple)):
+                return {"balances": [_serialize_balance(b) for b in data]}
+            return {"balances": []}
+
+        if operation_type is OperationType.TAN_METHODS:
+            if isinstance(data, (list, tuple)):
+                return {"methods": [_serialize_tan_method(m) for m in data]}
+            return {"methods": []}
+
+        return {}
 
     def _resume_operation_sync(
         self,

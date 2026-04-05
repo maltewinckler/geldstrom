@@ -7,6 +7,8 @@ from .challenge import (
     ChallengeResult,
     ChallengeType,
     DecoupledPoller,
+    DecoupledTANPending,
+    DetachingChallengeHandler,
     InteractiveChallengeHandler,
     TANConfig,
 )
@@ -22,6 +24,8 @@ __all__ = [
     "ChallengeResult",
     "ChallengeType",
     "DecoupledPoller",
+    "DecoupledTANPending",
+    "DetachingChallengeHandler",
     "InteractiveChallengeHandler",
     "NeedRetryResponse",
     "ResponseStatus",

@@ -239,15 +239,24 @@ def app_client(seeded_db_url: str, e2e_api_key: str) -> TestClient:  # noqa: ARG
     consumer cache.  Without this ordering the cache misses the user and every
     authenticated request returns 401.
 
-    The app's ``get_factory`` / ``get_settings`` lru_caches are cleared and
-    GATEWAY_DATABASE_URL is set so that the real lifespan (startup/shutdown)
-    uses the seeded testcontainer.  Argon2 cost is lowered for speed.
+    The individual GATEWAY_DB_* env vars are set (not GATEWAY_DATABASE_URL,
+    which the Settings class doesn't support) so the app connects to the
+    testcontainer rather than the 'postgres' Docker hostname.  Argon2 cost is
+    lowered for speed.
     """
+    from sqlalchemy.engine import make_url
+
     from gateway.presentation.http.api import create_app
     from gateway.presentation.http.dependencies import get_factory, get_settings
 
-    # Point the gateway at the testcontainer
-    os.environ["GATEWAY_DATABASE_URL"] = seeded_db_url
+    # Parse the asyncpg testcontainer URL into individual GATEWAY_DB_* vars
+    # that the Settings class actually reads.
+    parsed = make_url(seeded_db_url)
+    os.environ["GATEWAY_DB_HOST"] = parsed.host or "localhost"
+    os.environ["GATEWAY_DB_PORT"] = str(parsed.port or 5432)
+    os.environ["GATEWAY_DB_USER"] = parsed.username or "test"
+    os.environ["GATEWAY_DB_PASSWORD"] = parsed.password or "test"
+    os.environ["GATEWAY_DB_NAME"] = (parsed.database or "test").lstrip("/")
     os.environ["GATEWAY_ARGON2_TIME_COST"] = "1"
     os.environ["GATEWAY_ARGON2_MEMORY_COST"] = "8192"
     os.environ["GATEWAY_ARGON2_PARALLELISM"] = "1"

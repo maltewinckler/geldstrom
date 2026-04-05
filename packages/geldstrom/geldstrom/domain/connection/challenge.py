@@ -73,6 +73,7 @@ class ChallengeResult:
     response: str | None = None
     cancelled: bool = False
     error: str | None = None
+    detach: bool = False
 
     @property
     def is_success(self) -> bool:
@@ -100,6 +101,28 @@ class DecoupledPoller(Protocol):
         timeout_seconds: float = 120.0,
         poll_interval: float = 2.0,
     ) -> ChallengeResult: ...
+
+
+class DecoupledTANPending(Exception):
+    """Raised when a decoupled TAN challenge is detected and the caller opts out of internal polling."""
+
+    def __init__(self, challenge: Challenge, task_reference: str) -> None:
+        super().__init__(
+            "Decoupled TAN challenge pending — caller must poll externally"
+        )
+        self.challenge = challenge
+        self.task_reference = task_reference
+
+
+class DetachingChallengeHandler:
+    """ChallengeHandler that detaches on decoupled challenges instead of blocking."""
+
+    def present_challenge(self, challenge: Challenge) -> ChallengeResult:
+        if challenge.is_decoupled:
+            return ChallengeResult(detach=True)
+        raise ValueError(
+            "Non-decoupled TAN challenges are not supported in detach mode"
+        )
 
 
 class InteractiveChallengeHandler:
@@ -136,6 +159,8 @@ __all__ = [
     "ChallengeResult",
     "ChallengeType",
     "DecoupledPoller",
+    "DecoupledTANPending",
+    "DetachingChallengeHandler",
     "InteractiveChallengeHandler",
     "TANConfig",
 ]
