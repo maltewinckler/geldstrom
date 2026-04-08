@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from geldstrom.domain.connection.challenge import (
+from geldstrom.infrastructure.fints.challenge import (
     Challenge,
     ChallengeData,
     ChallengeHandler,
@@ -12,7 +12,6 @@ from geldstrom.domain.connection.challenge import (
     ChallengeType,
     DecoupledTANPending,
     DetachingChallengeHandler,
-    InteractiveChallengeHandler,
     TANConfig,
 )
 
@@ -108,26 +107,6 @@ class MockDecoupledChallenge(Challenge):
         return b""
 
 
-class TestInteractiveChallengeHandler:
-    """Tests for InteractiveChallengeHandler."""
-
-    def test_decoupled_challenge_returns_needs_polling(
-        self, capsys: pytest.CaptureFixture
-    ) -> None:
-        """Decoupled challenge should print message and return needs_polling."""
-        handler = InteractiveChallengeHandler()
-        challenge = MockDecoupledChallenge()
-
-        result = handler.present_challenge(challenge)
-
-        assert result.needs_polling is True
-        assert result.cancelled is False
-        assert result.response is None
-
-        captured = capsys.readouterr()
-        assert "Please confirm in your banking app" in captured.out
-
-
 class RecordingChallengeHandler:
     """Test double that records challenge presentations."""
 
@@ -147,11 +126,6 @@ class TestChallengeHandlerProtocol:
         """RecordingChallengeHandler should satisfy ChallengeHandler protocol."""
         handler = RecordingChallengeHandler()
         # Protocol check via isinstance with runtime_checkable
-        assert isinstance(handler, ChallengeHandler)
-
-    def test_interactive_handler_satisfies_protocol(self) -> None:
-        """InteractiveChallengeHandler should satisfy ChallengeHandler protocol."""
-        handler = InteractiveChallengeHandler()
         assert isinstance(handler, ChallengeHandler)
 
 

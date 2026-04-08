@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from functools import cached_property
 from uuid import uuid4
 
+from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from gateway.application.common import IdProvider, InternalError
@@ -17,9 +18,9 @@ from gateway.infrastructure.banking.protocols import BankingConnectorDispatcher
 from gateway.infrastructure.cache.memory import (
     InMemoryApiConsumerCache,
     InMemoryFinTSInstituteCache,
-    InMemoryOperationSessionStore,
     PostgresNotifyListener,
 )
+from gateway.infrastructure.cache.redis import RedisOperationSessionStore
 from gateway.infrastructure.crypto import (
     Argon2ApiKeyService,
 )
@@ -61,11 +62,11 @@ class _SQLRepositoryFactory(RepositoryFactory):
         return SQLFinTSProductRegistrationRepository(self._engine)
 
 
-class _InMemoryCacheFactory(CacheFactory):
-    """Cache implementations backed by in-memory data structures."""
+class _GatewayCacheFactory(CacheFactory):
+    """Consumer and institute caches in-memory; session store in Redis."""
 
-    def __init__(self, max_sessions: int) -> None:
-        self._max_sessions = max_sessions
+    def __init__(self, redis: Redis) -> None:
+        self._redis = redis
 
     @cached_property
     def consumer(self) -> InMemoryApiConsumerCache:
@@ -76,8 +77,8 @@ class _InMemoryCacheFactory(CacheFactory):
         return InMemoryFinTSInstituteCache()
 
     @cached_property
-    def session_store(self) -> InMemoryOperationSessionStore:
-        return InMemoryOperationSessionStore(max_sessions=self._max_sessions)
+    def session_store(self) -> RedisOperationSessionStore:
+        return RedisOperationSessionStore(self._redis)
 
 
 class GatewayApplicationFactory:
@@ -86,14 +87,17 @@ class GatewayApplicationFactory:
     def __init__(self, settings) -> None:  # type: ignore[no-untyped-def]
         self._settings = settings
         self._loaded_product_key: str | None = None
+        self._redis: Redis | None = None
 
     @cached_property
     def repos(self) -> _SQLRepositoryFactory:
         return _SQLRepositoryFactory(self._engine)
 
     @cached_property
-    def caches(self) -> _InMemoryCacheFactory:
-        return _InMemoryCacheFactory(self._settings.operation_session_max_count)
+    def caches(self) -> _GatewayCacheFactory:
+        if self._redis is None:
+            raise InternalError("Redis not initialised — call startup() first")
+        return _GatewayCacheFactory(self._redis)
 
     @cached_property
     def api_key_service(self) -> Argon2ApiKeyService:
@@ -128,7 +132,9 @@ class GatewayApplicationFactory:
 
     @cached_property
     def readiness_service(self) -> SQLGatewayReadinessService:
-        return SQLGatewayReadinessService(self._engine)
+        if self._redis is None:
+            raise InternalError("Redis not initialised — call startup() first")
+        return SQLGatewayReadinessService(self._engine, self._redis)
 
     @cached_property
     def _engine(self) -> AsyncEngine:
@@ -148,6 +154,7 @@ class GatewayApplicationFactory:
 
     async def startup(self) -> None:
         """Warm all runtime caches and start background workers."""
+        await self._connect_redis()
         await self._warm_product_key()
         await self._start_notify_listener()
         await self._warm_consumer_cache()
@@ -157,6 +164,7 @@ class GatewayApplicationFactory:
     async def shutdown(self) -> None:
         """Stop background workers and release database resources."""
         await self._stop_notify_listener()
+        await self._close_redis()
         await self._close_db_engine()
         _logger.info("gateway shutdown complete")
 
@@ -196,3 +204,20 @@ class GatewayApplicationFactory:
             _logger.info("database engine disposed")
         except Exception:
             _logger.warning("error disposing database engine", exc_info=True)
+
+    async def _connect_redis(self) -> None:
+        self._redis = Redis.from_url(
+            self._settings.redis_url,
+            decode_responses=False,
+        )
+        await self._redis.ping()
+        _logger.info("redis connected", extra={"url": self._settings.redis_url})
+
+    async def _close_redis(self) -> None:
+        if self._redis is not None:
+            try:
+                await self._redis.aclose()
+                _logger.info("redis connection closed")
+            except Exception:
+                _logger.warning("error closing redis connection", exc_info=True)
+            self._redis = None

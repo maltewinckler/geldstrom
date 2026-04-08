@@ -130,8 +130,8 @@ class ParserDebugger:
         self._warning_context = None
         self._captured_warnings: list[warnings.WarningMessage] = []
 
-    def capture(self):
-        """Context manager to capture parser warnings."""
+    def capture(self) -> _CaptureContext:
+        """Capture parser warnings emitted during live dialog activity."""
         return _CaptureContext(self)
 
     def analyze_bytes(self, data: bytes, source: str = "unknown") -> ParserReport:
@@ -176,15 +176,11 @@ class ParserDebugger:
 
         return report
 
-    def save_report(self, path: str | Path):
-        """Save report to JSON file."""
-        path = Path(path)
-        data = {
-            "timestamp": datetime.now().isoformat(),
-            "report": self.report.to_dict(),
-        }
-        path.write_text(json.dumps(data, indent=2))
-        logger.info("Saved debug report to %s", path)
+    def save_report(self, path: str | Path) -> Path:
+        """Persist the aggregated live-capture report as JSON."""
+        report_path = Path(path)
+        report_path.write_text(json.dumps(self.report.to_dict(), indent=2))
+        return report_path
 
 
 class _LogCaptureHandler(logging.Handler):
@@ -244,8 +240,8 @@ def capture_bank_response(
     operations: Sequence[str] | None = None,
 ) -> dict[str, Any]:
     """Connect to a bank, save all raw responses for offline debugging."""
-    from geldstrom.infrastructure.fints.adapters.connection import FinTSConnectionHelper
     from geldstrom.infrastructure.fints.operations import AccountOperations
+    from geldstrom.infrastructure.fints.support.connection import FinTSConnectionHelper
 
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)

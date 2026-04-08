@@ -7,12 +7,10 @@ from .commands import (
     GetTanMethodsInput,
     ListAccountsCommand,
     ListAccountsInput,
-    ResumePendingOperationsCommand,
 )
 from .dtos import (
     ListAccountsResultEnvelope,
     OperationStatusEnvelope,
-    ResumeSummary,
     TanMethodsResultEnvelope,
     TransactionsResultEnvelope,
 )
@@ -28,8 +26,6 @@ __all__ = [
     "ListAccountsInput",
     "ListAccountsResultEnvelope",
     "OperationStatusEnvelope",
-    "ResumePendingOperationsCommand",
-    "ResumeSummary",
     "TanMethodsResultEnvelope",
     "TransactionsResultEnvelope",
 ]

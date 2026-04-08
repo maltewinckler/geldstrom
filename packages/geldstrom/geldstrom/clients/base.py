@@ -10,10 +10,10 @@ from geldstrom.domain import (
     Account,
     BalanceSnapshot,
     BankCapabilities,
-    SessionToken,
     TransactionFeed,
 )
-from geldstrom.domain.model.tan import TANMethod
+from geldstrom.infrastructure.fints.session import SessionToken
+from geldstrom.infrastructure.fints.tan import TANMethod
 
 
 class BankClient(Protocol):

@@ -17,6 +17,7 @@ class ReadinessCheck(BaseModel):
     db: str
     product_key: str
     catalog: str
+    redis: str
 
 
 class ReadinessResponse(BaseModel):

@@ -7,6 +7,9 @@ on:
     paths:
       - "packages/geldstrom/**"
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 # OIDC token is required for Trusted Publishing (no API token needed).
 permissions:
   id-token: write

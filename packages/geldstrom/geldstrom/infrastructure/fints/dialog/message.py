@@ -1,7 +1,7 @@
 """FinTS message types for dialog communication."""
 
 from enum import Enum
-from typing import Any, ClassVar
+from typing import ClassVar
 
 from geldstrom.infrastructure.fints.protocol import HIRMS2, SegmentSequence
 from geldstrom.infrastructure.fints.protocol.base import FinTSSegment
@@ -19,7 +19,6 @@ class FinTSMessage(SegmentSequence):
 
     Extends SegmentSequence with message-level functionality:
     - Auto-numbering of segments
-    - Dialog association
     - Response lookup
     """
 
@@ -28,22 +27,11 @@ class FinTSMessage(SegmentSequence):
     # Non-model fields (excluded from Pydantic)
     model_config = {"arbitrary_types_allowed": True}
 
-    # Instance attributes (not Pydantic fields)
-    _dialog: Any = None
     _next_segment_number: int = 1
 
-    def __init__(self, dialog=None, **kwargs):
+    def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self._dialog = dialog
         self._next_segment_number = 1
-
-    @property
-    def dialog(self):
-        return self._dialog
-
-    @dialog.setter
-    def dialog(self, value):
-        self._dialog = value
 
     @property
     def next_segment_number(self):

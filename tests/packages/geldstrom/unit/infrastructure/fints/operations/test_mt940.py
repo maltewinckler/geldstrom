@@ -1,4 +1,6 @@
-from geldstrom.infrastructure.fints.operations.mt940 import decode_phototan_image
+from geldstrom.infrastructure.fints.challenge.types import (
+    decode_phototan_image,
+)
 
 # HITAN3:
 #  'challenge' contains a HHD 1.3 code embedded in the normal text payload

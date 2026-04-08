@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
+
+from pydantic import BaseModel
 
 from gateway.domain.banking_gateway import OperationStatus
 
 
-@dataclass(frozen=True)
-class OperationStatusEnvelope:
+class OperationStatusEnvelope(BaseModel, frozen=True):
     """Application result for operation-status requests."""
 
     status: OperationStatus

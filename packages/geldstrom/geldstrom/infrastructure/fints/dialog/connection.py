@@ -5,9 +5,9 @@ from __future__ import annotations
 import base64
 import io
 import logging
-from dataclasses import dataclass
 
 import requests
+from pydantic import BaseModel
 
 from geldstrom.infrastructure.fints.dialog.logging import (
     Password,
@@ -24,8 +24,7 @@ from geldstrom.infrastructure.fints.protocol.base import SegmentSequence
 logger = logging.getLogger(__name__)
 
 
-@dataclass(frozen=True)
-class ConnectionConfig:
+class ConnectionConfig(BaseModel, frozen=True):
     """Configuration for FinTS connection parameters."""
 
     url: str

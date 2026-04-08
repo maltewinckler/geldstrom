@@ -94,7 +94,7 @@ class AccountOperations:
         logger.info("Found %d SEPA accounts", len(accounts))
         return accounts
 
-    def get_accounts_from_upd(self) -> Sequence[AccountInfo]:
+    def _upd_accounts(self) -> Sequence[AccountInfo]:
         upd = self._parameters.upd
         raw_accounts = upd.get_accounts()
         accounts: list[AccountInfo] = []
@@ -123,7 +123,7 @@ class AccountOperations:
 
         return accounts
 
-    def merge_sepa_info(
+    def _join_sepa_info(
         self,
         upd_accounts: Sequence[AccountInfo],
         sepa_accounts: Sequence[SEPAAccount],
@@ -160,3 +160,29 @@ class AccountOperations:
             )
 
         return merged
+
+    def fetch_all(self) -> Sequence[AccountInfo]:
+        """Fetch accounts from both HISPA and UPD, merging SEPA IBAN/BIC info."""
+        sepa_accounts = self.fetch_sepa_accounts()
+        upd_accounts = list(self._upd_accounts())
+        if not upd_accounts and sepa_accounts:
+            logger.info(
+                "UPD accounts missing; synthesizing from %d SEPA accounts",
+                len(sepa_accounts),
+            )
+            for sepa in sepa_accounts:
+                upd_accounts.append(
+                    AccountInfo(
+                        account_number=sepa.accountnumber or sepa.iban or "",
+                        subaccount_number=sepa.subaccount,
+                        iban=sepa.iban,
+                        bic=sepa.bic,
+                        currency="EUR",
+                        owner_name=[],
+                        product_name=None,
+                        account_type=None,
+                        bank_identifier=None,
+                        allowed_operations=[],
+                    )
+                )
+        return self._join_sepa_info(upd_accounts, sepa_accounts)

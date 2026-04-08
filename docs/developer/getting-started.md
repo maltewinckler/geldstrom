@@ -1,29 +1,40 @@
 # Getting Started
 
-This guide covers everything needed to run a local instance of the gateway API from scratch.
+This guide walks through running a local gateway instance from scratch — either via **Docker Compose** (simplest) or **directly on the host** (for development).
 
 ---
 
-## Post-install checklist (run once after first `docker compose up -d`)
+## Option A — Docker Compose (recommended)
 
-> **These steps are required before the gateway will accept any banking
-> requests.** Without them the gateway starts but every banking call fails.
-
-**1. Set your FinTS product key:**
+### 1. Configure secrets
 
 ```bash
-docker compose run --rm gateway-admin-cli \
-  gw-admin product update "<YOUR_PRODUCT_KEY>" --product-version "1.0.0"
+cp config/admin_cli.env.example config/admin_cli.env
+cp config/gateway.env.example   config/gateway.env
 ```
 
-**2. Populate the institute catalog:**
+Edit both files. At minimum set strong passwords for `POSTGRES_PASSWORD`, `GATEWAY_DB_PASSWORD`, and provide your `FINTS_PRODUCT_REGISTRATION_KEY`.
+
+### 2. Start the stack
+
+```bash
+docker compose up -d
+```
+
+This starts PostgreSQL and the gateway. The `gateway-admin-cli` service runs once as part of startup (`gw-admin db init`) to create the schema and the restricted gateway DB user.
+
+### 3. Post-install checklist
+
+> **These steps are required before the gateway will accept banking requests.**
+
+**Load the institute catalog:**
 
 ```bash
 docker compose run --rm gateway-admin-cli \
   gw-admin catalog sync /data/fints_institute.csv
 ```
 
-**3. Create your first API consumer:**
+**Create your first API consumer:**
 
 ```bash
 docker compose run --rm gateway-admin-cli \
@@ -32,15 +43,14 @@ docker compose run --rm gateway-admin-cli \
 
 The raw API key is printed exactly once — copy it immediately.
 
-**4. Verify the gateway is ready:**
+**Verify readiness:**
 
 ```bash
 curl http://localhost:8000/health/ready
 # Expected: {"status":"ready","checks":{"db":"ok","product_key":"loaded","catalog":"ok"}}
 ```
 
-If the status is `not_ready`, check which component failed and repeat the
-relevant step above. You can also run:
+If a check fails, see the diagnostic command below:
 
 ```bash
 docker compose run --rm gateway-admin-cli gw-admin inspect state
@@ -48,140 +58,126 @@ docker compose run --rm gateway-admin-cli gw-admin inspect state
 
 ---
 
-## 1. Initialize the database
+## Option B — Running directly on the host
 
-Start a PostgreSQL container and create the `swen-gateway` database:
+### 1. Start PostgreSQL
 
 ```bash
 docker run -d \
-  --name swen-gateway-postgres \
-  -e POSTGRES_USER=gateway \
-  -e POSTGRES_PASSWORD=gateway \
-  -e POSTGRES_DB=swen-gateway \
+  --name geldstrom-postgres \
+  -e POSTGRES_USER=postgres \
+  -e POSTGRES_PASSWORD=postgres \
+  -e POSTGRES_DB=geldstrom \
   -p 5432:5432 \
   postgres:18-alpine
 ```
 
-Then create the schema. The gateway-contracts package provides the SQLAlchemy metadata; use a one-shot Python script:
+### 2. Configure environment
 
-```bash
-python - <<'EOF'
-import asyncio
-from sqlalchemy.ext.asyncio import create_async_engine
-from gateway_contracts.schema import metadata
+Both `config/admin_cli.env` and `config/gateway.env` are read relative to the workspace root. Copy the examples and fill in:
 
-async def main():
-    engine = create_async_engine(
-        "postgresql+asyncpg://gateway:gateway@localhost:5432/swen-gateway"
-    )
-    async with engine.begin() as conn:
-        await conn.run_sync(metadata.create_all)
-    await engine.dispose()
-    print("Schema created.")
+**`config/admin_cli.env`** (admin CLI)
 
-asyncio.run(main())
-EOF
+```dotenv
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=postgres
+POSTGRES_DB=geldstrom
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
+
+FINTS_PRODUCT_REGISTRATION_KEY=your_key_here
+FINTS_PRODUCT_VERSION=1.0.0
+
+GATEWAY_DB_USER=gateway
+GATEWAY_DB_PASSWORD=gateway_password
 ```
 
-This creates three tables: `api_consumers`, `fints_institutes`, `fints_product_registration`.
+**`config/gateway.env`** (gateway service)
 
----
+```dotenv
+GATEWAY_DB_USER=gateway
+GATEWAY_DB_PASSWORD=gateway_password
+GATEWAY_DB_HOST=localhost
+GATEWAY_DB_PORT=5432
+GATEWAY_DB_NAME=geldstrom
+GATEWAY_FINTS_PRODUCT_VERSION=1.0.0
+```
 
-## 2. Start the API
-
-Set the required environment variable and launch with uvicorn:
+### 3. Initialize the database
 
 ```bash
-export GATEWAY_DATABASE_URL="postgresql+asyncpg://gateway:gateway@localhost:5432/swen-gateway"
+uv run gw-admin db init
+```
 
+This creates the database (if missing), all tables, the restricted `gateway` DB user, grants, and stores the product key from the env file. It is idempotent — safe to run again.
+
+### 4. Start the gateway
+
+```bash
+uv run gateway-server
+# or via uvicorn directly:
 uvicorn gateway.presentation.http.api:create_app --factory --host 0.0.0.0 --port 8000
 ```
 
-Optional settings (all have defaults):
+### 5. Complete setup
+
+Same three steps as Option A:
+
+```bash
+uv run gw-admin catalog sync data/fints_institute.csv
+uv run gw-admin users create you@example.com
+curl http://localhost:8000/health/ready
+```
+
+---
+
+## Gateway configuration reference
+
+All gateway settings are prefixed `GATEWAY_` and read from `config/gateway.env`.
 
 | Variable | Default | Description |
-|---|---|---|
-| `GATEWAY_DATABASE_URL` | — | **Required.** asyncpg connection URL |
-| `GATEWAY_ARGON2_TIME_COST` | `2` | Argon2id time cost for key hashing |
-| `GATEWAY_ARGON2_MEMORY_COST` | `65536` | Argon2id memory cost (kB) |
-| `GATEWAY_OPERATION_SESSION_TTL_SECONDS` | `120` | Timeout for pending TAN operations |
+|----------|---------|-------------|
+| `GATEWAY_DB_USER` | `gateway` | PostgreSQL username |
+| `GATEWAY_DB_PASSWORD` | — | **Required** |
+| `GATEWAY_DB_HOST` | `localhost` | PostgreSQL host (`postgres` inside Docker) |
+| `GATEWAY_DB_PORT` | `5432` | PostgreSQL port |
+| `GATEWAY_DB_NAME` | `geldstrom` | Database name |
 | `GATEWAY_FINTS_PRODUCT_VERSION` | `1.0.0` | FinTS product version string |
-
-The API will be available at `http://localhost:8000`. Interactive docs are at `http://localhost:8000/docs`.
+| `GATEWAY_OPERATION_SESSION_TTL_SECONDS` | `120` | Pending TAN session lifetime |
+| `GATEWAY_OPERATION_SESSION_MAX_COUNT` | `10000` | Max concurrent pending sessions |
+| `GATEWAY_RATE_LIMIT_REQUESTS_PER_MINUTE` | `60` | Per-process rate limit |
+| `GATEWAY_NOTIFY_RECONNECT_BACKOFF_SECONDS` | `1.0` | Backoff on LISTEN reconnect |
+| `GATEWAY_HOST` | `0.0.0.0` | Bind address |
+| `GATEWAY_PORT` | `8000` | Bind port |
+| `GATEWAY_WORKERS` | `1` | Worker count (keep at 1 — in-process rate limiter) |
+| `GATEWAY_LOG_LEVEL` | `INFO` | Log level |
+| `GATEWAY_JSON_LOGS` | `true` | Emit structured JSON logs |
 
 ---
 
-## 3. Create an API user and get an API key
-
-The `gw-admin` CLI manages all administrative operations. It reads the database URL from `DATABASE_URL` (no prefix):
+## Admin CLI reference
 
 ```bash
-export DATABASE_URL="postgresql+asyncpg://gateway:gateway@localhost:5432/swen-gateway"
-
-gw-admin users create alice@example.com
-```
-
-Output:
-
-```
-Created: alice@example.com (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
-Raw API key (shown once): <key>
-```
-
-**The raw key is shown exactly once — store it securely.** To rotate a key later:
-
-```bash
-gw-admin users rotate <user-id>
-```
-
-Other user commands:
-
-```bash
+gw-admin db init                               # Create DB, schema, gateway user
+gw-admin catalog sync <path-to-csv>            # Load/refresh institute catalog
+gw-admin product update <key> --product-version <ver>  # Store FinTS product key
 gw-admin users list
-gw-admin users update <user-id> --email new@example.com
-gw-admin users disable <user-id>
-gw-admin users delete <user-id> --confirm
+gw-admin users create <email>                  # Prints raw key once
+gw-admin users update <id> --email <new>
+gw-admin users disable <id>
+gw-admin users reactivate <id>
+gw-admin users rotate <id>                     # Issue new key
+gw-admin users delete <id> --confirm
+gw-admin inspect state [--blz <blz>]           # Show backend state
 ```
 
 ---
 
-## 4. Load institute catalog and product key
+## Using the API
 
-### FinTS institute catalog
+All `/v1/banking/*` endpoints require `Authorization: Bearer <api-key>`.
 
-Import the Bundesbank CSV export (semicolon-separated, latin-1 encoded):
-
-```bash
-gw-admin catalog sync /path/to/fints_institute.csv
-```
-
-Output: `Synced 1842 institutes.`
-
-This is idempotent — running it again replaces the catalog atomically and fires a PostgreSQL `NOTIFY` so any running gateway instance refreshes its in-memory cache automatically.
-
-### Product registration
-
-Store the FinTS product key your bank association issued you:
-
-```bash
-gw-admin product update "<your-product-key>" --product-version "1.0.0"
-```
-
-This must be done before the gateway can start successfully. The key is loaded once at startup into memory — a restart is required to pick up a new key.
-
-To verify both are in place:
-
-```bash
-gw-admin inspect state
-```
-
----
-
-## 5. Query the API
-
-All banking endpoints are under `/v1/banking/` and require the API key in the `Authorization: Bearer <key>` header.
-
-### List bank accounts
+### List accounts
 
 ```bash
 curl -s -X POST http://localhost:8000/v1/banking/accounts \
@@ -191,7 +187,8 @@ curl -s -X POST http://localhost:8000/v1/banking/accounts \
     "protocol": "fints",
     "blz": "12345678",
     "user_id": "your-bank-login",
-    "password": "your-bank-pin"
+    "password": "your-bank-pin",
+    "tan_method": "946"
   }' | jq
 ```
 
@@ -208,7 +205,8 @@ curl -s -X POST http://localhost:8000/v1/banking/transactions \
     "password": "your-bank-pin",
     "iban": "DE89370400440532013000",
     "start_date": "2026-01-01",
-    "end_date": "2026-03-15"
+    "end_date": "2026-04-07",
+    "tan_method": "946"
   }' | jq
 ```
 
@@ -226,30 +224,39 @@ curl -s -X POST http://localhost:8000/v1/banking/tan-methods \
   }' | jq
 ```
 
-### Handling pending TAN confirmation (decoupled TAN)
+### Handling decoupled TAN (2FA)
 
-If your bank requires a TAN confirmation (e.g. SecureGo+ push), the response status is `202 Accepted` with an `operation_id`. Poll the status endpoint until it transitions to `completed` or `failed`:
+If the bank requires app-based confirmation, the response is `202 Accepted` with an `operation_id`. Poll until `status` is `completed` or `failed`:
 
 ```bash
 curl -s http://localhost:8000/v1/banking/operations/<operation-id> \
   -H "Authorization: Bearer <your-api-key>" | jq
 ```
 
-Pending operations expire after `GATEWAY_OPERATION_SESSION_TTL_SECONDS` (default 120 s).
+Completed operations include the full result in `result_payload`. Pending operations expire after `GATEWAY_OPERATION_SESSION_TTL_SECONDS` (default 120 s).
 
-### Liveness check (no auth required)
-
-```bash
-curl http://localhost:8000/health/live
-# {"status":"ok"}
-```
-
-### Readiness check (no auth required)
+### Health checks
 
 ```bash
-curl http://localhost:8000/health/ready
-# {"status":"ready","checks":{"db":"ok","product_key":"loaded","catalog":"ok"}}
+curl http://localhost:8000/health/live    # {"status":"ok"}
+curl http://localhost:8000/health/ready  # {"status":"ready","checks":{...}}
 ```
 
-If the status is `not_ready`, see the [Post-install checklist](#post-install-checklist-run-once-after-first-docker-compose-up--d)
-above.
+If `health/ready` returns `not_ready`, check which component failed and run the corresponding setup step.
+
+---
+
+## Developer tools
+
+```bash
+# Interactive CLI that wraps the gateway API
+uv run geldstrom-cli accounts
+
+# Run tests
+uv run pytest tests/apps tests/unit tests/packages/geldstrom/unit -x -q
+
+# Lint
+uv run ruff check .
+```
+
+Interactive API docs are available at `http://localhost:8000/docs` while the gateway is running.

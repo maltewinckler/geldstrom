@@ -24,7 +24,7 @@ SUPPORTED_HKSAL = (HKSAL7, HKSAL6, HKSAL5)
 
 
 @dataclass
-class MT940Balance:
+class HisalBalance:
     """Balance in MT940-compatible format."""
 
     amount: Decimal
@@ -41,8 +41,8 @@ class MT940Balance:
 class BalanceResult:
     """Result of a balance query."""
 
-    booked: MT940Balance
-    pending: MT940Balance | None = None
+    booked: HisalBalance
+    pending: HisalBalance | None = None
     available: Decimal | None = None
     credit_line: Decimal | None = None
     booking_date: date | None = None
@@ -81,11 +81,11 @@ class BalanceOperations:
         if response.raw_response is None:
             raise ValueError("No response received for balance query")
         for seg in response.raw_response.response_segments(request_segment, "HISAL"):
-            booked = self._balance_to_mt940(seg.balance_booked)
+            booked = self._balance_to_hisal(seg.balance_booked)
             pending_balance = getattr(seg, "balance_pending", None)
             pending = None
             if pending_balance:
-                pending = self._balance_to_mt940(pending_balance)
+                pending = self._balance_to_hisal(pending_balance)
             available_amt = getattr(seg, "available_amount", None)
             available = available_amt.amount if available_amt else None
             credit_amt = getattr(seg, "line_of_credit", None)
@@ -107,7 +107,7 @@ class BalanceOperations:
             )
         raise ValueError("No HISAL response segment found")
 
-    def _balance_to_mt940(self, balance_field) -> MT940Balance | None:
+    def _balance_to_hisal(self, balance_field) -> HisalBalance | None:
         if balance_field is None:
             return None
         if getattr(balance_field, "credit_debit", None) is None:
@@ -115,7 +115,7 @@ class BalanceOperations:
         if hasattr(balance_field, "as_mt940_Balance"):
             try:
                 mt940 = balance_field.as_mt940_Balance()
-                return MT940Balance(
+                return HisalBalance(
                     amount=mt940.amount.amount,
                     currency=mt940.amount.currency,
                     date=mt940.date,
@@ -134,7 +134,7 @@ class BalanceOperations:
         balance_date = getattr(balance_field, "date", None) or date.today()
         status = "C" if amount_value >= 0 else "D"
 
-        return MT940Balance(
+        return HisalBalance(
             amount=abs(amount_value),
             currency=currency,
             date=balance_date,

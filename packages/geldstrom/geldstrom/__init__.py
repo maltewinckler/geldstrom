@@ -16,9 +16,9 @@ Quick Start:
         for account in client.list_accounts():
             balance = client.get_balance(account)
             print(f"{account.iban}: {balance.booked.amount}")
+
 """
 
-# --- Client exports (presentation layer) ---
 from geldstrom.clients import FinTS3Client, FinTS3ClientDecoupled, PollResult
 
 # --- Domain exports ---
@@ -31,19 +31,25 @@ from geldstrom.domain import (
     BankCapabilities,
     BankCredentials,
     BankRoute,
-    SessionHandle,
-    SessionToken,
-    TANMethod,
-    TANMethodType,
     TransactionEntry,
     TransactionFeed,
 )
 
-# --- Advanced/internal exports ---
-from geldstrom.infrastructure.fints import GatewayCredentials
+# --- Infrastructure types re-exported for convenience ---
+from geldstrom.infrastructure.fints.challenge import (
+    Challenge,
+    ChallengeData,
+    ChallengeHandler,
+    ChallengeResult,
+    ChallengeType,
+    DecoupledTANPending,
+    TANConfig,
+)
+from geldstrom.infrastructure.fints.session import FinTSSessionState, SessionToken
+from geldstrom.infrastructure.fints.tan import TANMethod
 
 # Version
-version = "0.0.2"
+version = "0.1.0"
 __version__ = version
 __all__ = [
     # Version
@@ -61,12 +67,16 @@ __all__ = [
     "BankCapabilities",
     "BankCredentials",
     "BankRoute",
-    "SessionHandle",
+    "Challenge",
+    "ChallengeData",
+    "ChallengeHandler",
+    "ChallengeResult",
+    "ChallengeType",
+    "DecoupledTANPending",
+    "FinTSSessionState",
     "SessionToken",
+    "TANConfig",
     "TANMethod",
-    "TANMethodType",
     "TransactionEntry",
     "TransactionFeed",
-    # Advanced (for from_gateway_credentials)
-    "GatewayCredentials",
 ]

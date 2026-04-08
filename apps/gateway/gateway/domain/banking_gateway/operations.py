@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
 from typing import Any
 from uuid import UUID
+
+from pydantic import BaseModel, field_validator, model_validator
 
 from gateway.domain import DomainError
 
@@ -35,23 +36,22 @@ class OperationType(StrEnum):
     TAN_METHODS = "tan_methods"
 
 
-@dataclass(frozen=True)
-class TanMethod:
+class TanMethod(BaseModel, frozen=True):
     """Gateway-owned TAN method representation."""
 
     method_id: str
     display_name: str
     is_decoupled: bool
 
-    def __post_init__(self) -> None:
-        if not self.method_id.strip():
-            raise DomainError("TanMethod.method_id must not be empty")
-        if not self.display_name.strip():
-            raise DomainError("TanMethod.display_name must not be empty")
+    @field_validator("method_id", "display_name")
+    @classmethod
+    def _must_not_be_blank(cls, v: str) -> str:
+        if not v.strip():
+            raise DomainError("TanMethod field must not be empty")
+        return v
 
 
-@dataclass
-class PendingOperationSession:
+class PendingOperationSession(BaseModel):
     """Ephemeral runtime state for a decoupled bank operation."""
 
     operation_id: str
@@ -66,7 +66,8 @@ class PendingOperationSession:
     result_payload: dict[str, Any] | None = None
     failure_reason: str | None = None
 
-    def __post_init__(self) -> None:
+    @model_validator(mode="after")
+    def _validate(self) -> PendingOperationSession:
         if not self.operation_id.strip():
             raise DomainError("PendingOperationSession.operation_id must not be empty")
         if (
@@ -96,86 +97,90 @@ class PendingOperationSession:
             raise DomainError(
                 "Pending confirmation sessions must not have a result_payload"
             )
+        return self
 
 
-@dataclass
-class AccountsResult:
+class AccountsResult(BaseModel):
     """Connector result for account listing flows."""
 
     status: OperationStatus
-    accounts: list[dict[str, Any]] = field(default_factory=list)
+    accounts: list[dict[str, Any]] = []
     session_state: bytes = b""
     expires_at: datetime | None = None
     failure_reason: str | None = None
 
-    def __post_init__(self) -> None:
+    @model_validator(mode="after")
+    def _validate(self) -> AccountsResult:
         _validate_connector_result(
             status=self.status,
             session_state=self.session_state,
             expires_at=self.expires_at,
             failure_reason=self.failure_reason,
         )
+        return self
 
 
-@dataclass
-class TransactionsResult:
+class TransactionsResult(BaseModel):
     """Connector result for transaction-history flows."""
 
     status: OperationStatus
-    transactions: list[dict[str, Any]] = field(default_factory=list)
+    transactions: list[dict[str, Any]] = []
     session_state: bytes = b""
     expires_at: datetime | None = None
     failure_reason: str | None = None
 
-    def __post_init__(self) -> None:
+    @model_validator(mode="after")
+    def _validate(self) -> TransactionsResult:
         _validate_connector_result(
             status=self.status,
             session_state=self.session_state,
             expires_at=self.expires_at,
             failure_reason=self.failure_reason,
         )
+        return self
 
 
-@dataclass
-class BalancesResult:
+class BalancesResult(BaseModel):
     """Connector result for balance query flows."""
 
     status: OperationStatus
-    balances: list[dict[str, Any]] = field(default_factory=list)
+    balances: list[dict[str, Any]] = []
     session_state: bytes = b""
     expires_at: datetime | None = None
     failure_reason: str | None = None
 
-    def __post_init__(self) -> None:
+    @model_validator(mode="after")
+    def _validate(self) -> BalancesResult:
         _validate_connector_result(
             status=self.status,
             session_state=self.session_state,
             expires_at=self.expires_at,
             failure_reason=self.failure_reason,
         )
+        return self
 
 
-@dataclass
-class TanMethodsResult:
+class TanMethodsResult(BaseModel):
     """Connector result for TAN-method discovery flows."""
 
     status: OperationStatus
-    methods: list[TanMethod] = field(default_factory=list)
+    methods: list[TanMethod] = []
     session_state: bytes = b""
     expires_at: datetime | None = None
     failure_reason: str | None = None
 
-    def __post_init__(self) -> None:
+    @model_validator(mode="after")
+    def _validate(self) -> TanMethodsResult:
         _validate_connector_result(
             status=self.status,
             session_state=self.session_state,
             expires_at=self.expires_at,
             failure_reason=self.failure_reason,
         )
+        return self
 
 
-@dataclass
-class ResumeResult:
+class ResumeResult(BaseModel):
     """Connector result when resuming a pending decoupled operation."""
 
     status: OperationStatus
@@ -184,7 +189,8 @@ class ResumeResult:
     expires_at: datetime | None = None
     failure_reason: str | None = None
 
-    def __post_init__(self) -> None:
+    @model_validator(mode="after")
+    def _validate(self) -> ResumeResult:
         _validate_connector_result(
             status=self.status,
             session_state=self.session_state,
@@ -195,6 +201,7 @@ class ResumeResult:
             raise DomainError(
                 "Completed ResumeResult instances must have a result_payload"
             )
+        return self
 
 
 def _validate_connector_result(

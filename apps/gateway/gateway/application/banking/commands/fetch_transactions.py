@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import TYPE_CHECKING, Self
+
+from pydantic import BaseModel
 
 from gateway.application.common import (
     IdProvider,
@@ -35,8 +36,7 @@ if TYPE_CHECKING:
     from gateway.application.ports import ApplicationFactory
 
 
-@dataclass(frozen=True)
-class FetchTransactionsInput:
+class FetchTransactionsInput(BaseModel, frozen=True):
     """Input payload for fetching historical transactions."""
 
     protocol: BankProtocol

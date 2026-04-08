@@ -25,7 +25,7 @@ from geldstrom.domain import (
     TransactionEntry,
     TransactionFeed,
 )
-from geldstrom.infrastructure.fints import GatewayCredentials
+from geldstrom.infrastructure.fints.credentials import GatewayCredentials
 from geldstrom.infrastructure.fints.session import FinTSSessionState
 
 # =============================================================================
@@ -154,6 +154,18 @@ class TestClientInitialization:
         assert client._credentials is creds
         assert not client.is_connected
 
+    def test_rejects_non_fints_session_state(self):
+        """session_state must be a concrete FinTSSessionState."""
+        with pytest.raises(TypeError, match="FinTSSessionState"):
+            FinTS3Client(
+                bank_code="12345678",
+                server_url="https://example.com/fints",
+                user_id="testuser",
+                pin="testpin",
+                product_id="TESTPROD",
+                session_state=object(),
+            )
+
     def test_implements_bank_client_protocol(self):
         """FinTS3Client inherits from BankClient."""
         # FinTS3Client explicitly inherits from BankClient
@@ -168,24 +180,30 @@ class TestClientInitialization:
 class TestConnectionManagement:
     """Tests for connection lifecycle."""
 
-    @patch("geldstrom.clients.fints3.FinTSSessionAdapter")
-    @patch("geldstrom.clients.fints3.FinTSAccountDiscovery")
+    @patch("geldstrom.clients.fints3.FinTSConnectionHelper")
+    @patch("geldstrom.clients.fints3.FinTSAccountService")
     def test_connect_returns_accounts(
         self,
         mock_discovery_cls,
-        mock_session_cls,
+        mock_helper_cls,
         sample_account,
         mock_session_state,
     ):
         """connect() establishes session and returns accounts."""
         # Setup mocks
-        mock_session = MagicMock()
-        mock_session.open_session.return_value = mock_session_state
-        mock_session_cls.return_value = mock_session
+        mock_helper = MagicMock()
+        mock_ctx = MagicMock()
+        mock_ctx.parameters.bpd.get_supported_operations.return_value = {}
+        mock_helper.connect.return_value.__enter__ = MagicMock(return_value=mock_ctx)
+        mock_helper.connect.return_value.__exit__ = MagicMock(return_value=False)
+        mock_helper.create_session_state.return_value = mock_session_state
+        mock_helper_cls.return_value = mock_helper
 
         mock_discovery = MagicMock()
-        mock_discovery.fetch_bank_capabilities.return_value = BankCapabilities()
-        mock_discovery.fetch_accounts.return_value = [sample_account]
+        mock_discovery.discover_from_context.return_value = MagicMock(
+            accounts=[sample_account],
+            capabilities=BankCapabilities(),
+        )
         mock_discovery_cls.return_value = mock_discovery
 
         # Test
@@ -202,15 +220,10 @@ class TestConnectionManagement:
         assert len(accounts) == 1
         assert accounts[0].account_id == "123456:0"
         assert client.is_connected
-        mock_session.open_session.assert_called_once()
-        mock_discovery.fetch_accounts.assert_called_once()
+        mock_helper.connect.assert_called_once()
 
-    @patch("geldstrom.clients.fints3.FinTSSessionAdapter")
-    def test_disconnect_closes_session(self, mock_session_cls, mock_session_state):
-        """disconnect() closes the session."""
-        mock_session = MagicMock()
-        mock_session_cls.return_value = mock_session
-
+    def test_disconnect_clears_state(self, mock_session_state):
+        """disconnect() clears connected state."""
         client = FinTS3Client(
             bank_code="12345678",
             server_url="https://example.com/fints",
@@ -219,22 +232,14 @@ class TestConnectionManagement:
             product_id="TESTPROD",
         )
         client._session_state = mock_session_state
-        client._session_adapter = mock_session
         client._connected = True
 
         client.disconnect()
 
         assert not client.is_connected
-        mock_session.close_session.assert_called_once_with(mock_session_state)
 
-    @patch("geldstrom.clients.fints3.FinTSSessionAdapter")
-    def test_disconnect_clears_cached_data(
-        self, mock_session_cls, mock_session_state, sample_account
-    ):
+    def test_disconnect_clears_cached_data(self, mock_session_state, sample_account):
         """disconnect() clears cached accounts and capabilities."""
-        mock_session = MagicMock()
-        mock_session_cls.return_value = mock_session
-
         client = FinTS3Client(
             bank_code="12345678",
             server_url="https://example.com/fints",
@@ -243,7 +248,6 @@ class TestConnectionManagement:
             product_id="TESTPROD",
         )
         client._session_state = mock_session_state
-        client._session_adapter = mock_session
         client._accounts = [sample_account]
         client._capabilities = BankCapabilities()
         client._connected = True
@@ -254,23 +258,29 @@ class TestConnectionManagement:
         assert client._capabilities is None
         assert not client.is_connected
 
-    @patch("geldstrom.clients.fints3.FinTSSessionAdapter")
-    @patch("geldstrom.clients.fints3.FinTSAccountDiscovery")
+    @patch("geldstrom.clients.fints3.FinTSConnectionHelper")
+    @patch("geldstrom.clients.fints3.FinTSAccountService")
     def test_ensure_connected_reconnects_when_disconnected(
         self,
         mock_discovery_cls,
-        mock_session_cls,
+        mock_helper_cls,
         sample_account,
         mock_session_state,
     ):
         """ensure_connected() triggers connect() when not connected."""
-        mock_session = MagicMock()
-        mock_session.open_session.return_value = mock_session_state
-        mock_session_cls.return_value = mock_session
+        mock_helper = MagicMock()
+        mock_ctx = MagicMock()
+        mock_ctx.parameters.bpd.get_supported_operations.return_value = {}
+        mock_helper.connect.return_value.__enter__ = MagicMock(return_value=mock_ctx)
+        mock_helper.connect.return_value.__exit__ = MagicMock(return_value=False)
+        mock_helper.create_session_state.return_value = mock_session_state
+        mock_helper_cls.return_value = mock_helper
 
         mock_discovery = MagicMock()
-        mock_discovery.fetch_bank_capabilities.return_value = BankCapabilities()
-        mock_discovery.fetch_accounts.return_value = [sample_account]
+        mock_discovery.discover_from_context.return_value = MagicMock(
+            accounts=[sample_account],
+            capabilities=BankCapabilities(),
+        )
         mock_discovery_cls.return_value = mock_discovery
 
         client = FinTS3Client(
@@ -286,7 +296,7 @@ class TestConnectionManagement:
         client.ensure_connected()
 
         assert client.is_connected
-        mock_session.open_session.assert_called_once()
+        mock_helper.connect.assert_called_once()
 
     def test_ensure_connected_noop_when_connected(self, sample_account):
         """ensure_connected() does nothing when already connected."""
@@ -305,23 +315,29 @@ class TestConnectionManagement:
 
         assert client.is_connected
 
-    @patch("geldstrom.clients.fints3.FinTSSessionAdapter")
-    @patch("geldstrom.clients.fints3.FinTSAccountDiscovery")
+    @patch("geldstrom.clients.fints3.FinTSConnectionHelper")
+    @patch("geldstrom.clients.fints3.FinTSAccountService")
     def test_context_manager(
         self,
         mock_discovery_cls,
-        mock_session_cls,
+        mock_helper_cls,
         sample_account,
         mock_session_state,
     ):
         """Client works as context manager."""
-        mock_session = MagicMock()
-        mock_session.open_session.return_value = mock_session_state
-        mock_session_cls.return_value = mock_session
+        mock_helper = MagicMock()
+        mock_ctx = MagicMock()
+        mock_ctx.parameters.bpd.get_supported_operations.return_value = {}
+        mock_helper.connect.return_value.__enter__ = MagicMock(return_value=mock_ctx)
+        mock_helper.connect.return_value.__exit__ = MagicMock(return_value=False)
+        mock_helper.create_session_state.return_value = mock_session_state
+        mock_helper_cls.return_value = mock_helper
 
         mock_discovery = MagicMock()
-        mock_discovery.fetch_bank_capabilities.return_value = BankCapabilities()
-        mock_discovery.fetch_accounts.return_value = [sample_account]
+        mock_discovery.discover_from_context.return_value = MagicMock(
+            accounts=[sample_account],
+            capabilities=BankCapabilities(),
+        )
         mock_discovery_cls.return_value = mock_discovery
 
         client = FinTS3Client(
@@ -337,7 +353,6 @@ class TestConnectionManagement:
             assert len(c.list_accounts()) == 1
 
         assert not client.is_connected
-        mock_session.close_session.assert_called_once()
 
 
 # =============================================================================
@@ -405,7 +420,7 @@ class TestAccountOperations:
 class TestBalanceOperations:
     """Tests for balance operations."""
 
-    @patch("geldstrom.clients.fints3.FinTSBalanceAdapter")
+    @patch("geldstrom.clients.fints3.FinTSBalanceService")
     def test_get_balance_with_account_object(
         self,
         mock_adapter_cls,
@@ -436,7 +451,7 @@ class TestBalanceOperations:
             mock_session_state, sample_account
         )
 
-    @patch("geldstrom.clients.fints3.FinTSBalanceAdapter")
+    @patch("geldstrom.clients.fints3.FinTSBalanceService")
     def test_get_balance_with_account_id(
         self,
         mock_adapter_cls,
@@ -473,7 +488,7 @@ class TestBalanceOperations:
 class TestTransactionOperations:
     """Tests for transaction operations."""
 
-    @patch("geldstrom.clients.fints3.FinTSTransactionHistory")
+    @patch("geldstrom.clients.fints3.FinTSTransactionService")
     def test_get_transactions_with_dates(
         self,
         mock_adapter_cls,
@@ -510,7 +525,7 @@ class TestTransactionOperations:
             include_pending=False,
         )
 
-    @patch("geldstrom.clients.fints3.FinTSTransactionHistory")
+    @patch("geldstrom.clients.fints3.FinTSTransactionService")
     def test_get_transactions_with_account_id(
         self,
         mock_adapter_cls,

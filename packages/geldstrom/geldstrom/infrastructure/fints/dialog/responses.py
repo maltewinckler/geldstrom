@@ -50,8 +50,8 @@ class ProcessedResponse:
     upd_version: int | None = None
     bpd_segments: SegmentSequence | None = None
     upd_segments: SegmentSequence | None = None
-    bpa: object | None = None  # HIBPA segment
-    upa: object | None = None  # HIUPA segment
+    bpa: HIBPA3 | None = None
+    upa: HIUPA4 | None = None
     raw_response: FinTSInstituteMessage | None = (
         None  # Full response for segment access
     )

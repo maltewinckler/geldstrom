@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from geldstrom.domain.connection.challenge import (
+from geldstrom.infrastructure.fints.challenge import (
     Challenge,
     ChallengeData,
     ChallengeType,
@@ -25,14 +25,14 @@ class FinTSChallenge(Challenge):
         _is_decoupled: Whether this is a decoupled (app-based) challenge
     """
 
-    def __init__(self, hitan: Any) -> None:
+    def __init__(self, hitan: Any, *, is_decoupled: bool | None = None) -> None:
         self._hitan = hitan
         self._task_reference = getattr(hitan, "task_reference", None)
 
         # Extract challenge text
         self._challenge_text = getattr(hitan, "challenge", None)
 
-        # Extract HHD_UC data for flicker/visual challenges
+        # Extract HHD_UC data for visual challenges
         hhduc_data = getattr(hitan, "challenge_hhduc", None)
         if hhduc_data:
             self._challenge_data = ChallengeData(
@@ -44,17 +44,18 @@ class FinTSChallenge(Challenge):
         else:
             self._challenge_data = None
 
-        # Decoupled TAN: no direct user input needed, just app confirmation
-        # We detect this by the presence of task_reference without HHD_UC data
-        self._is_decoupled = self._task_reference is not None and hhduc_data is None
+        # Decoupled TAN: no direct user input needed, just app confirmation.
+        # Use explicit flag if provided (from TAN strategy), else heuristic.
+        if is_decoupled is not None:
+            self._is_decoupled = is_decoupled
+        else:
+            self._is_decoupled = self._task_reference is not None and hhduc_data is None
 
     @property
     def challenge_type(self) -> ChallengeType:
         """The type of challenge presented to the user."""
         if self._is_decoupled:
             return ChallengeType.DECOUPLED
-        if self._challenge_data:
-            return ChallengeType.FLICKER
         return ChallengeType.TEXT
 
     @property
@@ -69,7 +70,7 @@ class FinTSChallenge(Challenge):
 
     @property
     def challenge_data(self) -> ChallengeData | None:
-        """Binary data for visual challenges (QR, flicker, photo)."""
+        """Binary data for visual challenges."""
         return self._challenge_data
 
     @property

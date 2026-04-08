@@ -16,7 +16,7 @@ class FakeReadinessService:
 
 
 def test_get_readiness_returns_ready_when_all_checks_pass() -> None:
-    status = ReadinessStatus(db=True, product_key=True, catalog=True)
+    status = ReadinessStatus(db=True, product_key=True, catalog=True, redis=True)
     result = asyncio.run(GetReadinessQuery(FakeReadinessService(status))())
 
     assert result is status
@@ -24,7 +24,7 @@ def test_get_readiness_returns_ready_when_all_checks_pass() -> None:
 
 
 def test_get_readiness_is_ready_computed_field_false_when_db_down() -> None:
-    status = ReadinessStatus(db=False, product_key=False, catalog=False)
+    status = ReadinessStatus(db=False, product_key=False, catalog=False, redis=True)
     result = asyncio.run(GetReadinessQuery(FakeReadinessService(status))())
 
     assert result.is_ready is False
@@ -32,7 +32,7 @@ def test_get_readiness_is_ready_computed_field_false_when_db_down() -> None:
 
 
 def test_get_readiness_is_ready_false_when_catalog_empty() -> None:
-    status = ReadinessStatus(db=True, product_key=True, catalog=False)
+    status = ReadinessStatus(db=True, product_key=True, catalog=False, redis=True)
     result = asyncio.run(GetReadinessQuery(FakeReadinessService(status))())
 
     assert result.is_ready is False
@@ -40,7 +40,7 @@ def test_get_readiness_is_ready_false_when_catalog_empty() -> None:
 
 
 def test_get_readiness_is_ready_false_when_product_key_missing() -> None:
-    status = ReadinessStatus(db=True, product_key=False, catalog=True)
+    status = ReadinessStatus(db=True, product_key=False, catalog=True, redis=True)
     result = asyncio.run(GetReadinessQuery(FakeReadinessService(status))())
 
     assert result.is_ready is False
@@ -48,7 +48,7 @@ def test_get_readiness_is_ready_false_when_product_key_missing() -> None:
 
 
 def test_readiness_status_is_frozen() -> None:
-    status = ReadinessStatus(db=True, product_key=True, catalog=True)
+    status = ReadinessStatus(db=True, product_key=True, catalog=True, redis=True)
     try:
         status.db = False  # type: ignore[misc]
         raise AssertionError("Expected ValidationError on mutation")

@@ -8,32 +8,34 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Any
 
+from pydantic import BaseModel
+
 from geldstrom.domain import (
     Account,
     BalanceSnapshot,
-    SessionToken,
-    TANConfig,
     TransactionFeed,
 )
-from geldstrom.domain.connection import (
+from geldstrom.infrastructure.fints.challenge import (
     Challenge,
     ChallengeHandler,
+    DecoupledTANPending,
     DetachingChallengeHandler,
+    TANConfig,
 )
-from geldstrom.domain.connection.challenge import DecoupledTANPending
-from geldstrom.domain.model.tan import TANMethod
-from geldstrom.infrastructure.fints.adapters.connection import ConnectionContext
 from geldstrom.infrastructure.fints.operations.transactions import (
-    TransactionOperations,
+    parse_camt_approved_response,
+    parse_mt940_approved_response,
 )
+from geldstrom.infrastructure.fints.session import FinTSSessionState
+from geldstrom.infrastructure.fints.support.connection import ConnectionContext
+from geldstrom.infrastructure.fints.tan import TANMethod
 
 from .fints3 import FinTS3Client
 
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class PollResult:
+class PollResult(BaseModel):
     """Result of a single decoupled TAN poll."""
 
     status: str  # "pending", "approved", "failed", "expired"
@@ -73,7 +75,7 @@ class FinTS3ClientDecoupled(FinTS3Client):
 
     def _init_common(
         self,
-        session_state: SessionToken | None,
+        session_state: FinTSSessionState | None,
         challenge_handler: ChallengeHandler | None,
         tan_config: TANConfig | None,
     ) -> None:
@@ -83,20 +85,6 @@ class FinTS3ClientDecoupled(FinTS3Client):
             tan_config,
         )
         self._pending: _PendingTANState | None = None
-
-    @classmethod
-    def from_gateway_credentials(
-        cls,
-        credentials,
-        *,
-        session_state: SessionToken | None = None,
-        challenge_handler: ChallengeHandler | None = None,
-        tan_config: TANConfig | None = None,
-    ) -> FinTS3ClientDecoupled:
-        instance = cls.__new__(cls)
-        instance._credentials = credentials
-        instance._init_common(session_state, challenge_handler, tan_config)
-        return instance
 
     def get_transactions(
         self,
@@ -113,7 +101,7 @@ class FinTS3ClientDecoupled(FinTS3Client):
         except DecoupledTANPending as pending:
             account_id = account.account_id if isinstance(account, Account) else account
             self._pending = _PendingTANState(
-                context=pending.context,  # type: ignore[attr-defined]
+                context=pending.context,
                 task_reference=pending.task_reference,
                 challenge=pending.challenge,
                 operation_type="transactions",
@@ -121,8 +109,25 @@ class FinTS3ClientDecoupled(FinTS3Client):
                     "account_id": account_id,
                     "start_date": start_date,
                     "end_date": end_date,
+                    "include_pending": include_pending,
+                    "was_connected": self._connected,
                 },
             )
+            self._store_session_state(pending.context)
+            raise
+
+    def connect(self) -> Sequence[Account]:
+        try:
+            return super().connect()
+        except DecoupledTANPending as pending:
+            self._pending = _PendingTANState(
+                context=pending.context,
+                task_reference=pending.task_reference,
+                challenge=pending.challenge,
+                operation_type="connect",
+                operation_meta={"was_connected": self._connected},
+            )
+            self._store_session_state(pending.context)
             raise
 
     def list_accounts(self) -> Sequence[Account]:
@@ -130,12 +135,31 @@ class FinTS3ClientDecoupled(FinTS3Client):
             return super().list_accounts()
         except DecoupledTANPending as pending:
             self._pending = _PendingTANState(
-                context=pending.context,  # type: ignore[attr-defined]
+                context=pending.context,
                 task_reference=pending.task_reference,
                 challenge=pending.challenge,
                 operation_type="accounts",
-                operation_meta={},
+                operation_meta={"was_connected": self._connected},
             )
+            self._store_session_state(pending.context)
+            raise
+
+    def get_balance(self, account: Account | str) -> BalanceSnapshot:
+        try:
+            return super().get_balance(account)
+        except DecoupledTANPending as pending:
+            account_id = account.account_id if isinstance(account, Account) else account
+            self._pending = _PendingTANState(
+                context=pending.context,
+                task_reference=pending.task_reference,
+                challenge=pending.challenge,
+                operation_type="balance",
+                operation_meta={
+                    "account_id": account_id,
+                    "was_connected": self._connected,
+                },
+            )
+            self._store_session_state(pending.context)
             raise
 
     def get_balances(
@@ -146,12 +170,18 @@ class FinTS3ClientDecoupled(FinTS3Client):
             return super().get_balances(account_ids)
         except DecoupledTANPending as pending:
             self._pending = _PendingTANState(
-                context=pending.context,  # type: ignore[attr-defined]
+                context=pending.context,
                 task_reference=pending.task_reference,
                 challenge=pending.challenge,
                 operation_type="balances",
-                operation_meta={},
+                operation_meta={
+                    "account_ids": tuple(account_ids)
+                    if account_ids is not None
+                    else None,
+                    "was_connected": self._connected,
+                },
             )
+            self._store_session_state(pending.context)
             raise
 
     def get_tan_methods(self) -> Sequence[TANMethod]:
@@ -159,12 +189,13 @@ class FinTS3ClientDecoupled(FinTS3Client):
             return super().get_tan_methods()
         except DecoupledTANPending as pending:
             self._pending = _PendingTANState(
-                context=pending.context,  # type: ignore[attr-defined]
+                context=pending.context,
                 task_reference=pending.task_reference,
                 challenge=pending.challenge,
                 operation_type="tan_methods",
-                operation_meta={},
+                operation_meta={"was_connected": self._connected},
             )
+            self._store_session_state(pending.context)
             raise
 
     def poll_tan(self) -> PollResult:
@@ -183,44 +214,245 @@ class FinTS3ClientDecoupled(FinTS3Client):
             return PollResult(status="pending")
 
         # TAN approved — parse the response based on operation type
-        data = self._parse_approved_response(response)
+        data = self._complete_approved_operation(response)
         self.cleanup_pending()
         return PollResult(status="approved", data=data)
 
-    def _parse_approved_response(self, response) -> Any:
+    def _complete_approved_operation(self, response) -> Any:
         op = self._pending
         if op is None:
             return None
 
+        ctx = op.context
+
+        if op.operation_type in {"connect", "accounts"}:
+            return self._resume_accounts_from_context(ctx)
+
+        if op.operation_type == "tan_methods":
+            return self._extract_tan_methods_from_context(ctx)
+
+        was_connected = bool(op.operation_meta.get("was_connected", self._connected))
+        if not was_connected:
+            self._resume_accounts_from_context(ctx)
+
         if op.operation_type == "transactions":
-            result = TransactionOperations.parse_mt940_from_response(response)
-            if result.transactions:
-                adapter = self._get_transaction_adapter()
-                return adapter._transactions_from_mt940(
-                    op.operation_meta["account_id"],
-                    result.transactions,
-                    has_more=result.has_more,
-                )
-            # Try CAMT
-            camt_result = TransactionOperations.parse_camt_from_response(response)
-            if camt_result.booked_documents:
-                adapter = self._get_transaction_adapter()
-                return adapter._transactions_from_camt(
-                    op.operation_meta["account_id"],
-                    camt_result.booked_documents,
-                    camt_result.pending_documents,
-                    has_more=camt_result.has_more,
-                )
-            return TransactionFeed(
-                account_id=op.operation_meta["account_id"],
-                entries=[],
-                start_date=op.operation_meta.get("start_date") or date.today(),
-                end_date=op.operation_meta.get("end_date") or date.today(),
+            account_id = op.operation_meta["account_id"]
+            if was_connected:
+                feed = parse_mt940_approved_response(response, account_id)
+                if feed.entries:
+                    self._store_session_state(ctx)
+                    return feed
+
+                feed = parse_camt_approved_response(response, account_id)
+                if feed.entries:
+                    self._store_session_state(ctx)
+                    return feed
+
+            return self._fetch_transactions_from_context(
+                ctx,
+                account_id,
+                op.operation_meta.get("start_date"),
+                op.operation_meta.get("end_date"),
+                include_pending=bool(op.operation_meta.get("include_pending", False)),
             )
 
-        # For other operation types, return the raw response —
-        # the gateway connector will handle the specifics.
-        return response
+        if op.operation_type == "balance":
+            return self._fetch_balance_from_context(
+                ctx,
+                op.operation_meta["account_id"],
+            )
+
+        if op.operation_type == "balances":
+            return self._fetch_balances_from_context(
+                ctx,
+                op.operation_meta.get("account_ids"),
+            )
+
+        return None
+
+    def _resume_accounts_from_context(
+        self,
+        ctx: ConnectionContext,
+    ) -> Sequence[Account]:
+        discovery = self._get_account_service().discover_from_context(ctx)
+        self._accounts = discovery.accounts
+        self._capabilities = discovery.capabilities
+        self._connected = True
+        self._store_session_state(ctx)
+        return self._accounts
+
+    def _fetch_balance_from_context(
+        self,
+        ctx: ConnectionContext,
+        account_id: str,
+    ) -> BalanceSnapshot:
+        from geldstrom.infrastructure.fints.operations import (
+            AccountOperations,
+            BalanceOperations,
+        )
+        from geldstrom.infrastructure.fints.support.helpers import locate_sepa_account
+
+        account_ops = AccountOperations(ctx.dialog, ctx.parameters)
+        balance_ops = BalanceOperations(ctx.dialog, ctx.parameters)
+        sepa_account = locate_sepa_account(account_ops, account_id)
+        result = balance_ops.fetch_balance(sepa_account)
+        snapshot = self._get_balance_service()._balance_from_operations(
+            account_id,
+            result,
+        )
+        self._store_session_state(ctx)
+        return snapshot
+
+    def _fetch_balances_from_context(
+        self,
+        ctx: ConnectionContext,
+        account_ids: Sequence[str] | None,
+    ) -> Sequence[BalanceSnapshot]:
+        from geldstrom.infrastructure.fints.operations import (
+            AccountOperations,
+            BalanceOperations,
+        )
+        from geldstrom.infrastructure.fints.support.helpers import account_key
+
+        account_ops = AccountOperations(ctx.dialog, ctx.parameters)
+        balance_ops = BalanceOperations(ctx.dialog, ctx.parameters)
+        balance_service = self._get_balance_service()
+
+        sepa_accounts = account_ops.fetch_sepa_accounts()
+        sepa_lookup = {account_key(sepa): sepa for sepa in sepa_accounts}
+        target_ids = account_ids or tuple(sepa_lookup.keys())
+        if account_ids is not None:
+            unknown_ids = set(account_ids) - set(sepa_lookup.keys())
+            if unknown_ids:
+                raise ValueError(
+                    f"Unknown account ID(s): {', '.join(sorted(unknown_ids))}"
+                )
+
+        results: list[BalanceSnapshot] = []
+        for account_id in target_ids:
+            sepa = sepa_lookup.get(account_id)
+            if not sepa:
+                continue
+            try:
+                result = balance_ops.fetch_balance(sepa)
+                results.append(
+                    balance_service._balance_from_operations(account_id, result)
+                )
+            except Exception as e:
+                logger.warning("Failed to fetch balance for %s: %s", account_id, e)
+
+        self._store_session_state(ctx)
+        return tuple(results)
+
+    def _fetch_transactions_from_context(
+        self,
+        ctx: ConnectionContext,
+        account_id: str,
+        start_date: date | None,
+        end_date: date | None,
+        *,
+        include_pending: bool,
+    ) -> TransactionFeed:
+        from geldstrom.infrastructure.fints.operations import AccountOperations
+        from geldstrom.infrastructure.fints.operations.transactions import (
+            CamtFetcher,
+            Mt940Fetcher,
+        )
+        from geldstrom.infrastructure.fints.support.helpers import locate_sepa_account
+
+        account_ops = AccountOperations(ctx.dialog, ctx.parameters)
+        sepa_account = locate_sepa_account(account_ops, account_id)
+        mt940 = Mt940Fetcher(ctx.dialog, ctx.parameters)
+        camt = CamtFetcher(ctx.dialog, ctx.parameters)
+        transaction_service = self._get_transaction_service()
+
+        if include_pending:
+            feed = transaction_service._fetch_with_camt_preferred(
+                mt940,
+                camt,
+                sepa_account,
+                account_id,
+                start_date,
+                end_date,
+                include_pending,
+            )
+        else:
+            feed = transaction_service._fetch_with_mt940_preferred(
+                mt940,
+                camt,
+                sepa_account,
+                account_id,
+                start_date,
+                end_date,
+            )
+
+        self._store_session_state(ctx)
+        return feed
+
+    def _extract_tan_methods_from_context(
+        self,
+        ctx: ConnectionContext,
+    ) -> Sequence[TANMethod]:
+        methods = self._get_tan_methods_service()._extract_tan_methods(ctx.parameters)
+        self._store_session_state(ctx)
+        return methods
+
+    def _store_session_state(self, ctx: ConnectionContext | None) -> None:
+        if ctx is None:
+            return
+        self._session_state = self._get_session_helper().create_session_state(ctx)
+
+    def snapshot_pending(self) -> bytes:
+        """Serialize the pending TAN state and release the live connection.
+
+        Returns the ``DecoupledSessionSnapshot`` as bytes suitable for
+        external storage (e.g. Redis).  After this call the live dialog
+        and connection are closed — resumption must go through
+        ``FinTSConnectionHelper.resume_for_polling()`` with fresh
+        credentials.
+
+        Raises ``RuntimeError`` if there is no pending TAN challenge.
+        """
+        from geldstrom.infrastructure.fints.session_snapshot import (
+            DecoupledSessionSnapshot,
+        )
+
+        if self._pending is None:
+            raise RuntimeError("No pending TAN challenge to snapshot")
+
+        ctx = self._pending.context
+        helper = self._get_session_helper()
+
+        # Capture the dialog snapshot (dialog_id, message_number, …)
+        dialog_snapshot = ctx.dialog.snapshot()
+
+        # Serialize ParameterStore + system_id via FinTSSessionState
+        session_state = helper.create_session_state(ctx)
+        fints_session_state = session_state.serialize()
+
+        snapshot = DecoupledSessionSnapshot(
+            dialog_snapshot=dialog_snapshot.to_dict(),
+            task_reference=self._pending.task_reference,
+            fints_session_state=fints_session_state,
+            server_url=ctx.credentials.server_url,
+            operation_type=self._pending.operation_type,
+            operation_meta=self._pending.operation_meta,
+        )
+
+        serialized = snapshot.serialize()
+
+        # Release only the network connection — do NOT send HKEND, because
+        # the dialog must remain open at the bank so that subsequent
+        # HKTAN process=S poll messages are accepted.
+        pending = self._pending
+        self._pending = None
+        try:
+            if pending.context.connection is not None:
+                pending.context.connection.close()
+        except Exception:
+            logger.debug("Error closing connection after snapshot", exc_info=True)
+
+        return serialized
 
     @property
     def has_pending_tan(self) -> bool:

@@ -1,34 +1,27 @@
 # Geldstrom
 
-!!!! Under Construction !!!!
-!!!! Note: Description is AI generated !!!!
-
-Access your German bank accounts programmatically. Geldstrom is a Python client for FinTS 3.0, the standardized banking protocol used by Sparkassen, Volksbanken, Deutsche Bank, DKB, and most other German financial institutions.
+Access German bank accounts programmatically. Geldstrom is a pure-Python FinTS 3.0 client and a self-hostable banking gateway for reading accounts, balances, and transaction history from Sparkassen, Volksbanken, Deutsche Bank, DKB, and most other German financial institutions.
 
 [![Python 3.13+](https://img.shields.io/badge/python-3.13+-blue.svg)](https://www.python.org/downloads/)
 [![License: LGPL v3](https://img.shields.io/badge/License-LGPL%20v3-blue.svg)](https://www.gnu.org/licenses/lgpl-3.0.en.html)
 
-## Features
+---
 
-- **Account access** — List accounts, fetch balances, download transaction history
-- **Modern TAN support** — Decoupled authentication via SecureGo, pushTAN, and similar app-based methods
-- **Multiple formats** — Parses both legacy MT940 and modern CAMT.052/053 transaction data
-- **Type-safe** — Pydantic models with full validation throughout
-- **Read-only** — Designed for data retrieval, not transfers (safe by default)
+## Monorepo layout
 
-## Installation
+| Component | Path | Description |
+|-----------|------|-------------|
+| **geldstrom** | `packages/geldstrom/` | Pure-Python FinTS 3.0 client library |
+| **gateway** | `apps/gateway/` | FastAPI banking gateway (REST → FinTS) |
+| **gateway-admin-cli** | `apps/gateway_admin_cli/` | Admin CLI for managing the gateway DB |
+| **gateway-contracts** | `packages/gateway-contracts/` | Shared SQLAlchemy schema and NOTIFY channels |
+| **geldstrom-cli** | `packages/geldstrom_cli/` | Developer CLI for manual gateway testing |
 
-```bash
-pip install geldstrom
-```
+Data: `data/fints_institute.csv` — Bundesbank-sourced FinTS institute catalog (BLZ → PIN-TAN URL).
 
-Or with uv:
+---
 
-```bash
-uv add geldstrom
-```
-
-## Quick Start
+## Quick start — library
 
 ```python
 from geldstrom import FinTS3Client
@@ -38,415 +31,227 @@ with FinTS3Client(
     server_url="https://banking.example.com/fints",
     user_id="your_username",
     pin="your_pin",
-    product_id="YOUR_PRODUCT_ID",
+    product_id="YOUR_PRODUCT_ID",   # register at fints.org (free)
+    tan_method="946",               # required by most banks
 ) as client:
-    # List accounts
     for account in client.list_accounts():
-        print(f"{account.iban} ({account.currency})")
-
-    # Get balance
-    balance = client.get_balance(account)
-    print(f"Balance: {balance.booked.amount} {balance.booked.currency}")
-
-    # Fetch transactions
-    transactions = client.get_transactions(account)
-    for tx in transactions.entries:
-        print(f"{tx.booking_date}: {tx.amount} {tx.currency} - {tx.purpose}")
+        balance = client.get_balance(account)
+        print(f"{account.iban}: {balance.booked.amount} {balance.booked.currency}")
 ```
 
-**Note:** The `product_id` requires registration with the [Deutsche Kreditwirtschaft](https://www.die-dk.de/) (German Banking Industry Committee). Register at [fints.org](https://www.fints.org/de/hersteller/produktregistrierung)). It is for free and usually, they respond rather quickly (think weeks, not months).
+For banks that require app-based 2FA (SecureGo+, pushTAN, …) without blocking, use `FinTS3ClientDecoupled` — see `packages/geldstrom/README.md` and `examples/`.
 
-## API Reference
+> **Product ID**: Registration with the [Deutsche Kreditwirtschaft](https://www.fints.org/de/hersteller/produktregistrierung) is required and free; responses typically come within days.
 
-### FinTS3Client
+---
 
-The main client class for interacting with banks.
+## Quick start — gateway (Docker)
 
-#### Constructor
+```bash
+cp config/admin_cli.env.example config/admin_cli.env   # fill in passwords
+cp config/gateway.env.example   config/gateway.env     # fill in passwords
+
+docker compose up -d
+
+# One-time setup (run once after first start)
+docker compose run --rm gateway-admin-cli gw-admin db init
+docker compose run --rm gateway-admin-cli gw-admin catalog sync /data/fints_institute.csv
+docker compose run --rm gateway-admin-cli gw-admin users create you@example.com
+# → prints API key once; copy it
+
+curl http://localhost:8000/health/ready
+# → {"status":"ready","checks":{"db":"ok","product_key":"loaded","catalog":"ok"}}
+```
+
+Full walkthrough: `docs/developer/getting-started.md`
+
+---
+
+## API reference (`geldstrom` library)
+
+### `FinTS3Client`
 
 ```python
 from geldstrom import FinTS3Client, TANConfig
 
 FinTS3Client(
-    bank_code: str,           # Bank identifier (BLZ), e.g., "12345678"
-    server_url: str,          # FinTS server URL
-    user_id: str,             # Online banking username
-    pin: str,                 # Online banking PIN
-    product_id: str,          # FinTS product registration ID
+    bank_code: str,                      # BLZ, e.g. "12345678"
+    server_url: str,                     # FinTS PIN/TAN URL
+    user_id: str,                        # Online banking username
+    pin: str,                            # Online banking PIN
+    product_id: str,                     # FinTS product registration ID
     *,
-    country_code: str = "DE", # Country code (default: Germany)
-    customer_id: str = None,  # Customer ID if different from user_id
-    tan_medium: str = None,   # TAN device name (e.g., "SecureGo")
-    tan_method: str = None,   # TAN method identifier (usually auto-detected)
-    tan_config: TANConfig = None,  # TAN polling configuration
+    country_code: str = "DE",
+    customer_id: str | None = None,      # Defaults to user_id
+    tan_medium: str | None = None,       # TAN device name (e.g. "SecureGo+")
+    tan_method: str | None = None,       # TAN method code (e.g. "946")
+    product_version: str = "1.0",
+    session_state: FinTSSessionState | None = None,  # Resume existing session
+    challenge_handler: ChallengeHandler | None = None,
+    tan_config: TANConfig | None = None,
 )
 ```
 
 #### Methods
 
-| Method | Description | Returns |
-|--------|-------------|---------|
-| `connect()` | Establish connection and fetch accounts | `Sequence[Account]` |
-| `disconnect()` | Close the session | `None` |
-| `list_accounts()` | List all accessible accounts | `Sequence[Account]` |
-| `get_account(account_id)` | Get account by ID | `Account` |
-| `get_balance(account)` | Fetch current balance | `BalanceSnapshot` |
-| `get_balances(account_ids)` | Fetch multiple balances | `Sequence[BalanceSnapshot]` |
-| `get_transactions(account, start_date, end_date)` | Fetch transaction history | `TransactionFeed` |
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `connect()` | `Sequence[Account]` | Open dialog and discover accounts |
+| `disconnect()` | `None` | Close session |
+| `list_accounts()` | `Sequence[Account]` | Return cached accounts (calls `connect()` if needed) |
+| `get_account(account_id)` | `Account` | Look up account by ID |
+| `get_balance(account)` | `BalanceSnapshot` | Fetch current balance |
+| `get_balances(account_ids)` | `Sequence[BalanceSnapshot]` | Fetch multiple balances in one dialog |
+| `get_transactions(account, start_date, end_date)` | `TransactionFeed` | Fetch transaction history (MT940 preferred, CAMT fallback) |
+| `get_tan_methods()` | `Sequence[TANMethod]` | List TAN methods from BPD (no TAN required) |
 
 #### Properties
 
-| Property | Description | Type |
-|----------|-------------|------|
-| `is_connected` | Connection status | `bool` |
-| `capabilities` | Bank's advertised capabilities | `BankCapabilities` |
-| `session_state` | Current session for persistence | `SessionToken` |
-| `tan_config` | TAN polling configuration | `TANConfig` |
+| Property | Type | Description |
+|----------|------|-------------|
+| `session_state` | `FinTSSessionState \| None` | Serializable session; persist to skip re-sync next time |
+| `capabilities` | `BankCapabilities \| None` | Bank-advertised supported operations |
+| `is_connected` | `bool` | Whether a live dialog is open |
+| `tan_config` | `TANConfig` | Current TAN polling config (settable) |
 
-#### Context Manager
-
-The client supports the context manager protocol:
+#### Context manager
 
 ```python
 with FinTS3Client(...) as client:
-    # client.connect() called automatically
+    # connect() called automatically on __enter__
     accounts = client.list_accounts()
-# client.disconnect() called automatically
+# disconnect() called automatically on __exit__
 ```
 
-### Data Models
+### Domain models
 
-#### Account
-
-Represents a bank account.
+#### `Account`
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `account_id` | `str` | Unique identifier (format: `account_number:subaccount`) |
-| `iban` | `str` | IBAN |
-| `bic` | `str` | BIC/SWIFT code |
-| `currency` | `str` | Account currency (e.g., "EUR") |
-| `owner` | `AccountOwner` | Account owner information |
-| `capabilities` | `AccountCapabilities` | What operations are supported |
+| `account_id` | `str` | `"<account_number>:<subaccount>"` |
+| `iban` | `str \| None` | IBAN |
+| `bic` | `str \| None` | BIC/SWIFT |
+| `currency` | `str \| None` | Currency code (e.g. `"EUR"`) |
+| `product_name` | `str \| None` | Product label from the bank |
+| `owner` | `AccountOwner \| None` | Account holder name and address |
+| `bank_route` | `BankRoute` | Country code + BLZ |
+| `capabilities` | `AccountCapabilities` | What operations the bank allows |
 
-#### BalanceSnapshot
-
-Current account balance.
+#### `BalanceSnapshot`
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `account_id` | `str` | Account identifier |
-| `booked` | `BalanceAmount` | Booked (confirmed) balance |
-| `pending` | `BalanceAmount \| None` | Pending (unconfirmed) balance |
-| `available` | `BalanceAmount \| None` | Available balance (may differ due to holds) |
-| `credit_limit` | `BalanceAmount \| None` | Credit limit on the account |
 | `as_of` | `datetime` | Timestamp of the balance |
+| `booked` | `BalanceAmount` | Confirmed balance |
+| `pending` | `BalanceAmount \| None` | Pending (unconfirmed) |
+| `available` | `BalanceAmount \| None` | Available balance (may differ from booked due to holds) |
+| `credit_limit` | `BalanceAmount \| None` | Credit limit |
 
-#### TransactionFeed
-
-Collection of transactions.
+#### `TransactionFeed`
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `account_id` | `str` | Account identifier |
-| `start_date` | `date` | Start of date range |
-| `end_date` | `date` | End of date range |
-| `entries` | `list[TransactionEntry]` | Transaction entries |
-| `has_more` | `bool` | Whether more transactions are available (pagination) |
+| `entries` | `Sequence[TransactionEntry]` | Transactions in date range |
+| `start_date` | `date` | Requested range start |
+| `end_date` | `date` | Requested range end |
+| `has_more` | `bool` | Whether pagination cut off results |
 
-#### TransactionEntry
-
-A single transaction.
+#### `TransactionEntry`
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `entry_id` | `str` | Unique transaction identifier |
-| `amount` | `Decimal` | Transaction amount (negative for debits) |
-| `currency` | `str` | Currency code |
-| `booking_date` | `date` | Date booked |
+| `entry_id` | `str` | Stable entry identifier |
+| `booking_date` | `date` | Booking date |
 | `value_date` | `date` | Value date |
-| `purpose` | `str` | Transaction purpose/description |
-| `counterpart_name` | `str` | Name of counterparty |
-| `counterpart_iban` | `str` | IBAN of counterparty |
+| `amount` | `Decimal` | Positive = credit, negative = debit |
+| `currency` | `str` | Transaction currency |
+| `purpose` | `str` | Remittance text |
+| `counterpart_name` | `str \| None` | Other party name |
+| `counterpart_iban` | `str \| None` | Other party IBAN |
 
-## Examples
+---
 
-### List All Accounts
+## Gateway API
 
-Connect to your bank and enumerate all available accounts:
+The gateway exposes a JSON REST API at `http://localhost:8000` (Docker) or configured host/port.
 
-```python
-from geldstrom import FinTS3Client
+### Authentication
 
-with FinTS3Client(
-    bank_code="12345678",
-    server_url="https://banking.example.com/fints",
-    user_id="your_username",
-    pin="your_pin",
-    product_id="YOUR_PRODUCT_ID",
-) as client:
-    for account in client.list_accounts():
-        print(f"ID:       {account.account_id}")
-        print(f"IBAN:     {account.iban}")
-        print(f"BIC:      {account.bic}")
-        print(f"Currency: {account.currency}")
-        print(f"Owner:    {account.owner.name}")
-        print()
+All banking endpoints require `Authorization: Bearer <api-key>`.
+
+### Banking endpoints
+
+#### `POST /v1/banking/accounts`
+
+```json
+{
+  "protocol": "fints",
+  "blz": "12345678",
+  "user_id": "your-bank-login",
+  "password": "your-bank-pin",
+  "tan_method": "946"
+}
 ```
 
-### Get a Specific Account
+Returns `200` with account list, or `202` with `operation_id` if TAN confirmation is required.
 
-Retrieve an account by its ID (format: `account_number:subaccount`):
+#### `POST /v1/banking/balances`
 
-```python
-with FinTS3Client(...) as client:
-    # Get by account ID
-    account = client.get_account("1234567890:0")
+Same input shape as `/accounts`.
 
-    # Check what operations are supported
-    print(f"Can fetch balance: {account.capabilities.can_fetch_balance}")
-    print(f"Can list transactions: {account.capabilities.can_list_transactions}")
+#### `POST /v1/banking/transactions`
+
+```json
+{
+  "protocol": "fints",
+  "blz": "12345678",
+  "user_id": "your-bank-login",
+  "password": "your-bank-pin",
+  "iban": "DE89370400440532013000",
+  "start_date": "2026-01-01",
+  "end_date": "2026-04-07",
+  "tan_method": "946"
+}
 ```
 
-### Fetch Balance for One Account
+#### `POST /v1/banking/tan-methods`
 
-```python
-with FinTS3Client(...) as client:
-    account = client.get_account("1234567890:0")
-    balance = client.get_balance(account)
+Same input shape as `/accounts` (no IBAN needed). Returns TAN methods advertised by the bank without requiring TAN confirmation.
 
-    print(f"Booked:    {balance.booked.amount:,.2f} {balance.booked.currency}")
-    if balance.available:
-        print(f"Available: {balance.available.amount:,.2f} {balance.available.currency}")
-    print(f"As of:     {balance.as_of}")
-```
+#### `GET /v1/banking/operations/{operation_id}`
 
-### Fetch Balances for All Accounts
+Poll a pending TAN operation. Terminal states: `completed`, `failed`, `expired`.
 
-Use `get_balances()` to efficiently fetch balances for multiple accounts:
-
-```python
-with FinTS3Client(...) as client:
-    balances = client.get_balances()  # All accounts
-
-    total = sum(float(b.booked.amount) for b in balances)
-
-    for balance in balances:
-        print(f"{balance.account_id}: {balance.booked.amount:,.2f} EUR")
-
-    print(f"Total: {total:,.2f} EUR")
-```
-
-### Fetch Transaction History
-
-Retrieve transactions with optional date filtering:
-
-```python
-from datetime import date, timedelta
-
-with FinTS3Client(...) as client:
-    account = client.list_accounts()[0]
-
-    # Last 30 days
-    feed = client.get_transactions(
-        account,
-        start_date=date.today() - timedelta(days=30),
-        end_date=date.today(),
-    )
-
-    print(f"Found {len(feed.entries)} transactions")
-
-    for tx in feed.entries:
-        sign = "+" if tx.amount >= 0 else ""
-        print(f"{tx.booking_date} | {sign}{tx.amount:,.2f} {tx.currency}")
-        print(f"  {tx.counterpart_name or 'Unknown'}")
-        print(f"  {tx.purpose[:60]}...")
-```
-
-### Calculate Income and Expenses
-
-```python
-from datetime import date, timedelta
-
-with FinTS3Client(...) as client:
-    feed = client.get_transactions(
-        client.list_accounts()[0],
-        start_date=date.today() - timedelta(days=30),
-    )
-
-    income = sum(float(tx.amount) for tx in feed.entries if tx.amount > 0)
-    expenses = sum(float(tx.amount) for tx in feed.entries if tx.amount < 0)
-
-    print(f"Income:   +{income:,.2f} EUR")
-    print(f"Expenses: {expenses:,.2f} EUR")
-    print(f"Net:      {income + expenses:,.2f} EUR")
-```
-
-### Session Persistence
-
-Save and restore session state to speed up subsequent connections:
-
-```python
-import json
-from pathlib import Path
-from geldstrom import FinTS3Client
-from geldstrom.infrastructure.fints import FinTSSessionState
-
-SESSION_FILE = Path(".session_state.json")
-
-def load_session() -> FinTSSessionState | None:
-    if not SESSION_FILE.exists():
-        return None
-    return FinTSSessionState.from_dict(json.loads(SESSION_FILE.read_text()))
-
-def save_session(state):
-    if isinstance(state, FinTSSessionState):
-        SESSION_FILE.write_text(json.dumps(state.to_dict(), indent=2))
-
-# First connection - fresh
-with FinTS3Client(...) as client:
-    accounts = client.list_accounts()
-    save_session(client.session_state)
-
-# Later connections - faster (skips parameter sync)
-with FinTS3Client(..., session_state=load_session()) as client:
-    balance = client.get_balance(client.list_accounts()[0])
-```
-
-> **Note:** Session persistence speeds up connection by caching bank parameters (BPD/UPD) and system ID. It does **not** bypass 2FA/TAN authentication—German banks require fresh authentication for each session.
-
-### Using Environment Variables
-
-For cleaner code, load credentials from environment variables:
-
-```python
-import os
-from geldstrom import FinTS3Client
-
-client = FinTS3Client(
-    bank_code=os.environ["FINTS_BLZ"],
-    server_url=os.environ["FINTS_SERVER"],
-    user_id=os.environ["FINTS_USER"],
-    pin=os.environ["FINTS_PIN"],
-    product_id=os.environ["FINTS_PRODUCT_ID"],
-    tan_medium=os.environ.get("FINTS_TAN_MEDIUM"),  # Optional
-)
-```
-
-See the `examples/` directory for complete, runnable scripts.
-
-## TAN Handling
-
-Geldstrom supports decoupled TAN methods (SecureGo, pushTAN). When a TAN is required:
-
-1. You receive a push notification in your banking app
-2. Approve the request in the app
-3. The client automatically polls for confirmation and continues
-
-```python
-from datetime import date, timedelta
-
-# Fetching older transactions typically requires TAN approval
-transactions = client.get_transactions(
-    account,
-    start_date=date.today() - timedelta(days=90),
-    end_date=date.today(),
-)
-```
-
-### Configuring TAN Polling
-
-You can customize the polling behavior with `TANConfig`:
-
-```python
-from geldstrom import FinTS3Client, TANConfig
-
-# Custom TAN configuration
-tan_config = TANConfig(
-    poll_interval=3.0,      # Poll every 3 seconds (default: 2.0)
-    timeout_seconds=180.0,  # Wait up to 3 minutes (default: 120.0)
-)
-
-client = FinTS3Client(
-    bank_code="12345678",
-    server_url="https://banking.example.com/fints",
-    user_id="your_username",
-    pin="your_pin",
-    product_id="YOUR_PRODUCT_ID",
-    tan_config=tan_config,
-)
-
-# Or update after creation
-client.tan_config = TANConfig(poll_interval=5.0, timeout_seconds=300.0)
-```
-
-### Custom Challenge Handler
-
-For advanced use cases, you can provide a custom challenge handler:
-
-```python
-from geldstrom.domain import ChallengeHandler, Challenge, ChallengeResult
-
-class MyChallengeHandler:
-    def present_challenge(self, challenge: Challenge) -> ChallengeResult:
-        print(f"Please confirm: {challenge.challenge_text}")
-        # For decoupled TAN, return empty result to trigger polling
-        return ChallengeResult()
-
-client = FinTS3Client(
-    ...,
-    challenge_handler=MyChallengeHandler(),
-)
-```
-
-## Configuration
-
-### Environment Variables
+### Health endpoints
 
 ```bash
-FINTS_BLZ=12345678
-FINTS_COUNTRY=DE
-FINTS_USER=your_username
-FINTS_PIN=your_pin
-FINTS_SERVER=https://banking.example.com/fints
-FINTS_PRODUCT_ID=YOUR_PRODUCT_ID
+GET /health/live    # → {"status":"ok"}
+GET /health/ready   # → {"status":"ready","checks":{"db":"ok","product_key":"loaded","catalog":"ok"}}
 ```
 
-
-## Limitations
-
-- FinTS 3.0 only (older HBCI versions not supported)
-- PIN/TAN authentication only (signature cards not supported)
-- Read-only operations (transfers not supported)
-- German banks only (banks supporting FinTS/HBCI)
+---
 
 ## Development
 
 ```bash
-uv sync --dev
+# Install all workspace packages in dev mode
+uv sync
+
+# Run tests (unit + app + package)
+uv run pytest tests/apps tests/unit tests/packages/geldstrom/unit -x -q
+
+# Lint and format
+uv run ruff check .
+uv run ruff format .
 ```
 
-### Running Tests
+See `docs/developer/getting-started.md` for the full local setup guide.
 
-```bash
-# Unit tests
-uv run pytest tests/unit/
-
-# Integration tests (requires credentials in .env)
-uv run pytest tests/integration/ --run-integration
-```
-
-### Code Quality
-
-```bash
-uv run ruff check packages tests
-uv run ruff format packages tests
-```
-
-## Credits
-
-Geldstrom builds on the foundation laid by [python-fints](https://github.com/raphaelm/python-fints), an open-source FinTS implementation created and maintained by [Raphael Michel](https://github.com/raphaelm).
+---
 
 ## License
 
-GNU Lesser General Public License v3.0 or later (LGPL-3.0-or-later). See `LICENSE`.
+LGPL-3.0-only — see [LICENSE](LICENSE).

@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager, suppress
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
@@ -25,13 +24,9 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     await lifecycle.startup()
-    resume_task = asyncio.create_task(lifecycle.run_resume_worker())
     try:
         yield
     finally:
-        resume_task.cancel()
-        with suppress(asyncio.CancelledError):
-            await resume_task
         await lifecycle.shutdown()
 
 
