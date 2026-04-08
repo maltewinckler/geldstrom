@@ -6,9 +6,22 @@ import json
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Protocol, runtime_checkable
 
 from geldstrom.domain.model.bank import BankRoute
+
+
+@runtime_checkable
+class SessionToken(Protocol):
+    """Protocol-agnostic interface for authenticated bank sessions."""
+
+    @property
+    def user_id(self) -> str: ...
+
+    @property
+    def is_valid(self) -> bool: ...
+
+    def serialize(self) -> bytes: ...
 
 
 @dataclass(frozen=True)
@@ -85,7 +98,3 @@ class FinTSSessionState:
         masked = self.to_dict()
         masked["client_blob"] = f"<{len(self.client_blob)} bytes>"
         return masked
-
-
-# Backward compatibility alias
-SessionState = FinTSSessionState

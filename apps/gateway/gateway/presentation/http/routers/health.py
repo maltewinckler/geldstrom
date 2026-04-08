@@ -27,6 +27,7 @@ async def readiness(factory: Factory) -> JSONResponse:
             db="ok" if status.db else "error",
             product_key="loaded" if status.product_key else "missing",
             catalog="ok" if status.catalog else "empty",
+            redis="ok" if status.redis else "error",
         ),
     )
     return JSONResponse(

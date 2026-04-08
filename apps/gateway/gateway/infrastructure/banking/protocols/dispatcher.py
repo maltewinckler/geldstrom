@@ -67,7 +67,12 @@ class BankingConnectorDispatcher(BankingConnector):
             institute, credentials
         )
 
-    async def resume_operation(self, session_state: bytes) -> ResumeResult:
+    async def resume_operation(
+        self,
+        session_state: bytes,
+        credentials: PresentedBankCredentials,
+        institute: FinTSInstitute,
+    ) -> ResumeResult:
         return await self._connectors[BankProtocol.FINTS].resume_operation(
-            session_state
+            session_state, credentials, institute
         )

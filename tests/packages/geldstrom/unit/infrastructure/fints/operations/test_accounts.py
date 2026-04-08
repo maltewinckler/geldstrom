@@ -106,8 +106,8 @@ class TestAccountOperations:
         assert len(result) == 1
         assert result[0].iban == "DE89370400440532013000"
 
-    def test_get_accounts_from_upd(self, mock_dialog, mock_parameters):
-        """get_accounts_from_upd should extract from cached UPD."""
+    def test_upd_accounts(self, mock_dialog, mock_parameters):
+        """_upd_accounts should extract from cached UPD."""
         mock_parameters.upd.get_accounts.return_value = [
             {
                 "account_number": "123456",
@@ -123,14 +123,14 @@ class TestAccountOperations:
         ]
 
         ops = AccountOperations(mock_dialog, mock_parameters)
-        result = ops.get_accounts_from_upd()
+        result = ops._upd_accounts()
 
         assert len(result) == 1
         assert result[0].account_number == "123456"
         assert result[0].owner_name == ["Alice"]
 
-    def test_merge_sepa_info_adds_bic(self, mock_dialog, mock_parameters):
-        """merge_sepa_info should add BIC from SEPA accounts."""
+    def test_join_sepa_info_adds_bic(self, mock_dialog, mock_parameters):
+        """_join_sepa_info should add BIC from SEPA accounts."""
         upd_accounts = [
             AccountInfo(
                 account_number="123456",
@@ -157,7 +157,7 @@ class TestAccountOperations:
         ]
 
         ops = AccountOperations(mock_dialog, mock_parameters)
-        result = ops.merge_sepa_info(upd_accounts, sepa_accounts)
+        result = ops._join_sepa_info(upd_accounts, sepa_accounts)
 
         assert len(result) == 1
         assert result[0].bic == "COBADEFFXXX"

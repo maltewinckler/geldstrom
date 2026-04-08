@@ -28,7 +28,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from geldstrom.domain import BankCredentials, BankRoute
-from geldstrom.infrastructure.fints import GatewayCredentials
+from geldstrom.infrastructure.fints.credentials import GatewayCredentials
 from geldstrom.infrastructure.fints.protocol.parser import (
     FinTSParser,
     FinTSSerializer,
@@ -99,7 +99,7 @@ def credentials(request: pytest.FixtureRequest) -> GatewayCredentials:
 @pytest.fixture
 def connection_helper(credentials: GatewayCredentials):
     """Create a FinTSConnectionHelper for low-level testing."""
-    from geldstrom.infrastructure.fints.adapters.connection import FinTSConnectionHelper
+    from geldstrom.infrastructure.fints.support.connection import FinTSConnectionHelper
 
     return FinTSConnectionHelper(credentials)
 
@@ -328,9 +328,10 @@ class TestStrictParsing:
     def test_transaction_fetch_no_warnings(self, connection_helper):
         """Verify HKKAZ/HIKAZ or HKCAZ/HICAZ parsing produces no critical warnings."""
         from geldstrom.infrastructure.fints.exceptions import FinTSUnsupportedOperation
-        from geldstrom.infrastructure.fints.operations import (
-            AccountOperations,
-            TransactionOperations,
+        from geldstrom.infrastructure.fints.operations import AccountOperations
+        from geldstrom.infrastructure.fints.operations.transactions import (
+            CamtFetcher,
+            Mt940Fetcher,
         )
 
         collector = ParserWarningCollector()
@@ -338,7 +339,8 @@ class TestStrictParsing:
         with collector:
             with connection_helper.connect(None) as ctx:
                 account_ops = AccountOperations(ctx.dialog, ctx.parameters)
-                tx_ops = TransactionOperations(ctx.dialog, ctx.parameters)
+                mt940 = Mt940Fetcher(ctx.dialog, ctx.parameters)
+                camt = CamtFetcher(ctx.dialog, ctx.parameters)
 
                 accounts = account_ops.fetch_sepa_accounts()
                 if not accounts:
@@ -347,10 +349,11 @@ class TestStrictParsing:
                 # Try MT940 first, then CAMT
                 start_date = date.today() - timedelta(days=7)
                 try:
-                    tx_ops.fetch_mt940(accounts[0], start_date)
+                    account_id = accounts[0].iban or accounts[0].accountnumber
+                    mt940.fetch(accounts[0], account_id, start_date)
                 except FinTSUnsupportedOperation:
                     try:
-                        tx_ops.fetch_camt(accounts[0], start_date)
+                        camt.fetch(accounts[0], account_id, start_date)
                     except FinTSUnsupportedOperation:
                         pytest.skip("Bank doesn't support transactions")
 

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-from dataclasses import replace
 from datetime import UTC, datetime
 from uuid import UUID
 
@@ -25,7 +24,9 @@ def test_operation_session_store_create_get_update_and_delete() -> None:
 
     asyncio.run(store.create(session))
     loaded = asyncio.run(store.get(session.operation_id))
-    updated = replace(loaded, status=OperationStatus.FAILED, failure_reason="failed")
+    updated = loaded.model_copy(
+        update={"status": OperationStatus.FAILED, "failure_reason": "failed"}
+    )
     asyncio.run(store.update(updated))
 
     assert asyncio.run(store.get(session.operation_id)) == updated

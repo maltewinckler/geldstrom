@@ -36,8 +36,7 @@ from _common import (
     setup_logging,
 )
 
-from geldstrom import SessionToken
-from geldstrom.infrastructure.fints import FinTSSessionState
+from geldstrom import FinTSSessionState, SessionToken
 
 SESSION_FILE = Path(".session_state.json")
 
@@ -121,7 +120,9 @@ def main() -> None:
         else:
             for entry in feed.entries[:10]:
                 purpose = entry.purpose[:50] if entry.purpose else "No description"
-                print(f"  {entry.booking_date} {entry.amount:>10,.2f} {entry.currency}  {purpose}")
+                print(
+                    f"  {entry.booking_date} {entry.amount:>10,.2f} {entry.currency}  {purpose}"
+                )
 
         # Save session if requested
         if args.save_session and client.session_state:

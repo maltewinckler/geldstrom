@@ -18,7 +18,7 @@ from geldstrom.domain import (
     TransactionEntry,
     TransactionFeed,
 )
-from geldstrom.infrastructure.fints import SessionState
+from geldstrom.infrastructure.fints.session import FinTSSessionState as SessionState
 
 
 @pytest.fixture

@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
 
-from pydantic import BaseModel, SecretStr, field_validator
+from pydantic import BaseModel, RootModel, SecretStr, field_validator
 
 from gateway.domain import DomainError
 
@@ -19,36 +18,43 @@ def _iban_checksum_is_valid(iban: str) -> bool:
     return int(numeric) % 97 == 1
 
 
-@dataclass(frozen=True)
-class BankLeitzahl:
+class BankLeitzahl(RootModel[str], frozen=True):
     """German bank routing number."""
 
-    value: str
-
-    def __post_init__(self) -> None:
-        if not _BLZ_PATTERN.match(self.value):
+    @field_validator("root")
+    @classmethod
+    def _validate_blz(cls, v: str) -> str:
+        if not _BLZ_PATTERN.match(v):
             raise DomainError("BankLeitzahl must be an 8-digit string")
+        return v
+
+    @property
+    def value(self) -> str:
+        return self.root
 
     def __str__(self) -> str:
-        return self.value
+        return self.root
 
 
-@dataclass(frozen=True)
-class RequestedIban:
+class RequestedIban(RootModel[str], frozen=True):
     """Normalized IBAN selected for transaction retrieval."""
 
-    value: str
-
-    def __post_init__(self) -> None:
-        normalized = "".join(self.value.split()).upper()
+    @field_validator("root", mode="before")
+    @classmethod
+    def _normalize_and_validate_iban(cls, v: object) -> str:
+        normalized = "".join(str(v).split()).upper()
         if not _IBAN_PATTERN.match(normalized):
             raise DomainError("RequestedIban must be a valid IBAN")
         if not _iban_checksum_is_valid(normalized):
             raise DomainError("RequestedIban must satisfy the IBAN checksum")
-        object.__setattr__(self, "value", normalized)
+        return normalized
+
+    @property
+    def value(self) -> str:
+        return self.root
 
     def __str__(self) -> str:
-        return self.value
+        return self.root
 
 
 class PresentedBankCredentials(BaseModel):

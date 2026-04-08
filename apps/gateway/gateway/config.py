@@ -36,7 +36,7 @@ class Settings(BaseSettings):
     argon2_memory_cost: int = 65_536
     argon2_parallelism: int = 2
     operation_session_ttl_seconds: int = 120
-    operation_session_max_count: int = 10_000
+    redis_url: str = "redis://localhost:6379/0"
     rate_limit_requests_per_minute: int = 60
     notify_reconnect_backoff_seconds: float = 1.0
     fints_product_version: str = "1.0.0"

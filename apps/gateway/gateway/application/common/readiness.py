@@ -19,11 +19,12 @@ class ReadinessStatus(BaseModel):
     db: bool
     product_key: bool
     catalog: bool
+    redis: bool
 
     @computed_field
     @property
     def is_ready(self) -> bool:
-        return self.db and self.product_key and self.catalog
+        return self.db and self.product_key and self.catalog and self.redis
 
 
 class GetReadinessQuery:

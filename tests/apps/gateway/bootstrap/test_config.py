@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import fakeredis.aioredis
+
 from gateway.config import Settings
 from gateway.infrastructure.cache.memory import (
     InMemoryApiConsumerCache,
-    InMemoryOperationSessionStore,
     PostgresNotifyListener,
 )
+from gateway.infrastructure.cache.redis import RedisOperationSessionStore
 from gateway.infrastructure.crypto import Argon2ApiKeyService
 from gateway.infrastructure.gateway_factory import GatewayApplicationFactory
 from gateway.presentation.http.dependencies import get_factory, get_settings
@@ -40,7 +42,6 @@ def test_settings_apply_default_values(monkeypatch) -> None:
     assert settings.argon2_memory_cost == 65_536
     assert settings.argon2_parallelism == 2
     assert settings.operation_session_ttl_seconds == 120
-    assert settings.operation_session_max_count == 10_000
     assert settings.rate_limit_requests_per_minute == 60
     assert settings.notify_reconnect_backoff_seconds == 1.0
     assert settings.fints_product_version == "1.0.0"
@@ -51,12 +52,14 @@ def test_factory_is_singleton_and_deps_are_cached(monkeypatch) -> None:
     _reset()
 
     factory = get_factory()
+    # Simulate Redis being connected so caches can be instantiated
+    factory._redis = fakeredis.aioredis.FakeRedis()
 
     assert isinstance(factory, GatewayApplicationFactory)
     assert get_factory() is factory
     assert isinstance(factory.caches.consumer, InMemoryApiConsumerCache)
     assert factory.caches.consumer is factory.caches.consumer
-    assert isinstance(factory.caches.session_store, InMemoryOperationSessionStore)
+    assert isinstance(factory.caches.session_store, RedisOperationSessionStore)
     assert factory.caches.session_store is factory.caches.session_store
     assert isinstance(factory.api_key_service, Argon2ApiKeyService)
     assert isinstance(factory._notify_listener, PostgresNotifyListener)

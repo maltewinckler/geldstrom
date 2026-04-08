@@ -43,12 +43,6 @@ class FinTSDialogStateError(FinTSDialogError):
     pass
 
 
-class FinTSDialogOfflineError(FinTSDialogError):
-    """Dialog offline error."""
-
-    pass
-
-
 class FinTSDialogInitError(FinTSDialogError):
     """Dialog initialization error."""
 
@@ -80,7 +74,6 @@ __all__ = [
     "FinTSConnectionError",
     "FinTSDialogError",
     "FinTSDialogInitError",
-    "FinTSDialogOfflineError",
     "FinTSDialogStateError",
     "FinTSError",
     "FinTSNoResponseError",

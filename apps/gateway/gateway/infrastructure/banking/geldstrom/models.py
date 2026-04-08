@@ -2,15 +2,13 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import date
 from typing import Protocol
 
-from gateway.domain.banking_gateway.operations import OperationType
-from geldstrom.domain import Account, BalanceSnapshot, SessionToken, TransactionFeed
-from geldstrom.domain import TANMethod as GeldstromTanMethod
+from geldstrom.domain import Account, BalanceSnapshot, TransactionFeed
 from geldstrom.infrastructure.fints.credentials import GatewayCredentials
-from geldstrom.infrastructure.fints.session import FinTSSessionState
+from geldstrom.infrastructure.fints.session import FinTSSessionState, SessionToken
+from geldstrom.infrastructure.fints.tan import TANMethod as GeldstromTanMethod
 
 
 class GeldstromClient(Protocol):
@@ -41,18 +39,3 @@ class GeldstromClientFactory(Protocol):
         credentials: GatewayCredentials,
         session_state: FinTSSessionState | None = None,
     ) -> GeldstromClient: ...
-
-
-@dataclass(frozen=True)
-class SerializedPendingOperation:
-    """Opaque connector state needed to resume one bank operation."""
-
-    operation_type: OperationType
-    bank_code: str
-    endpoint: str
-    user_id: str
-    password: str
-    iban: str | None = None
-    start_date: date | None = None
-    end_date: date | None = None
-    fints_session_state: bytes = b""

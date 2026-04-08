@@ -48,7 +48,12 @@ class BankingConnector(Protocol):
         credentials: PresentedBankCredentials,
     ) -> TanMethodsResult: ...
 
-    async def resume_operation(self, session_state: bytes) -> ResumeResult: ...
+    async def resume_operation(
+        self,
+        session_state: bytes,
+        credentials: PresentedBankCredentials,
+        institute: FinTSInstitute,
+    ) -> ResumeResult: ...
 
 
 class OperationSessionStore(Protocol):

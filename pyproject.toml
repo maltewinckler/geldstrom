@@ -13,6 +13,7 @@ dependencies = [
 [dependency-groups]
 dev = [
     "geldstrom-cli",
+    "fakeredis[lua]>=2.21",
     "httpx>=0.28.1",
     "pre-commit>=4.2,<5.0",
     "pytest>=7.0,<8.0",

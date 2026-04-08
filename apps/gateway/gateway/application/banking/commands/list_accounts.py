@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import TYPE_CHECKING, Self
+
+from pydantic import BaseModel
 
 from gateway.application.common import (
     IdProvider,
@@ -31,8 +32,7 @@ if TYPE_CHECKING:
     from gateway.application.ports import ApplicationFactory
 
 
-@dataclass(frozen=True)
-class ListAccountsInput:
+class ListAccountsInput(BaseModel, frozen=True):
     """Input payload for listing bank accounts."""
 
     protocol: BankProtocol

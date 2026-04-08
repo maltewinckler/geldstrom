@@ -2,9 +2,7 @@
 
 from .accounts import Account, AccountCapabilities, AccountOwner
 from .balances import BalanceAmount, BalanceSnapshot
-from .bank import BankCapabilities, BankRoute
-from .payments import PaymentConfirmation, PaymentInstruction
-from .tan import TANMethod, TANMethodType
+from .bank import BankCapabilities, BankCredentials, BankRoute
 from .transactions import TransactionEntry, TransactionFeed
 
 __all__ = [
@@ -14,11 +12,8 @@ __all__ = [
     "BalanceAmount",
     "BalanceSnapshot",
     "BankCapabilities",
+    "BankCredentials",
     "BankRoute",
-    "PaymentConfirmation",
-    "PaymentInstruction",
-    "TANMethod",
-    "TANMethodType",
     "TransactionEntry",
     "TransactionFeed",
 ]

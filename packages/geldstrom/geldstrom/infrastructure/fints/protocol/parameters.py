@@ -26,7 +26,7 @@ class BankParameters:
         return self.segments.find_segment_first(segment_type)
 
     def get_supported_operations(self) -> Mapping[str, bool]:
-        from geldstrom.infrastructure.fints import FinTSOperations
+        from geldstrom.infrastructure.fints.operations import FinTSOperations
 
         return {
             op.name: self.find_segment(f"HI{op.value[2:]}S") is not None

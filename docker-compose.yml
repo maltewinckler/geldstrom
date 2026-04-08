@@ -65,6 +65,17 @@ services:
       timeout: 5s
       retries: 5
 
+  # ── Redis ───────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: geldstrom_redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   gateway-admin-cli:
     image: maltewin/geldstrom-gateway-admin-cli:latest
     container_name: geldstrom_gateway_admin_cli
@@ -85,6 +96,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
       gateway-admin-cli:
         condition: service_completed_successfully
     # Secrets (DB password) come from the env file.
@@ -92,6 +105,8 @@ services:
     # the Docker service name.  All other env-file values are used as-is.
     env_file:
       - config/gateway.env
+    environment:
+      GATEWAY_REDIS_URL: "redis://redis:6379/0"
     ports:
       - 127.0.0.1:8000:8000
     healthcheck:

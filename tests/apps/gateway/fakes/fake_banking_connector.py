@@ -93,8 +93,22 @@ class FakeBankingConnector:
         )
         return self._pop_result(self._tan_methods_results, "get_tan_methods")
 
-    async def resume_operation(self, session_state: bytes) -> ResumeResult:
-        self.calls.append(("resume_operation", session_state))
+    async def resume_operation(
+        self,
+        session_state: bytes,
+        credentials: PresentedBankCredentials,
+        institute: FinTSInstitute,
+    ) -> ResumeResult:
+        self.calls.append(
+            (
+                "resume_operation",
+                {
+                    "session_state": session_state,
+                    "credentials": credentials,
+                    "institute": institute,
+                },
+            )
+        )
         return self._pop_result(self._resume_results, "resume_operation")
 
     def queue_balances_result(self, result: BalancesResult) -> None:

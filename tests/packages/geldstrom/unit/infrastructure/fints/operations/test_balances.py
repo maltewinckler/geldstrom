@@ -11,16 +11,16 @@ import pytest
 from geldstrom.infrastructure.fints.operations.balances import (
     BalanceOperations,
     BalanceResult,
-    MT940Balance,
+    HisalBalance,
 )
 
 
-class TestMT940Balance:
-    """Tests for MT940Balance dataclass."""
+class TestHisalBalance:
+    """Tests for HisalBalance dataclass."""
 
     def test_credit_balance(self):
-        """MT940Balance should correctly identify credit balances."""
-        balance = MT940Balance(
+        """HisalBalance should correctly identify credit balances."""
+        balance = HisalBalance(
             amount=Decimal("1234.56"),
             currency="EUR",
             date=date(2024, 1, 15),
@@ -31,8 +31,8 @@ class TestMT940Balance:
         assert balance.is_credit is True
 
     def test_debit_balance(self):
-        """MT940Balance should correctly identify debit balances."""
-        balance = MT940Balance(
+        """HisalBalance should correctly identify debit balances."""
+        balance = HisalBalance(
             amount=Decimal("500.00"),
             currency="EUR",
             date=date(2024, 1, 15),
@@ -47,7 +47,7 @@ class TestBalanceResult:
 
     def test_basic_result(self):
         """BalanceResult should store booked balance."""
-        booked = MT940Balance(
+        booked = HisalBalance(
             amount=Decimal("1000.00"),
             currency="EUR",
             date=date(2024, 1, 15),
@@ -60,12 +60,12 @@ class TestBalanceResult:
 
     def test_full_result(self):
         """BalanceResult should store all optional fields."""
-        booked = MT940Balance(
+        booked = HisalBalance(
             amount=Decimal("1000.00"),
             currency="EUR",
             date=date(2024, 1, 15),
         )
-        pending = MT940Balance(
+        pending = HisalBalance(
             amount=Decimal("50.00"),
             currency="EUR",
             date=date(2024, 1, 15),

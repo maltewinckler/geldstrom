@@ -76,15 +76,18 @@ def _resolve_creds(
     )
 
 
-def _await_2fa(client: GatewayClient, body: dict) -> dict:
+def _await_2fa(client: GatewayClient, body: dict, creds: Creds) -> dict:
     """Handle a 202 response: print info, wait for approval, return result_payload."""
     op_id = body["operation_id"]
     expires_at = body["expires_at"]
+    poll_interval = body.get("polling_interval_seconds") or 5
     console.print(
         f"[bold yellow]⏳  2FA required[/bold yellow] — "
         f"approve on your device. Operation [dim]{op_id}[/dim]"
     )
-    result = client.wait_for_operation(op_id, expires_at, console)
+    result = client.wait_for_operation(
+        op_id, expires_at, console, creds=creds, poll_interval=poll_interval
+    )
     status = result["status"]
 
     if status == "completed":
@@ -144,7 +147,7 @@ def accounts(
         with _make_client(creds) as client:
             status_code, body = client.accounts(creds)
             if status_code == 202:
-                payload = _await_2fa(client, body)
+                payload = _await_2fa(client, body, creds)
                 acct_list = payload.get("accounts", [])
             else:
                 acct_list = body.get("accounts", [])
@@ -173,7 +176,7 @@ def tan_methods(
         with _make_client(creds) as client:
             status_code, body = client.tan_methods(creds)
             if status_code == 202:
-                payload = _await_2fa(client, body)
+                payload = _await_2fa(client, body, creds)
                 methods_list = payload.get("methods", [])
             else:
                 methods_list = body.get("methods", [])
@@ -202,7 +205,7 @@ def balances(
         with _make_client(creds) as client:
             status_code, body = client.balances(creds)
             if status_code == 202:
-                payload = _await_2fa(client, body)
+                payload = _await_2fa(client, body, creds)
                 balances_list = payload.get("balances", [])
             else:
                 balances_list = body.get("balances", [])
@@ -255,7 +258,7 @@ def transactions(
                 creds, iban, resolved_start, resolved_end
             )
             if status_code == 202:
-                payload = _await_2fa(client, body)
+                payload = _await_2fa(client, body, creds)
                 tx_list = payload.get("transactions", [])
             else:
                 tx_list = body.get("transactions", [])

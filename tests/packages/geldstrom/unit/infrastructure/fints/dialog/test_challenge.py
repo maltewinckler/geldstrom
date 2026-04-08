@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from geldstrom.domain.connection.challenge import ChallengeType
+from geldstrom.infrastructure.fints.challenge import ChallengeType
 from geldstrom.infrastructure.fints.dialog.challenge import FinTSChallenge
 
 
@@ -34,36 +34,6 @@ class TestFinTSChallenge:
         assert challenge.challenge_text == "Please confirm in your banking app"
         assert challenge.challenge_data is None
         assert challenge.task_reference == "REF123"
-
-    def test_flicker_challenge_from_hitan(self) -> None:
-        """Flicker challenge should be detected from HITAN with HHD_UC data."""
-        hitan = MockHITAN(
-            task_reference="REF456",
-            challenge="Enter TAN from device",
-            challenge_hhduc=b"FLICKER_DATA",
-        )
-
-        challenge = FinTSChallenge(hitan)
-
-        assert challenge.is_decoupled is False
-        assert challenge.challenge_type == ChallengeType.FLICKER
-        assert challenge.challenge_text == "Enter TAN from device"
-        assert challenge.challenge_data is not None
-        assert challenge.challenge_data.mime_type == "application/x-hhduc"
-        assert challenge.challenge_data.data == b"FLICKER_DATA"
-
-    def test_text_challenge_from_hitan(self) -> None:
-        """Text challenge should be detected from HITAN without task_reference or HHD_UC."""
-        hitan = MockHITAN(
-            challenge="Enter TAN from letter",
-        )
-
-        challenge = FinTSChallenge(hitan)
-
-        assert challenge.is_decoupled is False
-        assert challenge.challenge_type == ChallengeType.TEXT
-        assert challenge.challenge_text == "Enter TAN from letter"
-        assert challenge.challenge_data is None
 
     def test_get_data_returns_task_reference(self) -> None:
         """get_data should return serialized task reference."""

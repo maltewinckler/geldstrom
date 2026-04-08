@@ -35,7 +35,9 @@ def test_liveness_returns_200_ok() -> None:
 def test_readiness_returns_200_when_all_checks_pass() -> None:
     client = TestClient(
         _make_app(
-            readiness_status=ReadinessStatus(db=True, product_key=True, catalog=True)
+            readiness_status=ReadinessStatus(
+                db=True, product_key=True, catalog=True, redis=True
+            )
         )
     )
     resp = client.get("/health/ready")
@@ -46,12 +48,15 @@ def test_readiness_returns_200_when_all_checks_pass() -> None:
     assert body["checks"]["db"] == "ok"
     assert body["checks"]["product_key"] == "loaded"
     assert body["checks"]["catalog"] == "ok"
+    assert body["checks"]["redis"] == "ok"
 
 
 def test_readiness_returns_503_when_catalog_empty() -> None:
     client = TestClient(
         _make_app(
-            readiness_status=ReadinessStatus(db=True, product_key=True, catalog=False)
+            readiness_status=ReadinessStatus(
+                db=True, product_key=True, catalog=False, redis=True
+            )
         )
     )
     resp = client.get("/health/ready")
@@ -65,7 +70,9 @@ def test_readiness_returns_503_when_catalog_empty() -> None:
 def test_readiness_returns_503_when_db_unreachable() -> None:
     client = TestClient(
         _make_app(
-            readiness_status=ReadinessStatus(db=False, product_key=False, catalog=False)
+            readiness_status=ReadinessStatus(
+                db=False, product_key=False, catalog=False, redis=True
+            )
         )
     )
     resp = client.get("/health/ready")
@@ -79,7 +86,9 @@ def test_readiness_returns_503_when_db_unreachable() -> None:
 def test_readiness_returns_503_when_product_key_missing() -> None:
     client = TestClient(
         _make_app(
-            readiness_status=ReadinessStatus(db=True, product_key=False, catalog=True)
+            readiness_status=ReadinessStatus(
+                db=True, product_key=False, catalog=True, redis=True
+            )
         )
     )
     resp = client.get("/health/ready")

@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from pydantic import BaseModel
 
 from geldstrom.domain import BankCredentials, BankRoute
 
 
-@dataclass(frozen=True)
-class GatewayCredentials:
+class GatewayCredentials(BaseModel, frozen=True):
     """FinTS connection credentials including server URL and product registration."""
 
     route: BankRoute

@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from enum import StrEnum
+
+from pydantic import RootModel, field_validator
 
 from gateway.domain import DomainError
 
@@ -16,15 +17,19 @@ class ConsumerStatus(StrEnum):
     DELETED = "deleted"
 
 
-@dataclass(frozen=True)
-class ApiKeyHash:
+class ApiKeyHash(RootModel[str], frozen=True):
     """Stored password-grade hash of an API key."""
 
-    value: str
-
-    def __post_init__(self) -> None:
-        if not self.value.strip():
+    @field_validator("root")
+    @classmethod
+    def _must_not_be_empty(cls, v: str) -> str:
+        if not v.strip():
             raise DomainError("ApiKeyHash must not be empty")
+        return v
+
+    @property
+    def value(self) -> str:
+        return self.root
 
     def __str__(self) -> str:
-        return self.value
+        return self.root

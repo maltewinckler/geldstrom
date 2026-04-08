@@ -1,13 +1,25 @@
-"""FinTS dialog infrastructure for managing bank connections."""
+"""FinTS protocol engine — session management, transport, and security.
+
+This package handles the low-level FinTS dialog lifecycle:
+- Opening/closing FinTS dialog sessions (``core``)
+- HTTP(S) transport and message framing (``connection``, ``message``)
+- Message signing and encryption envelopes (``security``)
+- TAN strategy dispatch for authentication (``tan_strategies``)
+- Response parsing and BPD/UPD extraction (``responses``)
+
+Consumers should not use this package directly for business logic;
+use ``operations`` for segment-level requests and ``services`` for
+end-to-end orchestration with domain mapping.
+"""
 
 from .challenge import FinTSChallenge
 from .connection import ConnectionConfig, HTTPSDialogConnection
-from .factory import (
+from .core import (
     DIALOG_ID_UNASSIGNED,
     SYSTEM_ID_UNASSIGNED,
     Dialog,
     DialogConfig,
-    DialogFactory,
+    DialogSnapshot,
     DialogState,
 )
 from .logging import LogConfiguration, Password, log_configuration
@@ -23,13 +35,19 @@ from .security import (
     StandaloneAuthenticationMechanism,
     StandaloneEncryptionMechanism,
 )
+from .tan_strategies import (
+    DecoupledTanStrategy,
+    NoTanStrategy,
+    TANStrategy,
+)
 
 __all__ = [
     "ConnectionConfig",
+    "DecoupledTanStrategy",
     "Dialog",
     "DialogConfig",
-    "DialogFactory",
     "DialogResponse",
+    "DialogSnapshot",
     "DialogState",
     "DIALOG_ID_UNASSIGNED",
     "FinTSChallenge",
@@ -39,6 +57,7 @@ __all__ = [
     "HTTPSDialogConnection",
     "LogConfiguration",
     "MessageDirection",
+    "NoTanStrategy",
     "Password",
     "ProcessedResponse",
     "ResponseProcessor",
@@ -46,5 +65,6 @@ __all__ = [
     "StandaloneAuthenticationMechanism",
     "StandaloneEncryptionMechanism",
     "SYSTEM_ID_UNASSIGNED",
+    "TANStrategy",
     "log_configuration",
 ]

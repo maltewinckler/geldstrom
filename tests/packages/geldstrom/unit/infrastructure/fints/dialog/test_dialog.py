@@ -1,6 +1,6 @@
 """Tests for the FinTS dialog infrastructure modules.
 
-These tests verify the Dialog and DialogFactory classes work correctly
+These tests verify the Dialog class works correctly
 without depending on the legacy FinTS3PinTanClient.
 """
 
@@ -16,7 +16,7 @@ from geldstrom.infrastructure.fints.dialog import (
     ConnectionConfig,
     Dialog,
     DialogConfig,
-    DialogFactory,
+    DialogSnapshot,
     DialogState,
     HTTPSDialogConnection,
     ProcessedResponse,
@@ -246,48 +246,6 @@ class TestHTTPSDialogConnection:
 
 
 # ---------------------------------------------------------------------------
-# DialogFactory Tests
-# ---------------------------------------------------------------------------
-
-
-class TestDialogFactory:
-    """Tests for DialogFactory class."""
-
-    def test_factory_creation(self, dialog_config, parameter_store):
-        """DialogFactory should initialize correctly."""
-        factory = DialogFactory(
-            connection_config="https://test.bank/fints",
-            dialog_config=dialog_config,
-            parameters=parameter_store,
-        )
-        assert factory._dialog_config is dialog_config
-        assert factory._parameters is parameter_store
-
-    def test_factory_accepts_connection_config(self, dialog_config, parameter_store):
-        """DialogFactory should accept ConnectionConfig."""
-        config = ConnectionConfig(url="https://test.bank/fints")
-        factory = DialogFactory(
-            connection_config=config,
-            dialog_config=dialog_config,
-            parameters=parameter_store,
-        )
-        assert factory._connection_config.url == "https://test.bank/fints"
-
-    def test_create_dialog(self, dialog_config, parameter_store):
-        """DialogFactory.create_dialog() should create uninitialized dialog."""
-        factory = DialogFactory(
-            connection_config="https://test.bank/fints",
-            dialog_config=dialog_config,
-            parameters=parameter_store,
-        )
-
-        with patch.object(HTTPSDialogConnection, "__init__", return_value=None):
-            dialog = factory.create_dialog()
-            assert isinstance(dialog, Dialog)
-            assert not dialog.is_open
-
-
-# ---------------------------------------------------------------------------
 # ResponseProcessor Tests
 # ---------------------------------------------------------------------------
 
@@ -351,6 +309,142 @@ class TestMaskCredentials:
         assert "tan456" not in result
         assert "***" in result
 
+
+# ---------------------------------------------------------------------------
+# DialogSnapshot Tests
+# ---------------------------------------------------------------------------
+
+
+class TestDialogSnapshot:
+    """Tests for DialogSnapshot serialization round-trip."""
+
+    def test_to_dict_and_from_dict_round_trip(self):
+        snapshot = DialogSnapshot(
+            dialog_id="dlg-42",
+            message_number=7,
+            country_identifier="280",
+            bank_code="12345678",
+            user_id="testuser",
+            customer_id="testuser",
+            system_id="sys-abc",
+            product_name="TestProduct",
+            product_version="1.0",
+            security_function="946",
+        )
+        restored = DialogSnapshot.from_dict(snapshot.to_dict())
+        assert restored == snapshot
+
+    def test_from_dict_coerces_message_number(self):
+        data = {
+            "dialog_id": "dlg-1",
+            "message_number": "3",  # string, not int
+            "country_identifier": "280",
+            "bank_code": "87654321",
+            "user_id": "u",
+            "customer_id": "c",
+            "system_id": "s",
+            "product_name": "p",
+            "product_version": "v",
+            "security_function": "999",
+        }
+        snapshot = DialogSnapshot.from_dict(data)
+        assert snapshot.message_number == 3
+        assert isinstance(snapshot.message_number, int)
+
+    def test_frozen(self):
+        snapshot = DialogSnapshot(
+            dialog_id="d",
+            message_number=1,
+            country_identifier="280",
+            bank_code="12345678",
+            user_id="u",
+            customer_id="c",
+            system_id="s",
+            product_name="p",
+            product_version="v",
+            security_function="999",
+        )
+        with pytest.raises(Exception):
+            snapshot.dialog_id = "new"  # type: ignore[misc]
+
+
+# ---------------------------------------------------------------------------
+# Dialog.snapshot / Dialog.resume Tests
+# ---------------------------------------------------------------------------
+
+
+class TestDialogSnapshotResume:
+    """Tests for Dialog.snapshot() and Dialog.resume()."""
+
+    def test_snapshot_captures_state(
+        self, mock_connection, dialog_config, parameter_store
+    ):
+        dialog = Dialog(
+            connection=mock_connection,
+            config=dialog_config,
+            parameters=parameter_store,
+        )
+        dialog._state.dialog_id = "dlg-99"
+        dialog._state.message_number = 5
+        dialog._state.is_open = True
+
+        snap = dialog.snapshot()
+
+        assert snap.dialog_id == "dlg-99"
+        assert snap.message_number == 5
+        assert snap.user_id == "testuser"
+        assert snap.security_function == "999"  # NoTanStrategy default
+
+    def test_resume_creates_open_dialog(self, mock_connection, parameter_store):
+        snap = DialogSnapshot(
+            dialog_id="dlg-42",
+            message_number=7,
+            country_identifier="280",
+            bank_code="12345678",
+            user_id="testuser",
+            customer_id="testuser",
+            system_id="sys-abc",
+            product_name="TestProduct",
+            product_version="1.0",
+            security_function="946",
+        )
+        dialog = Dialog.resume(
+            snapshot=snap,
+            connection=mock_connection,
+            parameters=parameter_store,
+        )
+
+        assert dialog.is_open is True
+        assert dialog.dialog_id == "dlg-42"
+        assert dialog._state.message_number == 7
+        assert dialog._state.is_initialized is True
+        assert dialog.security_function == "946"
+
+    def test_snapshot_resume_round_trip(
+        self, mock_connection, dialog_config, parameter_store
+    ):
+        """snapshot() → resume() preserves dialog identity."""
+        dialog = Dialog(
+            connection=mock_connection,
+            config=dialog_config,
+            parameters=parameter_store,
+        )
+        dialog._state.dialog_id = "dlg-77"
+        dialog._state.message_number = 3
+        dialog._state.is_open = True
+
+        snap = dialog.snapshot()
+
+        new_conn = MagicMock(spec=HTTPSDialogConnection)
+        resumed = Dialog.resume(
+            snapshot=snap,
+            connection=new_conn,
+            parameters=parameter_store,
+        )
+
+        assert resumed.dialog_id == dialog.dialog_id
+        assert resumed._state.message_number == dialog._state.message_number
+
     def test_preserves_non_sensitive_content(self):
         """Should not modify non-sensitive content."""
         text = "HKSAL:5:6+123456789::280:12345678+EUR"
@@ -374,3 +468,59 @@ class TestMaskCredentials:
         """Should return unchanged text when no credentials present."""
         text = "Just some regular log message with numbers 12345"
         assert mask_credentials(text) == text
+
+
+# ---------------------------------------------------------------------------
+# TAN Strategy Tests
+# ---------------------------------------------------------------------------
+
+
+class TestTanStrategies:
+    """Tests for TAN strategy classes."""
+
+    def test_no_tan_strategy_properties(self):
+        from geldstrom.infrastructure.fints.dialog.tan_strategies import NoTanStrategy
+
+        strategy = NoTanStrategy()
+        assert strategy.is_two_step is False
+        assert strategy.security_function == "999"
+
+    def test_decoupled_strategy_properties(self):
+        from geldstrom.infrastructure.fints.dialog.tan_strategies import (
+            DecoupledTanStrategy,
+        )
+
+        strategy = DecoupledTanStrategy("946")
+        assert strategy.is_two_step is True
+        assert strategy.security_function == "946"
+
+    def test_dialog_uses_explicit_tan_strategy(
+        self, mock_connection, dialog_config, parameter_store
+    ):
+        """Dialog should use explicitly provided tan_strategy."""
+        from geldstrom.infrastructure.fints.dialog.tan_strategies import (
+            DecoupledTanStrategy,
+        )
+
+        strategy = DecoupledTanStrategy("946")
+        dialog = Dialog(
+            connection=mock_connection,
+            config=dialog_config,
+            parameters=parameter_store,
+            tan_strategy=strategy,
+        )
+        assert dialog.tan_strategy is strategy
+        assert dialog.is_two_step_tan is True
+        assert dialog.security_function == "946"
+
+    def test_dialog_defaults_to_no_tan(
+        self, mock_connection, dialog_config, parameter_store
+    ):
+        """Dialog without tan_strategy should default to NoTanStrategy."""
+        dialog = Dialog(
+            connection=mock_connection,
+            config=dialog_config,
+            parameters=parameter_store,
+        )
+        assert dialog.is_two_step_tan is False
+        assert dialog.security_function == "999"

@@ -28,45 +28,41 @@ def mask_credentials(text: str) -> str:
     return result
 
 
-class Password(str):
-    """Password wrapper that can be protected from logging.
+class _ProtectionState(threading.local):
+    """Thread-local protection flag for credential masking."""
 
-    When protected, str() returns '***' instead of the actual value.
+    def __init__(self):
+        super().__init__()
+        self.active = False
+
+
+_protection_state = _ProtectionState()
+
+
+class Password:
+    """Namespace for credential-protection context manager.
+
+    Usage::
+
+        with Password.protect():
+            # str()/repr() of any log output will mask credentials
+            logger.debug(...)
     """
-
-    protected = False
-
-    def __init__(self, value):
-        self.value = value
-        self.blocked = False
 
     @classmethod
     @contextmanager
     def protect(cls):
-        """Context manager to protect passwords from logging."""
+        """Context manager to suppress credentials in log output."""
+        _protection_state.active = True
         try:
-            cls.protected = True
             yield None
         finally:
-            cls.protected = False
+            _protection_state.active = False
 
-    def block(self):
-        """Block further use of this password."""
-        self.blocked = True
-
-    def __str__(self):
-        if self.blocked and not self.protected:
-            raise RuntimeError("Refusing to use PIN after block")
-        return "***" if self.protected else str(self.value)
-
-    def __repr__(self):
-        return self.__str__().__repr__()
-
-    def __add__(self, other):
-        return self.__str__().__add__(other)
-
-    def replace(self, *args, **kwargs):
-        return self.__str__().replace(*args, **kwargs)
+    @classmethod
+    @property
+    def protected(cls) -> bool:
+        return _protection_state.active
 
 
 class LogConfiguration(threading.local):

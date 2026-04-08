@@ -81,18 +81,38 @@ class GatewayClient:
         return self._post("/v1/banking/transactions", body)
 
     def poll_operation(self, operation_id: str) -> dict:
+        """Passive status check — does not resume the bank dialog."""
         resp = self._http.get(f"/v1/banking/operations/{operation_id}")
         resp.raise_for_status()
         return resp.json()
+
+    def poll_active(self, operation_id: str, creds: Creds) -> tuple[int, dict]:
+        """Active poll — submits fresh bank credentials to resume the TAN dialog."""
+        body = self._banking_body(creds)
+        resp = self._http.post(f"/v1/banking/operations/{operation_id}/poll", json=body)
+        if resp.status_code not in (200, 202):
+            try:
+                detail = resp.json()
+            except Exception:
+                detail = resp.text
+            raise GatewayError(resp.status_code, detail)
+        return resp.status_code, resp.json()
 
     def wait_for_operation(
         self,
         operation_id: str,
         expires_at: str,
         console: Console,
+        creds: Creds | None = None,
         poll_interval: int = 5,
     ) -> dict:
-        """Poll until the operation reaches a terminal state, showing a spinner."""
+        """Poll until the operation reaches a terminal state, showing a spinner.
+
+        When *creds* are supplied the active ``POST …/poll`` endpoint is used so
+        the gateway can resume the decoupled TAN dialog with the bank.  Without
+        creds the passive ``GET …/operations/{id}`` status check is used instead
+        (suitable for operations that push their result without re-authentication).
+        """
         expires = _parse_dt(expires_at)
 
         with console.status("", spinner="dots") as status:
@@ -100,11 +120,15 @@ class GatewayClient:
                 now = datetime.now(UTC)
                 remaining = max(0, int((expires - now).total_seconds()))
                 status.update(
-                    f"[yellow]Waiting for 2FA approval on your device… "
+                    f"[yellow]Waiting for 2FA approval on your device\u2026 "
                     f"({remaining}s remaining)[/yellow]"
                 )
 
-                result = self.poll_operation(operation_id)
+                if creds is not None:
+                    _, result = self.poll_active(operation_id, creds)
+                else:
+                    result = self.poll_operation(operation_id)
+
                 if result["status"] in ("completed", "failed", "expired"):
                     return result
 

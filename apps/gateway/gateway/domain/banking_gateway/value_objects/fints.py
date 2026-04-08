@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import date, datetime
+
+from pydantic import BaseModel
 
 from .banking import BankLeitzahl
 
 
-@dataclass
-class FinTSInstitute:
+class FinTSInstitute(BaseModel):
     """Canonical operational institute data for gateway banking requests."""
 
     blz: BankLeitzahl
@@ -25,8 +25,7 @@ class FinTSInstitute:
         return self.pin_tan_url is not None
 
 
-@dataclass
-class FinTSProductRegistration:
+class FinTSProductRegistration(BaseModel):
     """Aggregate root containing shared product registration data."""
 
     product_key: str

@@ -136,7 +136,9 @@ def test_fake_banking_connector_returns_queued_results_and_records_calls() -> No
     )
 
     accounts_result = _run(connector.list_accounts(institute, credentials))
-    resume_result = _run(connector.resume_operation(b"opaque-state"))
+    resume_result = _run(
+        connector.resume_operation(b"opaque-state", credentials, institute)
+    )
 
     assert accounts_result.accounts == [{"account_id": "acc-1"}]
     assert resume_result.result_payload == {"accounts": []}

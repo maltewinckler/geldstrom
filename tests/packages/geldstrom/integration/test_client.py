@@ -32,7 +32,7 @@ import pytest
 
 from geldstrom.clients import FinTS3Client
 from geldstrom.domain import BankCredentials, BankRoute
-from geldstrom.infrastructure.fints import GatewayCredentials
+from geldstrom.infrastructure.fints.credentials import GatewayCredentials
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -546,11 +546,9 @@ def test_dialog_hktan_injection(credentials: GatewayCredentials):
     """
     from datetime import date, timedelta
 
-    from geldstrom.infrastructure.fints.adapters.connection import FinTSConnectionHelper
-    from geldstrom.infrastructure.fints.operations import (
-        AccountOperations,
-        TransactionOperations,
-    )
+    from geldstrom.infrastructure.fints.operations import AccountOperations
+    from geldstrom.infrastructure.fints.operations.transactions import CamtFetcher
+    from geldstrom.infrastructure.fints.support.connection import FinTSConnectionHelper
 
     helper = FinTSConnectionHelper(credentials)
 
@@ -566,11 +564,12 @@ def test_dialog_hktan_injection(credentials: GatewayCredentials):
         assert sepa_accounts, "Expected SEPA accounts"
 
         # Fetch transactions (HKCAZ - needs HKTAN injection)
-        tx_ops = TransactionOperations(ctx.dialog, ctx.parameters)
+        camt = CamtFetcher(ctx.dialog, ctx.parameters)
         start_date = date.today() - timedelta(days=30)
 
         try:
-            result = tx_ops.fetch_camt(sepa_accounts[0], start_date)
+            account_id = sepa_accounts[0].iban or sepa_accounts[0].accountnumber
+            result = camt.fetch(sepa_accounts[0], account_id, start_date)
             # If we get here without error 9370, HKTAN injection worked
             assert result is not None
         except Exception as e:

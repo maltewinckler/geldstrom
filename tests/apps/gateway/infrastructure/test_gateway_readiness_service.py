@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
+import fakeredis.aioredis
 from gateway_contracts.schema import (
     fints_institutes_table,
     fints_product_registration_table,
@@ -12,15 +13,21 @@ from gateway_contracts.schema import (
 from gateway.infrastructure.readiness import SQLGatewayReadinessService
 
 
+def _make_service(engine):
+    redis = fakeredis.aioredis.FakeRedis()
+    return SQLGatewayReadinessService(engine, redis)
+
+
 def test_readiness_service_db_ok_but_empty_on_fresh_schema(
     postgres_engine, async_runner
 ) -> None:
-    service = SQLGatewayReadinessService(postgres_engine)
+    service = _make_service(postgres_engine)
     result = async_runner(service.check())
 
     assert result.db is True
     assert result.product_key is False
     assert result.catalog is False
+    assert result.redis is True
     assert result.is_ready is False
 
 
@@ -32,12 +39,13 @@ def test_readiness_service_product_key_true_after_insert(
             postgres_engine, product_key="test-key", product_version="1.0.0"
         )
     )
-    service = SQLGatewayReadinessService(postgres_engine)
+    service = _make_service(postgres_engine)
     result = async_runner(service.check())
 
     assert result.db is True
     assert result.product_key is True
     assert result.catalog is False
+    assert result.redis is True
     assert result.is_ready is False
 
 
@@ -45,12 +53,13 @@ def test_readiness_service_catalog_true_after_insert(
     postgres_engine, async_runner
 ) -> None:
     async_runner(_seed_institute(postgres_engine))
-    service = SQLGatewayReadinessService(postgres_engine)
+    service = _make_service(postgres_engine)
     result = async_runner(service.check())
 
     assert result.db is True
     assert result.product_key is False
     assert result.catalog is True
+    assert result.redis is True
     assert result.is_ready is False
 
 
@@ -63,13 +72,14 @@ def test_readiness_service_fully_ready_when_all_data_present(
         )
     )
     async_runner(_seed_institute(postgres_engine))
-    service = SQLGatewayReadinessService(postgres_engine)
+    service = _make_service(postgres_engine)
     result = async_runner(service.check())
 
     assert result.is_ready is True
     assert result.db is True
     assert result.product_key is True
     assert result.catalog is True
+    assert result.redis is True
 
 
 # ---------------------------------------------------------------------------
