@@ -60,6 +60,7 @@ class GetOperationStatusQuery:
                 return OperationStatusEnvelope(
                     status=OperationStatus.EXPIRED,
                     operation_id=operation_id,
+                    operation_type=session.operation_type,
                     expires_at=session.expires_at,
                 )
 
@@ -67,6 +68,7 @@ class GetOperationStatusQuery:
             return OperationStatusEnvelope(
                 status=session.status,
                 operation_id=operation_id,
+                operation_type=session.operation_type,
                 result_payload=session.result_payload,
                 expires_at=session.expires_at,
             )
@@ -75,6 +77,7 @@ class GetOperationStatusQuery:
             return OperationStatusEnvelope(
                 status=session.status,
                 operation_id=operation_id,
+                operation_type=session.operation_type,
                 failure_reason=session.failure_reason,
                 expires_at=session.expires_at,
             )
@@ -83,11 +86,13 @@ class GetOperationStatusQuery:
             return OperationStatusEnvelope(
                 status=session.status,
                 operation_id=operation_id,
+                operation_type=session.operation_type,
                 expires_at=session.expires_at,
             )
 
         return OperationStatusEnvelope(
             status=session.status,
             operation_id=operation_id,
+            operation_type=session.operation_type,
             expires_at=session.expires_at,
         )

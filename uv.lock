@@ -504,7 +504,7 @@ requires-dist = [{ name = "sqlalchemy", specifier = ">=2.0" }]
 
 [[package]]
 name = "geldstrom"
-version = "0.1.0"
+version = "0.1.1"
 source = { editable = "packages/geldstrom" }
 dependencies = [
     { name = "bleach" },

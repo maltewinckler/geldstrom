@@ -26,7 +26,7 @@ from gateway.application.banking.dtos.list_accounts import ListAccountsResultEnv
 from gateway.application.banking.queries.get_operation_status import (
     GetOperationStatusQuery,
 )
-from gateway.domain.banking_gateway import OperationStatus, TanMethod
+from gateway.domain.banking_gateway import OperationStatus, OperationType, TanMethod
 from gateway.presentation.http.dependencies import get_factory
 from gateway.presentation.http.routers import (
     accounts,
@@ -73,6 +73,7 @@ def test_list_accounts_returns_200_when_completed() -> None:
     assert resp.status_code == 200
     body = resp.json()
     assert body["status"] == "completed"
+    assert body["operation_type"] == "accounts"
     assert body["accounts"] == [{"iban": "DE00000000000000000000"}]
 
 
@@ -90,6 +91,7 @@ def test_list_accounts_returns_202_when_pending() -> None:
     assert resp.status_code == 202
     body = resp.json()
     assert body["status"] == "pending_confirmation"
+    assert body["operation_type"] == "accounts"
     assert body["operation_id"] == "op-1"
 
 
@@ -125,7 +127,9 @@ def test_fetch_transactions_returns_200_when_completed() -> None:
         )
 
     assert resp.status_code == 200
-    assert resp.json()["transactions"] == [{"amount": "100.00"}]
+    body = resp.json()
+    assert body["operation_type"] == "transactions"
+    assert body["transactions"] == [{"amount": "100.00"}]
 
 
 def test_fetch_transactions_returns_202_when_pending() -> None:
@@ -142,7 +146,9 @@ def test_fetch_transactions_returns_202_when_pending() -> None:
         )
 
     assert resp.status_code == 202
-    assert resp.json()["operation_id"] == "op-2"
+    body = resp.json()
+    assert body["operation_type"] == "transactions"
+    assert body["operation_id"] == "op-2"
 
 
 # ---------------------------------------------------------------------------
@@ -171,7 +177,10 @@ def test_get_tan_methods_returns_200_when_completed() -> None:
 
     assert resp.status_code == 200
     body = resp.json()
-    assert body["methods"] == [{"method_id": "900", "display_name": "pushTAN"}]
+    assert body["operation_type"] == "tan_methods"
+    assert body["methods"] == [
+        {"method_id": "900", "display_name": "pushTAN", "is_decoupled": True}
+    ]
 
 
 def test_get_tan_methods_returns_202_when_pending() -> None:
@@ -188,7 +197,9 @@ def test_get_tan_methods_returns_202_when_pending() -> None:
         )
 
     assert resp.status_code == 202
-    assert resp.json()["operation_id"] == "op-3"
+    body = resp.json()
+    assert body["operation_type"] == "tan_methods"
+    assert body["operation_id"] == "op-3"
 
 
 # ---------------------------------------------------------------------------
@@ -201,7 +212,8 @@ def test_get_operation_status_returns_200() -> None:
     envelope = OperationStatusEnvelope(
         status=OperationStatus.COMPLETED,
         operation_id=op_uuid,
-        result_payload={"accounts": []},
+        operation_type=OperationType.ACCOUNTS,
+        result_payload={"accounts": [{"iban": "DE00"}]},
     )
     use_case = AsyncMock(return_value=envelope)
     with patch.object(GetOperationStatusQuery, "from_factory", return_value=use_case):
@@ -211,7 +223,10 @@ def test_get_operation_status_returns_200() -> None:
     assert resp.status_code == 200
     body = resp.json()
     assert body["status"] == "completed"
+    assert body["operation_type"] == "accounts"
     assert body["operation_id"] == op_uuid
+    assert body["accounts"] == [{"iban": "DE00"}]
+    assert "result_payload" not in body
 
 
 def test_get_operation_status_returns_401_without_auth() -> None:
@@ -257,6 +272,7 @@ def test_get_balances_returns_200_when_completed() -> None:
     assert resp.status_code == 200
     body = resp.json()
     assert body["status"] == "completed"
+    assert body["operation_type"] == "balances"
     assert body["balances"] == [_BALANCE_ENTRY]
 
 
@@ -274,6 +290,7 @@ def test_get_balances_returns_202_when_pending() -> None:
     assert resp.status_code == 202
     body = resp.json()
     assert body["status"] == "pending_confirmation"
+    assert body["operation_type"] == "balances"
     assert body["operation_id"] == "op-5"
 
 

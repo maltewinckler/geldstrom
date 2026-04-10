@@ -7,7 +7,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from gateway.domain.banking_gateway import OperationStatus
+from gateway.domain.banking_gateway import OperationStatus, OperationType
 
 
 class OperationStatusEnvelope(BaseModel, frozen=True):
@@ -15,6 +15,7 @@ class OperationStatusEnvelope(BaseModel, frozen=True):
 
     status: OperationStatus
     operation_id: str
+    operation_type: OperationType | None = None
     result_payload: dict[str, Any] | None = None
     failure_reason: str | None = None
     expires_at: datetime | None = None

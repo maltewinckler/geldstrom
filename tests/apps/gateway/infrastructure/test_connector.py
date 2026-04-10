@@ -186,11 +186,9 @@ def test_connector_maps_completed_account_listing() -> None:
 
 
 def test_connector_returns_pending_with_snapshot_for_transactions() -> None:
+    """DKB-style: list_accounts() triggers TAN — snapshot is patched to 'transactions'."""
     snapshot = _make_snapshot_bytes(
-        "transactions",
-        account_id="acc-1",
-        start_date="2026-01-01",
-        end_date="2026-02-01",
+        "accounts",  # list_accounts() triggered TAN, so operation_type is 'accounts'
     )
     connector = GeldstromBankingConnector(
         "product-key-1",
@@ -199,7 +197,7 @@ def test_connector_returns_pending_with_snapshot_for_transactions() -> None:
             [
                 StubClient(
                     accounts=[_account()],
-                    pending_on="transactions",
+                    pending_on="accounts",  # list_accounts() raises
                     snapshot_bytes=snapshot,
                 ),
             ]
@@ -218,9 +216,62 @@ def test_connector_returns_pending_with_snapshot_for_transactions() -> None:
 
     assert result.status is OperationStatus.PENDING_CONFIRMATION
     assert result.session_state is not None
-    # Session state is a valid DecoupledSessionSnapshot
+    # Snapshot must be patched to 'transactions' with iban + date range
     restored = DecoupledSessionSnapshot.deserialize(result.session_state)
     assert restored.operation_type == "transactions"
+    assert restored.operation_meta["iban"] == "DE89370400440532013000"
+    assert restored.operation_meta["start_date"] == "2026-01-01"
+    assert restored.operation_meta["end_date"] == "2026-02-01"
+    assert restored.task_reference == "task-ref-1"
+
+
+def test_connector_preserves_snapshot_when_get_transactions_triggers_tan() -> None:
+    """Triodos-style: get_transactions() itself triggers TAN.
+
+    The client snapshot already records operation_type='transactions' with
+    account_id and was_connected=True.  The connector must NOT overwrite
+    operation_meta, otherwise the poll handler loses account_id and
+    was_connected, causing an unnecessary second HKKAZ round-trip (and a
+    second TAN for wide date ranges on strict banks like Triodos).
+    """
+    snapshot = _make_snapshot_bytes(
+        "transactions",
+        account_id="acc-1",
+        start_date="2026-01-01",
+        end_date="2026-02-01",
+        was_connected=True,
+    )
+    connector = GeldstromBankingConnector(
+        "product-key-1",
+        product_version="0.0.1",
+        client_factory=StubClientFactory(
+            [
+                StubClient(
+                    accounts=[_account()],
+                    pending_on="transactions",  # get_transactions() raises
+                    snapshot_bytes=snapshot,
+                ),
+            ]
+        ),
+    )
+
+    result = asyncio.run(
+        connector.fetch_transactions(
+            _institute(),
+            _credentials(),
+            RequestedIban("DE89370400440532013000"),
+            date(2026, 1, 1),
+            date(2026, 2, 1),
+        )
+    )
+
+    assert result.status is OperationStatus.PENDING_CONFIRMATION
+    assert result.session_state is not None
+    # Snapshot must be preserved as-is — account_id and was_connected intact
+    restored = DecoupledSessionSnapshot.deserialize(result.session_state)
+    assert restored.operation_type == "transactions"
+    assert restored.operation_meta["account_id"] == "acc-1"
+    assert restored.operation_meta["was_connected"] is True
     assert restored.task_reference == "task-ref-1"
 
 
@@ -453,44 +504,33 @@ def test_pending_tan_methods_returns_snapshot() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Resume tests (snapshot-based with mocked FinTSConnectionHelper)
+# Resume tests — mock resume_and_poll on the client (FinTSConnectionHelper no longer
+# lives in the connector; all polling logic is in FinTS3ClientDecoupled.resume_and_poll)
 # ---------------------------------------------------------------------------
 
 
-def _make_resume_connector() -> GeldstromBankingConnector:
+def _make_resume_connector(client) -> GeldstromBankingConnector:
     return GeldstromBankingConnector(
         "product-key-1",
         product_version="0.0.1",
-        client_factory=StubClientFactory([]),
+        client_factory=StubClientFactory([client]),
     )
 
 
-def test_resume_returns_pending_when_poll_returns_none(monkeypatch) -> None:
-    """poll_decoupled_once returning None means still pending."""
-    connector = _make_resume_connector()
+def _resume_client_returning(poll_result) -> MagicMock:
+    client = MagicMock()
+    client.resume_and_poll.return_value = poll_result
+    return client
+
+
+def test_resume_returns_pending_when_poll_returns_none() -> None:
+    """resume_and_poll returning status=pending → PENDING_CONFIRMATION."""
+    from geldstrom.clients.fints3_decoupled import PollResult
+
     session_state = _make_snapshot_bytes("accounts")
-
-    mock_dialog = MagicMock()
-    mock_dialog.poll_decoupled_once.return_value = None
-    mock_dialog.snapshot.return_value = MagicMock(
-        to_dict=MagicMock(return_value={"dialog_id": "d1", "message_number": 4})
-    )
-    mock_dialog.is_open = False
-
-    mock_ctx = MagicMock()
-    mock_ctx.dialog = mock_dialog
-    mock_ctx.connection = MagicMock()
-
-    mock_helper_cls = MagicMock()
-    mock_helper_instance = mock_helper_cls.return_value
-    mock_helper_instance.resume_for_polling.return_value = mock_ctx
-    mock_helper_instance.create_session_state.return_value = MagicMock(
-        serialize=MagicMock(return_value=b"\x00" * 16)
-    )
-
-    monkeypatch.setattr(
-        "gateway.infrastructure.banking.geldstrom.connector.FinTSConnectionHelper",
-        mock_helper_cls,
+    updated_state = _make_snapshot_bytes("accounts")
+    connector = _make_resume_connector(
+        _resume_client_returning(PollResult(status="pending", data=updated_state))
     )
 
     result = asyncio.run(
@@ -498,28 +538,16 @@ def test_resume_returns_pending_when_poll_returns_none(monkeypatch) -> None:
     )
 
     assert result.status is OperationStatus.PENDING_CONFIRMATION
-    assert result.session_state is not None
+    assert result.session_state == updated_state
 
 
-def test_resume_returns_failed_on_poll_error(monkeypatch) -> None:
-    """poll_decoupled_once raising ValueError → FAILED."""
-    connector = _make_resume_connector()
+def test_resume_returns_failed_on_poll_error() -> None:
+    """resume_and_poll returning status=failed → FAILED with reason."""
+    from geldstrom.clients.fints3_decoupled import PollResult
+
     session_state = _make_snapshot_bytes("accounts")
-
-    mock_dialog = MagicMock()
-    mock_dialog.poll_decoupled_once.side_effect = ValueError("TAN timed out")
-    mock_dialog.is_open = False
-
-    mock_ctx = MagicMock()
-    mock_ctx.dialog = mock_dialog
-    mock_ctx.connection = MagicMock()
-
-    mock_helper_cls = MagicMock()
-    mock_helper_cls.return_value.resume_for_polling.return_value = mock_ctx
-
-    monkeypatch.setattr(
-        "gateway.infrastructure.banking.geldstrom.connector.FinTSConnectionHelper",
-        mock_helper_cls,
+    connector = _make_resume_connector(
+        _resume_client_returning(PollResult(status="failed", error="TAN timed out"))
     )
 
     result = asyncio.run(
@@ -530,33 +558,19 @@ def test_resume_returns_failed_on_poll_error(monkeypatch) -> None:
     assert "TAN timed out" in (result.failure_reason or "")
 
 
-def test_resume_returns_completed_on_approval(monkeypatch) -> None:
-    """poll_decoupled_once returning data → COMPLETED with parsed payload."""
-    connector = _make_resume_connector()
+def test_resume_returns_completed_on_approval() -> None:
+    """resume_and_poll returning approved → COMPLETED with serialized payload."""
+    from geldstrom.clients.fints3_decoupled import PollResult
+
     session_state = _make_snapshot_bytes("accounts")
-
-    mock_response = MagicMock()
-    mock_dialog = MagicMock()
-    mock_dialog.poll_decoupled_once.return_value = mock_response
-    mock_dialog.is_open = False
-
-    mock_ctx = MagicMock()
-    mock_ctx.dialog = mock_dialog
-    mock_ctx.connection = MagicMock()
-
-    mock_helper_cls = MagicMock()
-    mock_helper_cls.return_value.resume_for_polling.return_value = mock_ctx
-
-    monkeypatch.setattr(
-        "gateway.infrastructure.banking.geldstrom.connector.FinTSConnectionHelper",
-        mock_helper_cls,
-    )
-
-    # Mock _parse_approved_response to avoid deep FinTS service dependencies
-    monkeypatch.setattr(
-        connector,
-        "_parse_approved_response",
-        lambda snapshot, response, ctx: {"accounts": [{"account_id": "acc-1"}]},
+    connector = _make_resume_connector(
+        _resume_client_returning(
+            PollResult(
+                status="approved",
+                operation_type="accounts",
+                data=[_account()],
+            )
+        )
     )
 
     result = asyncio.run(
@@ -564,16 +578,25 @@ def test_resume_returns_completed_on_approval(monkeypatch) -> None:
     )
 
     assert result.status is OperationStatus.COMPLETED
-    assert result.result_payload == {"accounts": [{"account_id": "acc-1"}]}
+    assert result.operation_type is not None
+    assert result.result_payload is not None
+    assert result.result_payload["accounts"][0]["account_id"] == "acc-1"
 
 
 def test_resume_rejects_corrupt_session_state() -> None:
-    """Corrupt session_state raises InternalError."""
-    from gateway.application.common import InternalError
+    """Corrupt session_state → resume_and_poll returns FAILED."""
+    from geldstrom.clients.fints3_decoupled import PollResult
 
-    connector = _make_resume_connector()
-
-    with pytest.raises(InternalError, match="Unable to deserialize"):
-        asyncio.run(
-            connector.resume_operation(b"not-valid-json", _credentials(), _institute())
+    _ = _make_snapshot_bytes("accounts")
+    connector = _make_resume_connector(
+        _resume_client_returning(
+            PollResult(status="failed", error="Invalid session snapshot: ...")
         )
+    )
+
+    result = asyncio.run(
+        connector.resume_operation(b"not-valid-json", _credentials(), _institute())
+    )
+
+    assert result.status is OperationStatus.FAILED
+    assert result.failure_reason is not None

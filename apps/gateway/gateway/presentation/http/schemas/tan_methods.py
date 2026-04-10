@@ -23,6 +23,7 @@ class TanMethodsCompletedResponse(BaseModel):
     model_config = {"extra": "forbid"}
 
     status: str
+    operation_type: str = "tan_methods"
     methods: list[dict[str, Any]]
 
 
@@ -30,6 +31,7 @@ class TanMethodsPendingResponse(BaseModel):
     model_config = {"extra": "forbid"}
 
     status: str
+    operation_type: str = "tan_methods"
     operation_id: str
     expires_at: datetime
     polling_interval_seconds: int = 5

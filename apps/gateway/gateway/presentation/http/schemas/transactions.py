@@ -26,6 +26,7 @@ class TransactionsCompletedResponse(BaseModel):
     model_config = {"extra": "forbid"}
 
     status: str
+    operation_type: str = "transactions"
     transactions: list[dict[str, Any]]
 
 
@@ -33,6 +34,7 @@ class TransactionsPendingResponse(BaseModel):
     model_config = {"extra": "forbid"}
 
     status: str
+    operation_type: str = "transactions"
     operation_id: str
     expires_at: datetime
     polling_interval_seconds: int = 5

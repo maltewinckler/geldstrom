@@ -8,15 +8,59 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field, SecretStr
 
 
-class OperationStatusResponse(BaseModel):
+class PollPendingResponse(BaseModel):
     model_config = {"extra": "forbid"}
 
-    status: str
+    status: Literal["pending_confirmation"]
+    operation_type: str
     operation_id: str
-    result_payload: dict[str, Any] | None = None
+    expires_at: datetime
+    polling_interval_seconds: int = 5
+
+
+class PollCompletedAccountsResponse(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    status: Literal["completed"]
+    operation_type: Literal["accounts"]
+    operation_id: str
+    accounts: list[dict[str, Any]]
+
+
+class PollCompletedTransactionsResponse(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    status: Literal["completed"]
+    operation_type: Literal["transactions"]
+    operation_id: str
+    transactions: list[dict[str, Any]]
+
+
+class PollCompletedBalancesResponse(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    status: Literal["completed"]
+    operation_type: Literal["balances"]
+    operation_id: str
+    balances: list[dict[str, Any]]
+
+
+class PollCompletedTanMethodsResponse(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    status: Literal["completed"]
+    operation_type: Literal["tan_methods"]
+    operation_id: str
+    methods: list[dict[str, Any]]
+
+
+class PollFailedResponse(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    status: Literal["failed", "expired"]
+    operation_type: str
+    operation_id: str
     failure_reason: str | None = None
-    expires_at: datetime | None = None
-    polling_interval_seconds: int | None = None
 
 
 class PollOperationRequest(BaseModel):
