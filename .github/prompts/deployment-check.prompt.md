@@ -62,6 +62,39 @@ geldstrom-cli accounts --env-file .env
 
 Both must succeed without errors. Report the results.
 
+### 7b. Verify the BLZ Lookup Endpoint
+
+Test the new public `GET /v1/lookup/{blz}` endpoint (no Authorization header required).
+
+**Known BLZ — expects 200:**
+```bash
+curl -s http://localhost:8000/v1/lookup/10010010 | python3 -m json.tool
+```
+Expected response shape:
+```json
+{
+  "blz": "10010010",
+  "bic": "PBNKDEFFXXX",
+  "name": "Postbank",
+  "organization": "BdB",
+  "is_fints_capable": true
+}
+```
+
+**Unknown BLZ — expects 404:**
+```bash
+curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/v1/lookup/00000000
+```
+Expected: `404`
+
+**Invalid format — expects 422:**
+```bash
+curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/v1/lookup/INVALID
+```
+Expected: `422`
+
+All three checks must match the expected status codes. Report the full JSON body of the 200 response.
+
 ### 8. Rebuild Docker image (when code has changed)
 
 If any source files under `packages/geldstrom/` or `apps/gateway/` have been

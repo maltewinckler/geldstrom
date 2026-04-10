@@ -16,7 +16,15 @@ from .middleware.exception_handlers import application_error_handler
 from .middleware.rate_limit import RateLimitMiddleware
 from .middleware.request_id import RequestIDMiddleware
 from .middleware.security_headers import SecurityHeadersMiddleware
-from .routers import accounts, balances, health, operations, tan_methods, transactions
+from .routers import (
+    accounts,
+    balances,
+    health,
+    lookup,
+    operations,
+    tan_methods,
+    transactions,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +78,7 @@ def create_app() -> FastAPI:
 
     # Routers
     app.include_router(health.router)
+    app.include_router(lookup.router)
     app.include_router(accounts.router)
     app.include_router(balances.router)
     app.include_router(transactions.router)
