@@ -1,5 +1,5 @@
 ---
-description: "Run the full deployment check: docker compose up, sync catalog, create user if needed, update API key in .env, and verify with geldstrom-cli"
+description: "Run the full deployment check: docker compose up, sync catalog, create user if needed, update API key in .env, verify with geldstrom-cli, check all lookup endpoints (auth-protected), and fetch transactions via the decoupled 2FA flow"
 name: "Deployment Check"
 agent: "agent"
 ---
@@ -62,13 +62,17 @@ geldstrom-cli accounts --env-file .env
 
 Both must succeed without errors. Report the results.
 
-### 7b. Verify the BLZ Lookup Endpoint
+### 7b. Verify the BLZ Lookup and Bank List Endpoints
 
-Test the new public `GET /v1/lookup/{blz}` endpoint (no Authorization header required).
-
-**Known BLZ — expects 200:**
+Read the API key from `.env`:
 ```bash
-curl -s http://localhost:8000/v1/lookup/10010010 | python3 -m json.tool
+API_KEY=$(grep GATEWAY_API_KEY .env | cut -d= -f2 | tr -d '"')
+```
+
+**Single BLZ lookup — expects 200 (API key required):**
+```bash
+curl -s -H "Authorization: Bearer $API_KEY" \
+  http://localhost:8000/v1/lookup/10010010 | python3 -m json.tool
 ```
 Expected response shape:
 ```json
@@ -81,19 +85,57 @@ Expected response shape:
 }
 ```
 
+**Single BLZ lookup without API key — expects 401:**
+```bash
+curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/v1/lookup/10010010
+```
+Expected: `401`
+
 **Unknown BLZ — expects 404:**
 ```bash
-curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/v1/lookup/00000000
+curl -s -o /dev/null -w "%{http_code}" \
+  -H "Authorization: Bearer $API_KEY" \
+  http://localhost:8000/v1/lookup/00000000
 ```
 Expected: `404`
 
 **Invalid format — expects 422:**
 ```bash
-curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/v1/lookup/INVALID
+curl -s -o /dev/null -w "%{http_code}" \
+  -H "Authorization: Bearer $API_KEY" \
+  http://localhost:8000/v1/lookup/INVALID
 ```
 Expected: `422`
 
-All three checks must match the expected status codes. Report the full JSON body of the 200 response.
+**All-banks list — expects 200 with `banks` array (API key required):**
+```bash
+curl -s -H "Authorization: Bearer $API_KEY" \
+  http://localhost:8000/v1/lookup | python3 -m json.tool | head -20
+```
+Expected response shape:
+```json
+{
+  "banks": [
+    {
+      "blz": "...",
+      "bic": "...",
+      "name": "...",
+      "organization": "...",
+      "is_fints_capable": true
+    },
+    ...
+  ]
+}
+```
+Report the total number of entries: `curl -s -H "Authorization: Bearer $API_KEY" http://localhost:8000/v1/lookup | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d['banks']), 'banks')"`.
+
+**All-banks list without API key — expects 401:**
+```bash
+curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/v1/lookup
+```
+Expected: `401`
+
+All checks must match the expected status codes.
 
 ### 8. Rebuild Docker image (when code has changed)
 
@@ -108,29 +150,24 @@ docker compose up -d --force-recreate gateway
 Then re-check `curl -s http://localhost:8000/health/ready` until it reports all
 checks `"ok"` before proceeding.
 
-### 9. Verify decoupled 2FA flow (100-day transaction window)
+### 9. Fetch Transactions and Verify Decoupled 2FA Flow
 
-This step specifically tests that the `FinTS3ClientDecoupled` gateway returns
-**202 immediately** instead of blocking for up to 120 seconds, and that the
-CLI polls the bank correctly until TAN approval.
+This step fetches real transaction history and specifically tests that the `FinTS3ClientDecoupled` gateway returns **202 immediately** instead of blocking for up to 120 seconds, and that the CLI polls the bank correctly until TAN approval.
 
 #### 9a. Happy path via geldstrom-cli (preferred)
 
-Get a valid IBAN from the accounts listing, then run the transactions command
-with a 280-day window.  The CLI will automatically:
+Get a valid IBAN from the accounts listing, then fetch transactions with a 280-day window. The CLI will automatically:
 1. POST the request — gateway responds 202 in a few seconds
 2. Print "⏳ 2FA required" and start polling the bank every 5 s
 3. Return the full transaction table once you approve the TAN
 
 ```bash
 source .venv/bin/activate
-geldstrom-cli accounts --env-file .env   # note an IBAN from the output
+geldstrom-cli accounts --env-file .env          # note an IBAN from the output
 geldstrom-cli transactions <IBAN> --days 280 --env-file .env
 ```
 
-**Expected:** The command completes with a transaction table containing
-entries from the last 280 days.  If the request blocks for more than ~5 s
-before printing "⏳ 2FA required", the decoupled flow is broken.
+**Expected:** The command completes with a transaction table containing entries from the last 280 days. If the request blocks for more than ~5 s before printing "⏳ 2FA required", the decoupled flow is broken.
 
 #### 9b. Manual fallback (use only if the CLI command above fails)
 

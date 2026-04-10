@@ -29,12 +29,14 @@ _ENVELOPE = BankInfoEnvelope(
     is_fints_capable=True,
 )
 
+_AUTH_HEADER = {"Authorization": "Bearer prefix.secret"}
+
 
 def test_lookup_returns_200_with_bank_info() -> None:
     use_case = AsyncMock(return_value=_ENVELOPE)
     with patch.object(LookupBankQuery, "from_factory", return_value=use_case):
         client = TestClient(_make_app())
-        resp = client.get("/v1/lookup/10010010")
+        resp = client.get("/v1/lookup/10010010", headers=_AUTH_HEADER)
 
     assert resp.status_code == 200
     body = resp.json()
@@ -43,6 +45,15 @@ def test_lookup_returns_200_with_bank_info() -> None:
     assert body["name"] == "Postbank"
     assert body["organization"] == "BdB"
     assert body["is_fints_capable"] is True
+
+
+def test_lookup_returns_401_without_auth_header() -> None:
+    use_case = AsyncMock(return_value=_ENVELOPE)
+    with patch.object(LookupBankQuery, "from_factory", return_value=use_case):
+        client = TestClient(_make_app(), raise_server_exceptions=False)
+        resp = client.get("/v1/lookup/10010010")
+
+    assert resp.status_code == 401
 
 
 def test_lookup_returns_404_when_institution_not_found() -> None:
@@ -58,7 +69,7 @@ def test_lookup_returns_404_when_institution_not_found() -> None:
         app = _make_app()
         app.add_exception_handler(ApplicationError, application_error_handler)
         client = TestClient(app, raise_server_exceptions=False)
-        resp = client.get("/v1/lookup/99999999")
+        resp = client.get("/v1/lookup/99999999", headers=_AUTH_HEADER)
 
     assert resp.status_code == 404
     assert resp.json()["error"] == "institution_not_found"
@@ -77,17 +88,7 @@ def test_lookup_returns_422_when_validation_error() -> None:
         app = _make_app()
         app.add_exception_handler(ApplicationError, application_error_handler)
         client = TestClient(app, raise_server_exceptions=False)
-        resp = client.get("/v1/lookup/INVALID")
+        resp = client.get("/v1/lookup/INVALID", headers=_AUTH_HEADER)
 
     assert resp.status_code == 422
     assert resp.json()["error"] == "validation_error"
-
-
-def test_lookup_no_auth_header_required() -> None:
-    """Public endpoint — no Authorization header should be needed."""
-    use_case = AsyncMock(return_value=_ENVELOPE)
-    with patch.object(LookupBankQuery, "from_factory", return_value=use_case):
-        client = TestClient(_make_app())
-        resp = client.get("/v1/lookup/10010010")  # no headers at all
-
-    assert resp.status_code == 200

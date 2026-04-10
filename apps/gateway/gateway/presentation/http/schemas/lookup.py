@@ -13,3 +13,8 @@ class BankInfoResponse(BaseModel):
     name: str
     organization: str | None
     is_fints_capable: bool
+
+
+class BankListResponse(BaseModel):
+    model_config = {"extra": "forbid"}
+    banks: list[BankInfoResponse]

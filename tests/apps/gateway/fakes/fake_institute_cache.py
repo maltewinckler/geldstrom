@@ -16,5 +16,8 @@ class FakeInstituteCache:
     async def get_by_blz(self, blz: BankLeitzahl) -> FinTSInstitute | None:
         return self._institutes.get(str(blz))
 
+    async def list_all(self) -> list[FinTSInstitute]:
+        return list(self._institutes.values())
+
     async def load(self, institutes: list[FinTSInstitute]) -> None:
         self._institutes = {str(institute.blz): institute for institute in institutes}
