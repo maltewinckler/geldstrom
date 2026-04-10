@@ -5,6 +5,9 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Self
 
 from gateway.application.common import InstitutionNotFoundError, ValidationError
+from gateway.application.consumer.queries.authenticate_consumer import (
+    AuthenticateConsumerQuery,
+)
 from gateway.domain.banking_gateway import BankLeitzahl
 from gateway.domain.errors import DomainError
 
@@ -16,16 +19,26 @@ if TYPE_CHECKING:
 
 
 class LookupBankQuery:
-    """Resolve public bank metadata for a given BLZ string."""
+    """Authenticate the caller then resolve public bank metadata for a given BLZ."""
 
-    def __init__(self, bank_catalog: BankMetadataPort) -> None:
+    def __init__(
+        self,
+        bank_catalog: BankMetadataPort,
+        authenticate_consumer: AuthenticateConsumerQuery,
+    ) -> None:
         self._bank_catalog = bank_catalog
+        self._authenticate_consumer = authenticate_consumer
 
     @classmethod
     def from_factory(cls, factory: ApplicationFactory) -> Self:
-        return cls(bank_catalog=factory.caches.institute)
+        return cls(
+            bank_catalog=factory.caches.institute,
+            authenticate_consumer=AuthenticateConsumerQuery.from_factory(factory),
+        )
 
-    async def __call__(self, blz_str: str) -> BankInfoEnvelope:
+    async def __call__(self, blz_str: str, api_key: str) -> BankInfoEnvelope:
+        await self._authenticate_consumer(api_key)
+
         try:
             blz = BankLeitzahl(blz_str)
         except DomainError as exc:
