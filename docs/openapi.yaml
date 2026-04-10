@@ -20,12 +20,14 @@ info:
 
     Some banks require a second-factor confirmation (decoupled TAN, push notification,
     etc.) before returning data. When that happens, an endpoint returns **202** instead
-    of 200. The response body contains an `operation_id` — poll
-    `GET /v1/banking/operations/{operation_id}` every few seconds until the status
-    changes from `pending` to `completed` or `failed`.
+    of 200. The response body contains an `operation_id` and an `operation_type`
+    discriminator. Submit credentials to
+    `POST /v1/banking/operations/{operation_id}/poll` every few seconds until the
+    status reaches `completed` or `failed`.
 
-    The `result_payload` field on the completed response has the same shape as the
-    synchronous 200 body for that operation.
+    Every poll response and every initial 202 response carries `operation_type`.
+    Completed poll responses inline the data fields directly — no `result_payload`
+    wrapper — mirroring the synchronous 200 body for that operation type.
 
 servers:
   - url: http://localhost:8000
@@ -125,6 +127,7 @@ paths:
                 $ref: "#/components/schemas/AccountsCompletedResponse"
               example:
                 status: completed
+                operation_type: accounts
                 accounts:
                   - iban: DE44200400600512345678
                     account_number: "0512345678"
@@ -172,6 +175,7 @@ paths:
                 $ref: "#/components/schemas/BalancesCompletedResponse"
               example:
                 status: completed
+                operation_type: balances
                 balances:
                   - iban: DE44200400600512345678
                     account_number: "0512345678"
@@ -226,6 +230,7 @@ paths:
                 $ref: "#/components/schemas/TransactionsCompletedResponse"
               example:
                 status: completed
+                operation_type: transactions
                 transactions:
                   - date: "2026-03-15"
                     amount: "-42.00"
@@ -275,11 +280,14 @@ paths:
                 $ref: "#/components/schemas/TanMethodsCompletedResponse"
               example:
                 status: completed
+                operation_type: tan_methods
                 methods:
                   - method_id: "946"
                     display_name: pushTAN 2.0
+                    is_decoupled: true
                   - method_id: "900"
                     display_name: mobileTAN
+                    is_decoupled: false
         "202":
           description: 2FA required — poll the operation endpoint.
           content:
@@ -296,11 +304,11 @@ paths:
       tags: [banking]
       summary: Get operation status
       description: |
-        Poll a pending 2FA operation.
+        Retrieve the current state of a pending 2FA operation.
 
         Status values:
-        - `pending` — waiting for user confirmation
-        - `completed` — confirmed; `result_payload` contains the data
+        - `pending_confirmation` — waiting for user confirmation; retry shortly
+        - `completed` — confirmed; data fields are inlined based on `operation_type`
         - `failed` — confirmation rejected or timed out; `failure_reason` explains why
         - `expired` — the operation TTL elapsed
       operationId: getOperationStatus
@@ -316,41 +324,107 @@ paths:
           description: The operation UUID returned in a 202 response.
       responses:
         "200":
-          description: Operation found (may still be pending).
+          description: Operation found (terminal or pending).
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/OperationStatusResponse"
+                oneOf:
+                  - $ref: "#/components/schemas/PollPendingResponse"
+                  - $ref: "#/components/schemas/PollCompletedAccountsResponse"
+                  - $ref: "#/components/schemas/PollCompletedBalancesResponse"
+                  - $ref: "#/components/schemas/PollCompletedTransactionsResponse"
+                  - $ref: "#/components/schemas/PollCompletedTanMethodsResponse"
+                  - $ref: "#/components/schemas/PollFailedResponse"
+                discriminator:
+                  propertyName: operation_type
               examples:
                 pending:
-                  summary: Still waiting
+                  summary: Still waiting for TAN approval
                   value:
-                    status: pending
+                    status: pending_confirmation
+                    operation_type: accounts
                     operation_id: 550e8400-e29b-41d4-a716-446655440000
-                    result_payload: null
-                    failure_reason: null
                     expires_at: "2026-04-02T14:05:00Z"
                     polling_interval_seconds: 5
-                completed:
-                  summary: Completed — result available
+                completed_accounts:
+                  summary: Accounts retrieved
                   value:
                     status: completed
+                    operation_type: accounts
                     operation_id: 550e8400-e29b-41d4-a716-446655440000
-                    result_payload:
-                      status: completed
-                      accounts:
-                        - iban: DE44200400600512345678
-                          account_number: "0512345678"
-                    failure_reason: null
-                    expires_at: "2026-04-02T14:05:00Z"
+                    accounts:
+                      - iban: DE44200400600512345678
+                        account_number: "0512345678"
                 failed:
                   summary: Failed
                   value:
                     status: failed
+                    operation_type: accounts
                     operation_id: 550e8400-e29b-41d4-a716-446655440000
-                    result_payload: null
                     failure_reason: TAN confirmation rejected by bank
-                    expires_at: "2026-04-02T14:05:00Z"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Operation not found or already expired.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /v1/banking/operations/{operation_id}/poll:
+    post:
+      tags: [banking]
+      summary: Poll an operation
+      description: |
+        Submit fresh bank credentials to advance a pending decoupled-TAN operation.
+        Call this every `polling_interval_seconds` seconds after approving the push
+        notification in your banking app.
+
+        Returns 202 while still pending, 200 once completed or failed.
+      operationId: pollOperation
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: operation_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BankingRequest"
+            example:
+              protocol: fints
+              blz: "20010020"
+              user_id: "myuser"
+              password: "mypin"
+              tan_method: "946"
+      responses:
+        "200":
+          description: Operation completed or failed.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/PollCompletedAccountsResponse"
+                  - $ref: "#/components/schemas/PollCompletedBalancesResponse"
+                  - $ref: "#/components/schemas/PollCompletedTransactionsResponse"
+                  - $ref: "#/components/schemas/PollCompletedTanMethodsResponse"
+                  - $ref: "#/components/schemas/PollFailedResponse"
+                discriminator:
+                  propertyName: operation_type
+        "202":
+          description: Still waiting for TAN approval.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PollPendingResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
@@ -448,21 +522,23 @@ components:
               nullable: true
               description: End of the date range (ISO 8601). Defaults to today.
 
-    # ── Pending (202) response ──────────────────────────────────────────────
-
     PendingResponse:
       type: object
       description: Returned when the bank requires 2FA before data can be retrieved.
-      required: [status, operation_id, expires_at]
+      required: [status, operation_type, operation_id, expires_at]
       additionalProperties: false
       properties:
         status:
           type: string
-          enum: [pending]
+          enum: [pending_confirmation]
+        operation_type:
+          type: string
+          enum: [accounts, balances, transactions, tan_methods]
+          description: Discriminator — identifies which data will appear on completion.
         operation_id:
           type: string
           format: uuid
-          description: Use this ID to poll `GET /v1/banking/operations/{operation_id}`.
+          description: Submit credentials to `POST /v1/banking/operations/{operation_id}/poll`.
         expires_at:
           type: string
           format: date-time
@@ -472,16 +548,17 @@ components:
           default: 5
           description: Recommended polling interval in seconds.
 
-    # ── Completed (200) responses ───────────────────────────────────────────
-
     AccountsCompletedResponse:
       type: object
-      required: [status, accounts]
+      required: [status, operation_type, accounts]
       additionalProperties: false
       properties:
         status:
           type: string
           enum: [completed]
+        operation_type:
+          type: string
+          enum: [accounts]
         accounts:
           type: array
           items:
@@ -494,12 +571,15 @@ components:
 
     BalancesCompletedResponse:
       type: object
-      required: [status, balances]
+      required: [status, operation_type, balances]
       additionalProperties: false
       properties:
         status:
           type: string
           enum: [completed]
+        operation_type:
+          type: string
+          enum: [balances]
         balances:
           type: array
           items:
@@ -511,12 +591,15 @@ components:
 
     TransactionsCompletedResponse:
       type: object
-      required: [status, transactions]
+      required: [status, operation_type, transactions]
       additionalProperties: false
       properties:
         status:
           type: string
           enum: [completed]
+        operation_type:
+          type: string
+          enum: [transactions]
         transactions:
           type: array
           items:
@@ -528,17 +611,20 @@ components:
 
     TanMethodsCompletedResponse:
       type: object
-      required: [status, methods]
+      required: [status, operation_type, methods]
       additionalProperties: false
       properties:
         status:
           type: string
           enum: [completed]
+        operation_type:
+          type: string
+          enum: [tan_methods]
         methods:
           type: array
           items:
             type: object
-            required: [method_id, display_name]
+            required: [method_id, display_name, is_decoupled]
             properties:
               method_id:
                 type: string
@@ -546,6 +632,9 @@ components:
               display_name:
                 type: string
                 description: Human-readable name shown to the user.
+              is_decoupled:
+                type: boolean
+                description: True if this method uses decoupled / push-based confirmation.
 
     AccountsPendingResponse:
       $ref: "#/components/schemas/PendingResponse"
@@ -558,8 +647,6 @@ components:
 
     TanMethodsPendingResponse:
       $ref: "#/components/schemas/PendingResponse"
-
-    # ── Operation status ────────────────────────────────────────────────────
 
     OperationStatusResponse:
       type: object
@@ -591,8 +678,6 @@ components:
           type: integer
           nullable: true
           default: 5
-
-    # ── Health ──────────────────────────────────────────────────────────────
 
     LivenessResponse:
       type: object
@@ -631,8 +716,6 @@ components:
           enum: [ready, not_ready]
         checks:
           $ref: "#/components/schemas/ReadinessCheck"
-
-    # ── Errors ──────────────────────────────────────────────────────────────
 
     ErrorResponse:
       type: object

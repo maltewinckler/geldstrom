@@ -20,6 +20,7 @@ from gateway.domain.banking_gateway import (
     FinTSInstituteRepository,
     OperationSessionStore,
     OperationStatus,
+    OperationType,
     PresentedBankCredentials,
 )
 
@@ -38,6 +39,7 @@ class PollOperationInput(BaseModel, frozen=True):
 class PollOperationResult(BaseModel, frozen=True):
     status: str
     operation_id: str
+    operation_type: OperationType | None = None
     result_payload: dict | None = None
     failure_reason: str | None = None
     expires_at: object | None = None
@@ -96,6 +98,7 @@ class PollOperationCommand:
             return PollOperationResult(
                 status=session.status,
                 operation_id=operation_id,
+                operation_type=session.operation_type,
                 result_payload=session.result_payload,
                 failure_reason=session.failure_reason,
             )
@@ -132,6 +135,7 @@ class PollOperationCommand:
             return PollOperationResult(
                 status=OperationStatus.PENDING_CONFIRMATION,
                 operation_id=operation_id,
+                operation_type=session.operation_type,
                 expires_at=expires_at,
             )
 
@@ -148,6 +152,7 @@ class PollOperationCommand:
             return PollOperationResult(
                 status=OperationStatus.COMPLETED,
                 operation_id=operation_id,
+                operation_type=session.operation_type,
                 result_payload=result.result_payload,
             )
 
@@ -164,5 +169,6 @@ class PollOperationCommand:
         return PollOperationResult(
             status=OperationStatus.FAILED,
             operation_id=operation_id,
+            operation_type=session.operation_type,
             failure_reason=result.failure_reason,
         )

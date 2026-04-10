@@ -162,6 +162,7 @@ def test_poll_returns_current_status_when_not_pending() -> None:
     result = asyncio.run(command("op-1", _poll_input(), _API_KEY))
 
     assert result.status == OperationStatus.COMPLETED
+    assert result.operation_type == OperationType.ACCOUNTS
     assert result.result_payload == {"accounts": []}
 
 
@@ -179,6 +180,7 @@ def test_poll_returns_pending_when_resume_still_pending() -> None:
     result = asyncio.run(command("op-1", _poll_input(), _API_KEY))
 
     assert result.status == OperationStatus.PENDING_CONFIRMATION
+    assert result.operation_type == OperationType.ACCOUNTS
     updated = asyncio.run(store.get("op-1"))
     assert updated.session_state == b"updated-snapshot"
     assert updated.last_polled_at == _NOW
@@ -197,6 +199,7 @@ def test_poll_returns_completed_on_approval() -> None:
     result = asyncio.run(command("op-1", _poll_input(), _API_KEY))
 
     assert result.status == OperationStatus.COMPLETED
+    assert result.operation_type == OperationType.ACCOUNTS
     assert result.result_payload == {"accounts": [{"id": "acc-1"}]}
     stored = asyncio.run(store.get("op-1"))
     assert stored.status is OperationStatus.COMPLETED
@@ -216,6 +219,7 @@ def test_poll_returns_failed_on_error() -> None:
     result = asyncio.run(command("op-1", _poll_input(), _API_KEY))
 
     assert result.status == OperationStatus.FAILED
+    assert result.operation_type == OperationType.ACCOUNTS
     assert result.failure_reason == "TAN timed out"
     stored = asyncio.run(store.get("op-1"))
     assert stored.status is OperationStatus.FAILED

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "geldstrom"
-version = "0.1.0"
+version = "0.1.1"
 description = "German banking API client for account data and transactions"
 readme = "README.md"
 license = "LGPL-3.0-only"

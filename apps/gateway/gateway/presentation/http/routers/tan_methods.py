@@ -48,7 +48,11 @@ async def get_tan_methods(
     )
     if result.status is OperationStatus.COMPLETED:
         methods: list[dict[str, Any]] = [
-            {"method_id": m.method_id, "display_name": m.display_name}
+            {
+                "method_id": m.method_id,
+                "display_name": m.display_name,
+                "is_decoupled": m.is_decoupled,
+            }
             for m in result.methods
         ]
         return JSONResponse(

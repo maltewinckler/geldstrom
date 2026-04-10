@@ -105,6 +105,7 @@ def test_get_operation_status_returns_completed_result_without_deleting() -> Non
     stored_session = asyncio.run(session_store.get("op-1"))
 
     assert result.status is OperationStatus.COMPLETED
+    assert result.operation_type is OperationType.ACCOUNTS
     assert result.result_payload == {"accounts": [{"iban": "DE89370400440532013000"}]}
     assert stored_session is not None
 

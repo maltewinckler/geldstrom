@@ -184,6 +184,7 @@ class ResumeResult(BaseModel):
     """Connector result when resuming a pending decoupled operation."""
 
     status: OperationStatus
+    operation_type: OperationType | None = None
     session_state: bytes = b""
     result_payload: dict[str, Any] | None = None
     expires_at: datetime | None = None

@@ -91,7 +91,7 @@ def _await_2fa(client: GatewayClient, body: dict, creds: Creds) -> dict:
     status = result["status"]
 
     if status == "completed":
-        return result.get("result_payload") or {}
+        return result  # Operation A: data fields are inlined directly
 
     if status == "failed":
         reason = result.get("failure_reason") or "unknown"
