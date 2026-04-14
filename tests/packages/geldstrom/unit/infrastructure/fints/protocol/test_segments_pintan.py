@@ -117,6 +117,60 @@ class TestBankParameterSegments:
         assert seg.iban == "DE89370400440532013000"
         assert seg.account_currency == "EUR"
 
+    def test_hiupd6_optional_fields_can_be_none(self):
+        """HIUPD6 accepts None for all optional fields per FinTS 3.0 spec.
+
+        ING DiBa omits account_type (Kontoart). Per the spec, fields 2-5
+        (IBAN, Kunden-ID, Kontoart, Kontowährung) are all optional (status K).
+        Only name_account_owner_1 (field 6) is mandatory (status M).
+        """
+        seg = HIUPD6(
+            header=SegmentHeader(type="HIUPD", version=6, number=5),
+            name_account_owner_1="Max Mustermann",
+        )
+        assert seg.iban is None
+        assert seg.customer_id is None
+        assert seg.account_type is None
+        assert seg.account_currency is None
+
+    def test_hiupd6_parsed_from_wire_with_missing_account_type(self):
+        """Parser handles ING DiBa-style HIUPD6 with missing (None) account_type.
+
+        ING DiBa sends: +5459332560::280:50010517+DE...+customer+<empty>+EUR+NAME...
+        The empty field at position [3] (account_type) must be accepted without error.
+        """
+        from geldstrom.infrastructure.fints.protocol.parser import FinTSParser
+
+        # Simulate the ING DiBa wire format: account_type field is absent (None)
+        raw_segment = [
+            ["HIUPD", "30", "6", "4"],  # header
+            ["5459332560", None, "280", "50010517"],  # account_information DEG
+            "DE11500105175459332560",  # iban
+            "malte.winckler",  # customer_id
+            None,  # account_type — ING DiBa sends this as empty
+            "EUR",  # account_currency
+            "WINCKLER, MALTE",  # name_account_owner_1
+            None,  # name_account_owner_2
+            "Girokonto",  # account_product_name
+            None,  # account_limit
+            ["HKCCS", "1"],  # allowed_transactions (first)
+            ["HKSAL", "1"],  # allowed_transactions (second)
+        ]
+
+        parser = FinTSParser()
+        from geldstrom.infrastructure.fints.protocol.base import SegmentHeader
+
+        header = SegmentHeader(type="HIUPD", number=30, version=6, reference=4)
+        seg = parser._parse_segment_as_class(HIUPD6, raw_segment, header)
+
+        assert seg.account_type is None
+        assert seg.iban == "DE11500105175459332560"
+        assert seg.customer_id == "malte.winckler"
+        assert seg.account_currency == "EUR"
+        assert seg.name_account_owner_1 == "WINCKLER, MALTE"
+        assert seg.account_product_name == "Girokonto"
+        assert len(seg.allowed_transactions) == 2
+
     def test_hiupd6_with_allowed_transactions(self):
         """Create account information with allowed transactions."""
         tx = AllowedTransaction(

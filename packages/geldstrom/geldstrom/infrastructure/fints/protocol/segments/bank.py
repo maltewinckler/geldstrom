@@ -172,19 +172,23 @@ class HIUPD6(FinTSSegment):
         default=None,
         description="Kontoverbindung",
     )
-    iban: FinTSAlphanumeric = Field(
+    iban: FinTSAlphanumeric | None = Field(
+        default=None,
         max_length=34,
         description="IBAN",
     )
-    customer_id: FinTSID = Field(
+    customer_id: FinTSID | None = Field(
+        default=None,
         description="Kunden-ID",
     )
-    account_type: FinTSNumeric = Field(
+    account_type: FinTSNumeric | None = Field(
+        default=None,
         ge=0,
         lt=100,
         description="Kontoart",
     )
-    account_currency: FinTSCurrency = Field(
+    account_currency: FinTSCurrency | None = Field(
+        default=None,
         description="Kontowährung",
     )
     name_account_owner_1: FinTSAlphanumeric = Field(

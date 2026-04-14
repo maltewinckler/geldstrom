@@ -49,7 +49,7 @@ from geldstrom.infrastructure.fints.session import FinTSSessionState, SessionTok
 from geldstrom.infrastructure.fints.tan import TANMethod
 
 # Version
-version = "0.1.1"
+version = "0.1.2"
 __version__ = version
 __all__ = [
     # Version
