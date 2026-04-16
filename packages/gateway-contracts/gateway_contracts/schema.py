@@ -54,12 +54,10 @@ fints_product_registration_table = Table(
 
 
 async def create_test_schema(engine: AsyncEngine) -> None:
-    """Only test purposes"""
     async with engine.begin() as connection:
         await connection.run_sync(metadata.create_all)
 
 
 async def drop_test_schema(engine: AsyncEngine) -> None:
-    """Only test purposes"""
     async with engine.begin() as connection:
         await connection.run_sync(metadata.drop_all)

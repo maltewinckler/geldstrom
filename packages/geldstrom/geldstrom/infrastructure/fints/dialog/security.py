@@ -41,12 +41,7 @@ if TYPE_CHECKING:
 
 @dataclass
 class SecurityContext:
-    """
-    Security context for message signing/encryption.
-
-    This provides all the information needed for security mechanisms
-    without requiring a legacy client reference.
-    """
+    """Security context for message signing/encryption."""
 
     bank_identifier: BankIdentifier
     user_id: str
@@ -54,8 +49,7 @@ class SecurityContext:
 
 
 class StandaloneEncryptionMechanism:
-    """
-    PIN/TAN "encryption" mechanism for dialog messages.
+    """PIN/TAN "encryption" mechanism for dialog messages.
 
     Wraps messages in the required HNVSK/HNVSD envelope structure.
     """
@@ -71,13 +65,11 @@ class StandaloneEncryptionMechanism:
         assert message.segments[0].header.type == "HNHBK"
         assert message.segments[-1].header.type == "HNHBS"
 
-        # Extract plain segments (between header and trailer)
         plain_segments = message.segments[1:-1]
         del message.segments[1:-1]
 
         _now = datetime.datetime.now()
 
-        # Insert encryption header
         message.segments.insert(
             1,
             HNVSK3(
@@ -116,7 +108,6 @@ class StandaloneEncryptionMechanism:
         )
         message.segments[1].header.number = 998
 
-        # Insert encrypted data container - serialize to bytes
         from geldstrom.infrastructure.fints.protocol.parser import FinTSSerializer
 
         serializer = FinTSSerializer()
@@ -133,8 +124,7 @@ class StandaloneEncryptionMechanism:
 
 
 class StandaloneAuthenticationMechanism:
-    """
-    PIN/TAN authentication mechanism for dialog messages.
+    """PIN/TAN authentication mechanism for dialog messages.
 
     Supports both one-step (security function 999) and two-step
     (custom security function) authentication.
@@ -206,7 +196,6 @@ class StandaloneAuthenticationMechanism:
         if self._pending_signature not in message.segments:
             raise RuntimeError("Cannot sign a message that was not prepared")
 
-        # Get TAN if provider is configured and we're using two-step
         tan = None
         if self._tan_provider and self.security_function != "999":
             tan = self._tan_provider()

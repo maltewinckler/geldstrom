@@ -86,7 +86,7 @@ class RedisOperationSessionStore(OperationSessionStore):
         return _deserialize_session(data if isinstance(data, str) else data.decode())
 
     async def update(self, session: PendingOperationSession) -> None:
-        # Same as create — overwrite with refreshed TTL
+        # Same as create - overwrite with refreshed TTL
         await self.create(session)
 
     async def delete(self, operation_id: str) -> None:
@@ -95,7 +95,6 @@ class RedisOperationSessionStore(OperationSessionStore):
     async def expire_stale(self, now: datetime) -> int:
         # Redis TTL handles automatic expiry, but we still need to clean up
         # terminal sessions whose TTL hasn't elapsed yet.
-        # In practice this is called infrequently, so SCAN overhead is acceptable.
         _terminal = {
             OperationStatus.COMPLETED,
             OperationStatus.FAILED,

@@ -8,19 +8,12 @@ from geldstrom.infrastructure.fints.protocol.base import FinTSSegment
 
 
 class MessageDirection(Enum):
-    """Direction of message flow."""
-
     FROM_CUSTOMER = 1
     FROM_INSTITUTE = 2
 
 
 class FinTSMessage(SegmentSequence):
-    """Base class for FinTS messages.
-
-    Extends SegmentSequence with message-level functionality:
-    - Auto-numbering of segments
-    - Response lookup
-    """
+    """Base class for FinTS messages."""
 
     DIRECTION: ClassVar[MessageDirection | None] = None
 
@@ -42,10 +35,7 @@ class FinTSMessage(SegmentSequence):
         self._next_segment_number = value
 
     def __iadd__(self, segment: FinTSSegment):
-        """Append a segment to the message.
-
-        Only Pydantic segments are supported for outgoing messages.
-        """
+        """Append a segment to the message."""
         if not isinstance(segment, FinTSSegment):
             raise TypeError(f"Can only append FinTSSegment instances, not {segment!r}")
         segment.header.number = self.next_segment_number

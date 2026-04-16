@@ -1,4 +1,4 @@
-"""FinTS 3.0 metadata service — connection management and TAN method discovery."""
+"""FinTS 3.0 metadata service - connection management and TAN method discovery."""
 
 from __future__ import annotations
 

@@ -28,21 +28,17 @@ class TANStrategy(Protocol):
     """
 
     @property
-    def is_two_step(self) -> bool:
-        """Whether this strategy uses two-step TAN (security_function != 999)."""
-        ...
+    def is_two_step(self) -> bool: ...
 
     @property
-    def security_function(self) -> str:
-        """The FinTS security function code (e.g. '999', '946')."""
-        ...
+    def security_function(self) -> str: ...
 
     def prepare_segments(
         self,
         segments: list,
         parameters: ParameterStore,
     ) -> list:
-        """Prepare segments for sending — optionally inject HKTAN."""
+        """Prepare segments for sending - optionally inject HKTAN."""
         ...
 
     def handle_response(
@@ -51,7 +47,7 @@ class TANStrategy(Protocol):
         challenge_handler: ChallengeHandler | None,
         send_tan_callback: SendTANCallback | None = None,
     ) -> ProcessedResponse | None:
-        """Handle response after sending — TAN processing if needed.
+        """Handle response after sending - TAN processing if needed.
 
         Returns a replacement ProcessedResponse if TAN handling produced a
         final response, or None if the original response should be used as-is.

@@ -29,7 +29,7 @@ from .identifiers import BankIdentifier
 
 
 class SecurityProfile(FinTSDataElementGroup):
-    """Sicherheitsprofil (Security Profile) — security method and version."""
+    """Sicherheitsprofil (Security Profile) - security method and version."""
 
     security_method: SecurityMethod = Field(
         description="Sicherheitsverfahren",
@@ -40,7 +40,7 @@ class SecurityProfile(FinTSDataElementGroup):
 
 
 class SecurityIdentificationDetails(FinTSDataElementGroup):
-    """Sicherheitsidentifikation, Details — party providing security for the message.
+    """Sicherheitsidentifikation, Details - party providing security for the message.
 
     Note: identifier may be omitted in unsigned bank responses (e.g. DKB).
     """
@@ -144,7 +144,7 @@ class SignatureAlgorithm(FinTSDataElementGroup):
 
 
 class KeyName(FinTSDataElementGroup):
-    """Schlüsselname (Key Name) — identifies a cryptographic key."""
+    """Schlüsselname (Key Name) - identifies a cryptographic key."""
 
     bank_identifier: BankIdentifier = Field(
         description="Kreditinstitutskennung",
@@ -180,7 +180,7 @@ class Certificate(FinTSDataElementGroup):
 
 
 class UserDefinedSignature(FinTSDataElementGroup):
-    """Benutzerdefinierte Signatur — PIN/TAN pair; repr always masks credentials."""
+    """Benutzerdefinierte Signatur - PIN/TAN pair; repr always masks credentials."""
 
     pin: FinTSAlphanumeric = Field(
         max_length=99,

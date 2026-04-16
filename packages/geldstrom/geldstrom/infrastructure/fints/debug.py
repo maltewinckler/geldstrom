@@ -56,11 +56,9 @@ class ParserReport:
             self.unrecognized_count += 1
 
     def add_warning(self, message: str):
-        """Record a parser warning."""
         self.warnings.append(message)
 
     def add_error(self, seg_type: str, version: int, error: str):
-        """Record a parse error for a segment."""
         key = (seg_type, version)
         if key in self.segments:
             self.segments[key].parse_errors.append(error)

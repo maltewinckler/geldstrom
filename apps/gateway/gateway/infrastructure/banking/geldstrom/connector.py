@@ -192,7 +192,7 @@ class GeldstromBankingConnector(BankingConnector):
             )
         except DecoupledTANPending:
             # The TAN may have been triggered by list_accounts() before we
-            # even reached get_transactions().  The client's internal snapshot
+            # even reached get_transactions(). The client's internal snapshot
             # records operation_type='accounts' in that case, so we patch it
             # here to 'transactions' and embed the IBAN + date range so the
             # poll handler can fetch the right data after TAN approval.
@@ -277,7 +277,7 @@ class GeldstromBankingConnector(BankingConnector):
         if original.operation_type == "transactions":
             # TAN was triggered by get_transactions() directly.
             # The snapshot already carries account_id, was_connected=True,
-            # and the correct date range — no patching required.
+            # and the correct date range - no patching required.
             _logger.debug(
                 "_snapshot_transactions_pending: operation_type already 'transactions'; "
                 "preserving original snapshot (account_id=%s)",

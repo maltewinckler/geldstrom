@@ -1,4 +1,4 @@
-"""FinTS 3.0 transaction history adapter — thin orchestrator.
+"""FinTS 3.0 transaction history adapter - thin orchestrator.
 
 Delegates MT940/CAMT parsing to the dedicated pipeline modules in
 ``operations.transactions.mt940`` and ``operations.transactions.camt``.

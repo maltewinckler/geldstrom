@@ -137,7 +137,7 @@ class ParameterChallengeClass(FinTSDataElementGroup):
 
 
 class ResponseHHDUC(FinTSDataElementGroup):
-    """Antwort HHD_UC (Chipkarten-Antwort) — chip card TAN generator response data."""
+    """Antwort HHD_UC (Chipkarten-Antwort) - chip card TAN generator response data."""
 
     atc: FinTSAlphanumeric = Field(
         max_length=5,

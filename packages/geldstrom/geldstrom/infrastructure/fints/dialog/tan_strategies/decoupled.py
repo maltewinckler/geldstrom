@@ -1,4 +1,4 @@
-"""Decoupled TAN strategy — app-based approval via response code 3955.
+"""Decoupled TAN strategy - app-based approval via response code 3955.
 
 When the bank returns code 3955, the user must approve the operation in their
 banking app. The challenge_handler receives the challenge and must return
@@ -63,7 +63,7 @@ class DecoupledTanStrategy:
         if not response.get_response_by_code("3955"):
             return None
 
-        logger.info("Decoupled TAN required — waiting for app approval...")
+        logger.info("Decoupled TAN required - waiting for app approval...")
         return self._handle_decoupled(
             response,
             challenge_handler,
@@ -96,7 +96,7 @@ class DecoupledTanStrategy:
                 raise DecoupledTANPending(challenge=challenge, task_reference=task_ref)
 
         logger.warning(
-            "No challenge_handler provided for decoupled TAN — cannot obtain approval"
+            "No challenge_handler provided for decoupled TAN - cannot obtain approval"
         )
         return None
 

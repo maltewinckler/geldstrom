@@ -8,10 +8,6 @@ from gateway.domain.banking_gateway import BankLeitzahl, FinTSInstitute
 
 
 class BankMetadataPort(Protocol):
-    """Narrow read port for resolving canonical bank metadata by BLZ.
-
-    The application layer owns this interface.  Infrastructure provides
-    a concrete implementation — the application never names it.
-    """
+    """Narrow read port for resolving canonical bank metadata by BLZ."""
 
     async def get_by_blz(self, blz: BankLeitzahl) -> FinTSInstitute | None: ...

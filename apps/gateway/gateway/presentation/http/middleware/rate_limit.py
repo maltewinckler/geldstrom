@@ -19,13 +19,11 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     """Reject requests exceeding ``requests_per_minute`` per API key / IP.
 
     The caller key is a SHA-256 hash of the ``Authorization`` header value
-    when present (e.g. ``Bearer <token>``), otherwise a hash of the client IP
-    address.  Hashing prevents raw API keys from being stored as dict keys.
+    when present, otherwise a hash of the client IP address. Hashing prevents
+    raw API keys from being stored as dict keys.
 
-    Uses a per-caller sliding window — no reset spike at the boundary.
-
-    NOTE: state is in-process only.  If ``GATEWAY_WORKERS > 1``, replace
-    ``_buckets`` with a shared external store such as Redis.
+    Uses a per-caller sliding window. State is in-process only - if
+    ``GATEWAY_WORKERS > 1``, replace ``_buckets`` with a shared store such as Redis.
 
     Health routes (``/health/…``) are exempt to allow load-balancer probes.
     """

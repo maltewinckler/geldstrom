@@ -6,7 +6,7 @@ requires-python = ">=3.13"
 dependencies = [
     "geldstrom",
     "gateway",
-    "gateway-admin-cli",
+    "gateway-admin",
     "gateway-contracts",
 ]
 
@@ -28,7 +28,7 @@ package = false
 [tool.uv.sources]
 geldstrom = { workspace = true }
 gateway = { workspace = true }
-gateway-admin-cli = { workspace = true }
+gateway-admin = { workspace = true }
 gateway-contracts = { workspace = true }
 geldstrom-cli = { workspace = true }
 
@@ -62,7 +62,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["geldstrom", "gateway", "gateway_admin_cli", "geldstrom_cli"]
+known-first-party = ["geldstrom", "gateway", "gateway_admin", "geldstrom_cli"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*" = ["ARG", "B", "SIM"]

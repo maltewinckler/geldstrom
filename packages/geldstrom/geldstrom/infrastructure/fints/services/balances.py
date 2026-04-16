@@ -1,4 +1,4 @@
-"""FinTS 3.0 balance service — connection management and domain mapping."""
+"""FinTS 3.0 balance service - connection management and domain mapping."""
 
 from __future__ import annotations
 

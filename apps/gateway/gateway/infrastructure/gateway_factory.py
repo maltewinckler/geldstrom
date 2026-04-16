@@ -44,8 +44,6 @@ class _RuntimeIdProvider(IdProvider):
 
 
 class _SQLRepositoryFactory(RepositoryFactory):
-    """Repository implementations backed by SQLAlchemy / PostgreSQL."""
-
     def __init__(self, engine: AsyncEngine) -> None:
         self._engine = engine
 
@@ -96,7 +94,7 @@ class GatewayApplicationFactory:
     @cached_property
     def caches(self) -> _GatewayCacheFactory:
         if self._redis is None:
-            raise InternalError("Redis not initialised — call startup() first")
+            raise InternalError("Redis not initialised - call startup() first")
         return _GatewayCacheFactory(self._redis)
 
     @cached_property
@@ -133,7 +131,7 @@ class GatewayApplicationFactory:
     @cached_property
     def readiness_service(self) -> SQLGatewayReadinessService:
         if self._redis is None:
-            raise InternalError("Redis not initialised — call startup() first")
+            raise InternalError("Redis not initialised - call startup() first")
         return SQLGatewayReadinessService(self._engine, self._redis)
 
     @cached_property

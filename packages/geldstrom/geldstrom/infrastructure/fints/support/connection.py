@@ -249,7 +249,7 @@ class FinTSConnectionHelper:
     ) -> Any:
         """Build HKTAN segment (tan_process='4') for dialog initialization.
 
-        NOTE: tan_medium_name must be None — setting it causes bank error 9110.
+        NOTE: tan_medium_name must be None - setting it causes bank error 9110.
         """
         hitans = None
         for seg in parameters.bpd.segments.find_segments("HITANS"):
@@ -305,7 +305,7 @@ class FinTSConnectionHelper:
             user_id=creds.user_id,
             system_id=SYSTEM_ID_UNASSIGNED,
         )
-        # One-step auth (999) for sync — some banks reject two-step during identification.
+        # One-step auth (999) for sync - some banks reject two-step during identification.
         security_function = "999"
         enc_mechanism = StandaloneEncryptionMechanism(
             security_context,
@@ -441,11 +441,9 @@ class FinTSConnectionHelper:
     ) -> ConnectionContext:
         """Reconstruct a ``ConnectionContext`` for decoupled TAN polling.
 
-        Uses fresh credentials from ``self._credentials`` (provided by the
-        client on each poll request) combined with the serialised dialog
-        snapshot that was captured when the TAN challenge was first raised.
-        The returned context contains a ``Dialog`` ready for
-        ``poll_decoupled_once()``.
+        Uses fresh credentials from ``self._credentials`` combined with the
+        serialised dialog snapshot captured when the TAN challenge was first raised.
+        The returned context contains a ``Dialog`` ready for ``poll_decoupled_once()``.
         """
         from geldstrom.infrastructure.fints.session import FinTSSessionState
 

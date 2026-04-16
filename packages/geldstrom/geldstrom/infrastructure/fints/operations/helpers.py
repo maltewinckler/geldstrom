@@ -10,12 +10,7 @@ if TYPE_CHECKING:
 
 
 def get_account_type_for_segment(segment_class: type[Any]) -> type[Any] | None:
-    """Get the account field type for a segment class.
-
-    Example:
-        account_type = get_account_type_for_segment(HKSAL6)
-        account = account_type.from_sepa_account(sepa_account)
-    """
+    """Get the account field type for a segment class."""
     if hasattr(segment_class, "model_fields"):
         account_field = segment_class.model_fields.get("account")
         if account_field:
@@ -24,10 +19,7 @@ def get_account_type_for_segment(segment_class: type[Any]) -> type[Any] | None:
 
 
 def build_account_field(segment_class: type[Any], account: "SEPAAccount") -> Any:
-    """Build an account field for a segment from a SEPAAccount.
-
-    Combines get_account_type_for_segment() and from_sepa_account() for convenience.
-    """
+    """Build an account field for a segment from a SEPAAccount."""
     account_type = get_account_type_for_segment(segment_class)
     if account_type is None:
         raise ValueError(f"Segment {segment_class.__name__} has no account field")

@@ -6,8 +6,8 @@ from enum import Enum
 class FinTSOperations(Enum):
     """Read-only operation identifiers for FinTS capability checking.
 
-    Each value is the segment code (e.g., "HKSAL") used to check
-    if a bank supports the operation via its BPD.
+    Each value is the segment code used to check if a bank supports the
+    operation via its BPD.
     """
 
     GET_BALANCE = "HKSAL"

@@ -18,10 +18,7 @@ _CREDENTIAL_PATTERNS = [
 
 
 def mask_credentials(text: str) -> str:
-    """Mask sensitive credentials from log output.
-
-    Replaces PIN and TAN values with '***' to prevent credential leakage.
-    """
+    """Mask sensitive credentials from log output."""
     result = text
     for pattern, replacement in _CREDENTIAL_PATTERNS:
         result = pattern.sub(replacement, result)

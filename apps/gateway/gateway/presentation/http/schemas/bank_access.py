@@ -1,4 +1,4 @@
-"""Shared bank-access request schema — credentials presented by consumers."""
+"""Shared bank-access request schema - credentials presented by consumers."""
 
 from __future__ import annotations
 

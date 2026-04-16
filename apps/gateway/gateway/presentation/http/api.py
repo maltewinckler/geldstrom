@@ -49,7 +49,7 @@ def create_app() -> FastAPI:
     workers = int(os.getenv("GATEWAY_WORKERS", "1"))
     if workers > 1 and settings.rate_limit_requests_per_minute > 0:
         logger.warning(
-            "RateLimitMiddleware uses in-process state — rate limits are NOT "
+            "RateLimitMiddleware uses in-process state - rate limits are NOT "
             "shared across %d workers. Set GATEWAY_WORKERS=1 or replace the "
             "middleware with a shared store (e.g. Redis).",
             workers,

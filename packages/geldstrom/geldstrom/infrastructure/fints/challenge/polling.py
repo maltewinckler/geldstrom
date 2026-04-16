@@ -32,7 +32,7 @@ class DecoupledTANPending(Exception):
         context: Any = None,
     ) -> None:
         super().__init__(
-            "Decoupled TAN challenge pending — caller must poll externally"
+            "Decoupled TAN challenge pending - caller must poll externally"
         )
         self.challenge = challenge
         self.task_reference = task_reference

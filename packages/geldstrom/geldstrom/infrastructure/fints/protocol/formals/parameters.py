@@ -15,7 +15,7 @@ from .identifiers import BankIdentifier
 
 
 class SupportedLanguages(FinTSDataElementGroup):
-    """Unterstützte Sprachen — dialog languages supported by the bank."""
+    """Unterstützte Sprachen - dialog languages supported by the bank."""
 
     languages: list[Language] = Field(
         min_length=1,
@@ -25,7 +25,7 @@ class SupportedLanguages(FinTSDataElementGroup):
 
 
 class SupportedHBCIVersions(FinTSDataElementGroup):
-    """Unterstützte HBCI-Versionen — FinTS/HBCI protocol versions supported by the bank."""
+    """Unterstützte HBCI-Versionen - FinTS/HBCI protocol versions supported by the bank."""
 
     versions: list[FinTSCode] = Field(
         min_length=1,
@@ -35,7 +35,7 @@ class SupportedHBCIVersions(FinTSDataElementGroup):
 
 
 class CommunicationParameter(FinTSDataElementGroup):
-    """Kommunikationsparameter — connection parameters for a service type."""
+    """Kommunikationsparameter - connection parameters for a service type."""
 
     service_type: ServiceType = Field(
         description="Kommunikationsdienst",
@@ -64,7 +64,7 @@ class CommunicationParameter(FinTSDataElementGroup):
 
 
 class CommunicationAccess(FinTSDataElementGroup):
-    """Kommunikationszugang — communication parameters for multiple access methods."""
+    """Kommunikationszugang - communication parameters for multiple access methods."""
 
     parameters: list[CommunicationParameter] = Field(
         min_length=1,
@@ -74,7 +74,7 @@ class CommunicationAccess(FinTSDataElementGroup):
 
 
 class AccountLimit(FinTSDataElementGroup):
-    """Kontolimit — transaction limits for an account."""
+    """Kontolimit - transaction limits for an account."""
 
     limit_type: FinTSCode | None = Field(
         default=None,
@@ -96,7 +96,7 @@ class AccountLimit(FinTSDataElementGroup):
 
 
 class AllowedTransaction(FinTSDataElementGroup):
-    """Erlaubter Geschäftsvorfall — a transaction type allowed for an account."""
+    """Erlaubter Geschäftsvorfall - a transaction type allowed for an account."""
 
     transaction_code: FinTSAlphanumeric = Field(
         max_length=6,
@@ -114,7 +114,7 @@ class AllowedTransaction(FinTSDataElementGroup):
 
 
 class AccountInformation(FinTSDataElementGroup):
-    """Kontoinformation (UPD-Eintrag) — account details from User Parameter Data."""
+    """Kontoinformation (UPD-Eintrag) - account details from User Parameter Data."""
 
     account_number: FinTSAlphanumeric = Field(
         max_length=30,
@@ -167,7 +167,7 @@ class AccountInformation(FinTSDataElementGroup):
 
 
 class GetSEPAAccountParameter(FinTSDataElementGroup):
-    """Parameter SEPA-Kontoverbindung anfordern — SEPA account request parameters."""
+    """Parameter SEPA-Kontoverbindung anfordern - SEPA account request parameters."""
 
     single_account_query_allowed: bool = Field(
         description="Einzelkontenabruf erlaubt",

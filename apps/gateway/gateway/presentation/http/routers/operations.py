@@ -75,7 +75,7 @@ def _build_response(result: Any) -> dict[str, Any]:
                 operation_id=op_id,
                 methods=payload.get("methods", []),
             ).model_dump(mode="json")
-        # fallback — unknown operation type completed
+        # fallback - unknown operation type completed
         return {"status": status, "operation_type": op_type, "operation_id": op_id}
 
     # failed / expired
@@ -104,7 +104,7 @@ async def get_operation_status(
     "/operations/{operation_id}/poll",
     responses={
         200: {"description": "Operation completed or failed"},
-        202: {"description": "TAN still pending — continue polling"},
+        202: {"description": "TAN still pending - continue polling"},
     },
 )
 async def poll_operation(

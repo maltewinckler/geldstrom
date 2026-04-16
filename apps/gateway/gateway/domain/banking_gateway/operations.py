@@ -28,8 +28,6 @@ class OperationStatus(StrEnum):
 
 
 class OperationType(StrEnum):
-    """Supported banking operation types."""
-
     ACCOUNTS = "accounts"
     BALANCES = "balances"
     TRANSACTIONS = "transactions"

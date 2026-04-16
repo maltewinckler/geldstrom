@@ -14,7 +14,7 @@ from ..types import (
 
 
 class SupportedMessageTypes(FinTSDataElementGroup):
-    """Unterstützte camt-Messages — CAMT formats supported by the bank."""
+    """Unterstützte camt-Messages - CAMT formats supported by the bank."""
 
     expected_type: list[FinTSAlphanumeric] = Field(
         min_length=1,
@@ -24,7 +24,7 @@ class SupportedMessageTypes(FinTSDataElementGroup):
 
 
 class BookedCamtStatements(FinTSDataElementGroup):
-    """Gebuchte camt-Umsätze — booked transactions in CAMT XML format."""
+    """Gebuchte camt-Umsätze - booked transactions in CAMT XML format."""
 
     camt_statements: list[FinTSBinary] = Field(
         min_length=1,
@@ -33,7 +33,7 @@ class BookedCamtStatements(FinTSDataElementGroup):
 
 
 class SupportedSEPAPainMessages(FinTSDataElementGroup):
-    """Unterstützte SEPA pain messages — pain.* formats supported for transfers."""
+    """Unterstützte SEPA pain messages - pain.* formats supported for transfers."""
 
     sepa_descriptors: list[FinTSAlphanumeric] = Field(
         max_length=99,
@@ -42,7 +42,7 @@ class SupportedSEPAPainMessages(FinTSDataElementGroup):
 
 
 class BatchTransferParameter(FinTSDataElementGroup):
-    """Parameter SEPA-Sammelüberweisung — limits and requirements for batch SEPA transfers."""
+    """Parameter SEPA-Sammelüberweisung - limits and requirements for batch SEPA transfers."""
 
     max_transfer_count: FinTSNumeric = Field(
         ge=0,
