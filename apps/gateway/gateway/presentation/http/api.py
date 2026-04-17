@@ -10,13 +10,16 @@ from fastapi import FastAPI
 
 from gateway.application.common import ApplicationError
 from gateway.presentation.http import lifecycle
-
-from .middleware.cache_control import CacheControlMiddleware
-from .middleware.exception_handlers import application_error_handler
-from .middleware.rate_limit import RateLimitMiddleware
-from .middleware.request_id import RequestIDMiddleware
-from .middleware.security_headers import SecurityHeadersMiddleware
-from .routers import (
+from gateway.presentation.http.middleware.cache_control import CacheControlMiddleware
+from gateway.presentation.http.middleware.exception_handlers import (
+    application_error_handler,
+)
+from gateway.presentation.http.middleware.rate_limit import RateLimitMiddleware
+from gateway.presentation.http.middleware.request_id import RequestIDMiddleware
+from gateway.presentation.http.middleware.security_headers import (
+    SecurityHeadersMiddleware,
+)
+from gateway.presentation.http.routers import (
     accounts,
     balances,
     health,

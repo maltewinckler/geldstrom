@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import tempfile
+from datetime import datetime
 from pathlib import Path
+from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, UploadFile, status
+from fastapi import APIRouter, HTTPException, Query, UploadFile, status
 
 from gateway_admin.application.commands.create_user import CreateUserCommand
 from gateway_admin.application.commands.delete_user import DeleteUserCommand
@@ -15,19 +17,26 @@ from gateway_admin.application.commands.rotate_user_key import RotateUserKeyComm
 from gateway_admin.application.commands.sync_institute_catalog import (
     SyncInstituteCatalogCommand,
 )
+from gateway_admin.application.queries.get_user import GetUserQuery
+from gateway_admin.application.queries.list_audit_events import ListAuditEventsQuery
 from gateway_admin.application.queries.list_users import ListUsersQuery
+from gateway_admin.domain.audit import AuditEventType, AuditQuery
 from gateway_admin.domain.errors import ValidationError
 from gateway_admin.infrastructure.services.email_service import EmailServiceError
-
-from .dependencies import RepoFactoryDep, ServiceFactoryDep
-from .schemas import (
+from gateway_admin.presentation.api.dependencies import (
+    RepoFactoryDep,
+    ServiceFactoryDep,
+)
+from gateway_admin.presentation.api.schemas import (
+    AuditEventResponse,
+    AuditPageResponse,
     CatalogSyncResponse,
     CreateUserRequest,
     CreateUserResponse,
     ErrorResponse,
     UserListResponse,
 )
-from .schemas import (
+from gateway_admin.presentation.api.schemas import (
     UserSummary as UserSummarySchema,
 )
 
@@ -37,14 +46,35 @@ router = APIRouter()
 @router.get(
     "/users", response_model=UserListResponse, responses={500: {"model": ErrorResponse}}
 )
-async def list_users(repo: RepoFactoryDep) -> UserListResponse:
-    users = await ListUsersQuery.from_factory(repo)()
+async def list_users(
+    repo: RepoFactoryDep,
+    email: str | None = Query(
+        default=None, description="Filter by email (substring match)"
+    ),
+    status: UserStatus | None = Query(default=None, description="Filter by status"),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=50, ge=1, le=200),
+) -> UserListResponse:
+    q = UserQuery(email_contains=email, status=status, page=page, page_size=page_size)
+    result = await ListUsersQuery.from_factory(repo)(q)
     return UserListResponse(
-        users=[
-            UserSummarySchema.model_validate(u)
-            for u in sorted(users, key=lambda u: u.email.lower())
-        ]
+        users=[UserSummarySchema.model_validate(u) for u in result.users],
+        total=result.total,
+        page=result.page,
+        page_size=result.page_size,
     )
+
+
+@router.get(
+    "/users/{user_id}",
+    response_model=UserSummarySchema,
+    responses={404: {"model": ErrorResponse}},
+)
+async def get_user(user_id: str, repo: RepoFactoryDep) -> UserSummarySchema:
+    result = await GetUserQuery.from_factory(repo)(user_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail=f"User {user_id} not found")
+    return UserSummarySchema.model_validate(result)
 
 
 @router.post(
@@ -218,4 +248,39 @@ async def sync_catalog(
     return CatalogSyncResponse(
         loaded_count=result.loaded_count,
         skipped_count=len(result.skipped_rows),
+    )
+
+
+@router.get("/audit", response_model=AuditPageResponse)
+async def list_audit_events(
+    repo: RepoFactoryDep,
+    consumer_id: UUID | None = Query(default=None),
+    event_type: AuditEventType | None = Query(default=None),
+    from_date: datetime | None = Query(default=None),
+    to_date: datetime | None = Query(default=None),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=50, ge=1, le=200),
+) -> AuditPageResponse:
+    q = AuditQuery(
+        consumer_id=consumer_id,
+        event_type=event_type,
+        from_date=from_date,
+        to_date=to_date,
+        page=page,
+        page_size=page_size,
+    )
+    result = await ListAuditEventsQuery.from_factory(repo)(q)
+    return AuditPageResponse(
+        events=[
+            AuditEventResponse(
+                event_id=e.event_id,
+                event_type=e.event_type,
+                consumer_id=e.consumer_id,
+                occurred_at=e.occurred_at,
+            )
+            for e in result.events
+        ],
+        total=result.total,
+        page=result.page,
+        page_size=result.page_size,
     )

@@ -85,11 +85,17 @@ class PollOperationCommand:
 
         session = await self._session_store.get(operation_id)
         if session is None:
+            # Security: return EXPIRED rather than NOT_FOUND to avoid an
+            # enumeration oracle. A caller that can distinguish "this ID never
+            # existed" from "this ID belongs to someone else" could probe for
+            # valid operation IDs belonging to other consumers.
             return PollOperationResult(
                 status=OperationStatus.EXPIRED,
                 operation_id=operation_id,
             )
         if session.consumer_id != consumer_id:
+            # Security: same EXPIRED response as above — intentionally
+            # indistinguishable from the "not found" case.
             return PollOperationResult(
                 status=OperationStatus.EXPIRED,
                 operation_id=operation_id,

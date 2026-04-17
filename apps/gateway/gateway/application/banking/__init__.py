@@ -1,6 +1,6 @@
 """Banking bounded context application services."""
 
-from .commands import (
+from gateway.application.banking.commands import (
     FetchTransactionsCommand,
     FetchTransactionsInput,
     GetTanMethodsCommand,
@@ -8,13 +8,13 @@ from .commands import (
     ListAccountsCommand,
     ListAccountsInput,
 )
-from .dtos import (
+from gateway.application.banking.dtos import (
     ListAccountsResultEnvelope,
     OperationStatusEnvelope,
     TanMethodsResultEnvelope,
     TransactionsResultEnvelope,
 )
-from .queries import GetOperationStatusQuery
+from gateway.application.banking.queries import GetOperationStatusQuery
 
 __all__ = [
     "FetchTransactionsCommand",

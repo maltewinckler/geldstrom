@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import typer
 
-from .catalog import app as catalog_app
-from .db import app as db_app
-from .inspect import app as inspect_app
-from .product import app as product_app
-from .users import app as users_app
+from gateway_admin.presentation.cli.catalog import app as catalog_app
+from gateway_admin.presentation.cli.db import app as db_app
+from gateway_admin.presentation.cli.inspect import app as inspect_app
+from gateway_admin.presentation.cli.product import app as product_app
+from gateway_admin.presentation.cli.users import app as users_app
 
 app = typer.Typer(
     name="gw-admin",

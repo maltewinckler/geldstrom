@@ -1,8 +1,11 @@
 """Domain entities."""
 
-from .institutes import FinTSInstitute, InstituteSelectionPolicy
-from .product import ProductRegistration
-from .users import User, UserStatus
+from gateway_admin.domain.entities.institutes import (
+    FinTSInstitute,
+    InstituteSelectionPolicy,
+)
+from gateway_admin.domain.entities.product import ProductRegistration
+from gateway_admin.domain.entities.users import User, UserStatus
 
 __all__ = [
     "FinTSInstitute",

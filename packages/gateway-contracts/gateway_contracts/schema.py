@@ -53,6 +53,16 @@ fints_product_registration_table = Table(
 )
 
 
+audit_events_table = Table(
+    "audit_events",
+    metadata,
+    Column("event_id", Uuid(as_uuid=True), primary_key=True),
+    Column("event_type", String(64), nullable=False),
+    Column("consumer_id", Uuid(as_uuid=True), nullable=True),
+    Column("occurred_at", DateTime(timezone=True), nullable=False),
+)
+
+
 async def create_test_schema(engine: AsyncEngine) -> None:
     async with engine.begin() as connection:
         await connection.run_sync(metadata.create_all)

@@ -8,6 +8,7 @@ from .channels import (
 from .payloads import ConsumerUpdatedPayload
 from .schema import (
     api_consumers_table,
+    audit_events_table,
     create_test_schema,
     drop_test_schema,
     fints_institutes_table,
@@ -21,6 +22,7 @@ __all__ = [
     "ConsumerUpdatedPayload",
     "PRODUCT_REGISTRATION_UPDATED_CHANNEL",
     "api_consumers_table",
+    "audit_events_table",
     "create_test_schema",
     "drop_test_schema",
     "fints_institutes_table",

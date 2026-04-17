@@ -10,8 +10,7 @@ from rich.console import Console
 
 from gateway_admin.application.commands import UpdateProductRegistrationCommand
 from gateway_admin.domain.errors import ValidationError
-
-from ._common import build_context
+from gateway_admin.presentation.cli._common import build_context
 
 app = typer.Typer(name="product", help="Manage the shared FinTS product registration.")
 console = Console()

@@ -6,6 +6,7 @@ from collections import defaultdict
 from pathlib import Path
 from typing import TYPE_CHECKING, Self
 
+from gateway_admin.application.dtos.institute_catalog import InstituteCatalogSyncResult
 from gateway_admin.domain.entities.institutes import InstituteSelectionPolicy
 from gateway_admin.domain.services.gateway_notifications import (
     GatewayNotificationService,
@@ -13,8 +14,6 @@ from gateway_admin.domain.services.gateway_notifications import (
 from gateway_admin.domain.services.institute_csv import (
     InstituteCsvReaderPort,
 )
-
-from ..dtos.institute_catalog import InstituteCatalogSyncResult
 
 if TYPE_CHECKING:
     from gateway_admin.application.factories.admin_factory import AdminRepositoryFactory

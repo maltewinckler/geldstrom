@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from sqlalchemy.engine import RowMapping
 
 
-class SQLApiConsumerRepository(ApiConsumerRepository):
+class ApiConsumerRepositorySqlAlchemy(ApiConsumerRepository):
     """Persist API consumer aggregates in a SQL database."""
 
     def __init__(self, engine: AsyncEngine) -> None:

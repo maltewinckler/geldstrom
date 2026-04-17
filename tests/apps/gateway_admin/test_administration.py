@@ -233,6 +233,39 @@ def test_rotate_user_key_returns_new_raw_key_once() -> None:
     assert stored.rotated_at == datetime(2026, 3, 12, 11, 0, tzinfo=UTC)
 
 
+def test_rotate_user_key_continues_when_audit_repo_raises() -> None:
+    """RotateUserKeyCommand completes normally even when audit_repo.append() raises.
+
+    Validates: Requirements 3.2
+    """
+
+    class RaisingAuditRepository:
+        async def append(self, event) -> None:
+            raise RuntimeError("audit DB unavailable")
+
+    user = _user(status=UserStatus.ACTIVE)
+    repository = FakeUserRepository([user])
+    gateway = FakeGatewayNotifications()
+    email_service = FakeEmailService()
+    use_case = RotateUserKeyCommand(
+        repository=repository,
+        gateway=gateway,
+        api_key_service=FakeApiKeyService(["raw-key-3"]),
+        id_provider=FakeIdProvider(
+            now_value=datetime(2026, 3, 12, 11, 0, tzinfo=UTC),
+            operation_ids=["unused"],
+        ),
+        email_service=email_service,
+        audit_repository=RaisingAuditRepository(),
+    )
+
+    # Must not raise even though audit_repo.append() raises
+    result = asyncio.run(use_case(str(user.user_id)))
+
+    assert result.raw_api_key == "raw-key-3"
+    assert len(email_service.sent) == 1
+
+
 def test_disable_and_delete_user_notify_gateway() -> None:
     user = _user()
     repository = FakeUserRepository([user])

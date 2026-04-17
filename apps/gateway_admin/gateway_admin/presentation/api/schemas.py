@@ -1,11 +1,11 @@
 """Pydantic schemas for API request/response models."""
 
-from __future__ import annotations
-
 from datetime import datetime
+from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field
 
+from gateway_admin.domain.audit import AuditEventType
 from gateway_admin.domain.entities.users import UserStatus
 
 
@@ -34,6 +34,9 @@ class CreateUserResponse(BaseModel):
 
 class UserListResponse(BaseModel):
     users: list[UserSummary]
+    total: int
+    page: int
+    page_size: int
 
 
 class ErrorResponse(BaseModel):
@@ -43,3 +46,19 @@ class ErrorResponse(BaseModel):
 class CatalogSyncResponse(BaseModel):
     loaded_count: int
     skipped_count: int
+
+
+class AuditEventResponse(BaseModel):
+    event_id: UUID
+    event_type: AuditEventType
+    consumer_id: UUID | None
+    occurred_at: datetime
+
+    model_config = {"use_enum_values": True}
+
+
+class AuditPageResponse(BaseModel):
+    events: list[AuditEventResponse]
+    total: int
+    page: int
+    page_size: int

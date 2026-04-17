@@ -3,23 +3,17 @@
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import Any, Literal
+from typing import Any
 
-from pydantic import BaseModel, Field, SecretStr
+from pydantic import BaseModel
+
+from gateway.presentation.http.schemas.bank_access import BankAccessRequest
 
 
-class FetchTransactionsRequest(BaseModel):
-    model_config = {"extra": "forbid"}
-
-    protocol: Literal["fints"]
-    blz: str = Field(min_length=8, max_length=8, pattern=r"^\d{8}$")
-    user_id: str = Field(max_length=64)
-    password: SecretStr
+class FetchTransactionsRequest(BankAccessRequest):
     iban: str
     start_date: date | None = None
     end_date: date | None = None
-    tan_method: str | None = Field(default=None, max_length=64)
-    tan_medium: str | None = Field(default=None, max_length=64)
 
 
 class TransactionsCompletedResponse(BaseModel):

@@ -19,8 +19,7 @@ from gateway_admin.application.commands import (
 )
 from gateway_admin.application.queries import ListUsersQuery
 from gateway_admin.domain.errors import ValidationError
-
-from ._common import build_context
+from gateway_admin.presentation.cli._common import build_context
 
 app = typer.Typer(name="users", help="Manage API consumers.")
 console = Console()

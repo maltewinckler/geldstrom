@@ -19,7 +19,11 @@ from gateway.domain.consumer_access import (
     ApiKeyHash,
     ConsumerStatus,
 )
-from tests.apps.gateway.fakes import FakeConsumerCache, FakeInstituteCache
+from tests.apps.gateway.fakes import (
+    FakeAuditService,
+    FakeConsumerCache,
+    FakeInstituteCache,
+)
 
 
 class StubApiKeyVerifier:
@@ -36,7 +40,7 @@ def _make_auth() -> AuthenticateConsumerQuery:
         created_at=datetime.now(UTC),
     )
     return AuthenticateConsumerQuery(
-        FakeConsumerCache([consumer]), StubApiKeyVerifier()
+        FakeConsumerCache([consumer]), StubApiKeyVerifier(), FakeAuditService()
     )
 
 

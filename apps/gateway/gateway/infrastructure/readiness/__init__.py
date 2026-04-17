@@ -1,5 +1,7 @@
 """Infrastructure implementations of readiness ports."""
 
-from .gateway_readiness_service import SQLGatewayReadinessService
+from gateway.infrastructure.readiness.gateway_readiness_service import (
+    SQLGatewayReadinessService,
+)
 
 __all__ = ["SQLGatewayReadinessService"]

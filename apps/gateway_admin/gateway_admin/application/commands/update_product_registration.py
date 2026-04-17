@@ -4,17 +4,16 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Self
 
+from gateway_admin.application.dtos.product_registration import (
+    ProductRegistrationSummary,
+    to_product_registration_summary,
+)
 from gateway_admin.domain.entities.product import ProductRegistration
 from gateway_admin.domain.errors import ValidationError
 from gateway_admin.domain.services.gateway_notifications import (
     GatewayNotificationService,
 )
 from gateway_admin.domain.services.identity import IdProvider
-
-from ..dtos.product_registration import (
-    ProductRegistrationSummary,
-    to_product_registration_summary,
-)
 
 if TYPE_CHECKING:
     from gateway_admin.application.factories.admin_factory import AdminRepositoryFactory

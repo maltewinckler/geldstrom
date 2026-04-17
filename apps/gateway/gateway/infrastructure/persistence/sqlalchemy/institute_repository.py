@@ -13,7 +13,7 @@ from gateway.domain.banking_gateway import (
 )
 
 
-class SQLFinTSInstituteRepository(FinTSInstituteRepository):
+class FinTSInstituteRepositorySqlAlchemy(FinTSInstituteRepository):
     """Persist canonical institute records in a SQL database."""
 
     def __init__(self, engine: AsyncEngine) -> None:

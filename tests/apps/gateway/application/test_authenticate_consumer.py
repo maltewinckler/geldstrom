@@ -17,7 +17,7 @@ from gateway.domain.consumer_access import (
     ApiKeyHash,
     ConsumerStatus,
 )
-from tests.apps.gateway.fakes import FakeConsumerCache
+from tests.apps.gateway.fakes import FakeAuditService, FakeConsumerCache
 
 _CONSUMER_ID_1 = "12345678-1234-5678-1234-567812345678"
 _CONSUMER_ID_2 = "87654321-4321-8765-4321-876543218765"
@@ -37,7 +37,7 @@ def test_authenticate_consumer_returns_identity_for_matching_active_consumer() -
     key = f"{_prefix(_CONSUMER_ID_1)}.secret-token"
     consumer = _consumer(consumer_id=_CONSUMER_ID_1, api_key_hash=key)
     use_case = AuthenticateConsumerQuery(
-        FakeConsumerCache([consumer]), StubApiKeyVerifier()
+        FakeConsumerCache([consumer]), StubApiKeyVerifier(), FakeAuditService()
     )
 
     authenticated = asyncio.run(use_case(key))
@@ -49,7 +49,7 @@ def test_authenticate_consumer_rejects_unknown_key() -> None:
     key = f"{_prefix(_CONSUMER_ID_1)}.secret-token"
     consumer = _consumer(consumer_id=_CONSUMER_ID_1, api_key_hash=key)
     use_case = AuthenticateConsumerQuery(
-        FakeConsumerCache([consumer]), StubApiKeyVerifier()
+        FakeConsumerCache([consumer]), StubApiKeyVerifier(), FakeAuditService()
     )
 
     with pytest.raises(UnauthorizedError, match="Invalid API key"):
@@ -64,7 +64,7 @@ def test_authenticate_consumer_rejects_disabled_consumer() -> None:
         status=ConsumerStatus.DISABLED,
     )
     use_case = AuthenticateConsumerQuery(
-        FakeConsumerCache([consumer]), StubApiKeyVerifier()
+        FakeConsumerCache([consumer]), StubApiKeyVerifier(), FakeAuditService()
     )
 
     with pytest.raises(ForbiddenError, match="disabled"):
@@ -74,7 +74,7 @@ def test_authenticate_consumer_rejects_disabled_consumer() -> None:
 def test_authenticate_consumer_rejects_key_without_prefix() -> None:
     consumer = _consumer(consumer_id=_CONSUMER_ID_1, api_key_hash="no-prefix")
     use_case = AuthenticateConsumerQuery(
-        FakeConsumerCache([consumer]), StubApiKeyVerifier()
+        FakeConsumerCache([consumer]), StubApiKeyVerifier(), FakeAuditService()
     )
 
     with pytest.raises(UnauthorizedError, match="Invalid API key"):
@@ -97,7 +97,7 @@ def test_authenticate_consumer_finds_correct_consumer_by_prefix() -> None:
         ),
     ]
     use_case = AuthenticateConsumerQuery(
-        FakeConsumerCache(consumers), StubApiKeyVerifier()
+        FakeConsumerCache(consumers), StubApiKeyVerifier(), FakeAuditService()
     )
 
     authenticated = asyncio.run(use_case(key_2))

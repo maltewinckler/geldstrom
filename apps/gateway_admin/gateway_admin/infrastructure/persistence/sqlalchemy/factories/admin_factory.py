@@ -7,6 +7,9 @@ from functools import cached_property
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 from gateway_admin.config import Settings, get_settings
+from gateway_admin.infrastructure.persistence.sqlalchemy.repositories.audit_repository import (
+    AuditRepositorySqlAlchemy,
+)
 from gateway_admin.infrastructure.persistence.sqlalchemy.repositories.institute_repository import (
     InstituteRepositorySQLAlchemy,
 )
@@ -51,6 +54,10 @@ class AdminRepositoryFactorySQLAlchemy:
     @cached_property
     def product_registration(self) -> ProductRegistrationRepositorySQLAlchemy:
         return ProductRegistrationRepositorySQLAlchemy(self._engine)
+
+    @cached_property
+    def audit(self) -> AuditRepositorySqlAlchemy:
+        return AuditRepositorySqlAlchemy(self._engine)
 
     async def dispose(self) -> None:
         """Dispose the underlying SQLAlchemy engine."""

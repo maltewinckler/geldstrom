@@ -89,6 +89,13 @@ class SimpleIdProvider:
         return datetime.now(UTC)
 
 
+class NoOpAuditRepository:
+    """No-op audit repository for tests — discards all events."""
+
+    async def append(self, event) -> None:
+        pass
+
+
 class MockAdminRepositoryFactory:
     """In-memory AdminRepositoryFactory for tests — repositories + settings only."""
 
@@ -98,6 +105,7 @@ class MockAdminRepositoryFactory:
         self._settings.admin_argon2_time_cost = 1
         self._settings.admin_argon2_memory_cost = 8192
         self._settings.admin_argon2_parallelism = 1
+        self._audit = NoOpAuditRepository()
 
     @property
     def settings(self):
@@ -114,6 +122,10 @@ class MockAdminRepositoryFactory:
     @property
     def product_registration(self):  # type: ignore[override]
         raise NotImplementedError("Not needed in user-focused tests")
+
+    @property
+    def audit(self) -> NoOpAuditRepository:
+        return self._audit
 
 
 class MockServiceFactory:

@@ -11,8 +11,7 @@ from rich.console import Console
 from rich.table import Table
 
 from gateway_admin.application.commands import SyncInstituteCatalogCommand
-
-from ._common import build_context
+from gateway_admin.presentation.cli._common import build_context
 
 app = typer.Typer(name="catalog", help="Manage the FinTS institute catalog.")
 console = Console()

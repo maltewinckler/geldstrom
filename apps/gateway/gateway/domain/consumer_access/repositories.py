@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Protocol
 from uuid import UUID
 
-from .model import ApiConsumer
+from gateway.domain.consumer_access.model import ApiConsumer
 
 
 class ApiConsumerRepository(Protocol):

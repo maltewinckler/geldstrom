@@ -24,10 +24,6 @@ from gateway.infrastructure.cache.memory import (
     InMemoryFinTSInstituteCache,
     PostgresNotifyListener,
 )
-from gateway.infrastructure.persistence.sql import (
-    SQLApiConsumerRepository,
-    SQLFinTSInstituteRepository,
-)
 
 
 async def _seed_consumer(engine, consumer: ApiConsumer) -> None:
@@ -77,7 +73,7 @@ def test_notify_listener_reloads_catalog(postgres_engine, async_runner) -> None:
 
 
 async def _exercise_consumer_notification(postgres_engine) -> None:
-    repository = SQLApiConsumerRepository(postgres_engine)
+    repository = ApiConsumerRepositorySqlAlchemy(postgres_engine)
     cache = InMemoryApiConsumerCache()
     original = _consumer("consumer@example.com")
     updated = _consumer("updated@example.com", consumer_id=original.consumer_id)
@@ -102,7 +98,7 @@ async def _exercise_consumer_notification(postgres_engine) -> None:
 
 
 async def _exercise_catalog_notification(postgres_engine) -> None:
-    repository = SQLFinTSInstituteRepository(postgres_engine)
+    repository = FinTSInstituteRepositorySqlAlchemy(postgres_engine)
     cache = InMemoryFinTSInstituteCache()
     await _seed_institutes(postgres_engine, _institute("87654321"))
     await cache.load([_institute("12345678")])
@@ -135,10 +131,10 @@ def _build_listener(
     return PostgresNotifyListener(
         database_url=postgres_engine.url.render_as_string(hide_password=False),
         consumer_repository=consumer_repository
-        or SQLApiConsumerRepository(postgres_engine),
+        or ApiConsumerRepositorySqlAlchemy(postgres_engine),
         consumer_cache=consumer_cache or InMemoryApiConsumerCache(),
         institute_repository=institute_repository
-        or SQLFinTSInstituteRepository(postgres_engine),
+        or FinTSInstituteRepositorySqlAlchemy(postgres_engine),
         institute_cache=institute_cache or InMemoryFinTSInstituteCache(),
         reconnect_backoff_seconds=0.05,
         max_reconnect_backoff_seconds=0.2,

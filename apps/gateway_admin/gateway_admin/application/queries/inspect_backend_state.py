@@ -5,11 +5,12 @@ from __future__ import annotations
 import asyncio
 from typing import TYPE_CHECKING, Self
 
+from gateway_admin.application.dtos.backend_state import BackendStateReport
+from gateway_admin.application.dtos.product_registration import (
+    to_product_registration_summary,
+)
 from gateway_admin.domain.entities.users import UserStatus
 from gateway_admin.domain.value_objects.institutes import BankLeitzahl
-
-from ..dtos.backend_state import BackendStateReport
-from ..dtos.product_registration import to_product_registration_summary
 
 if TYPE_CHECKING:
     from gateway_admin.application.factories.admin_factory import AdminRepositoryFactory

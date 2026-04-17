@@ -2,15 +2,19 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, SecretStr
+from typing import Literal
+
+from pydantic import BaseModel, Field, SecretStr
 
 
 class BankAccessRequest(BaseModel):
-    """Credentials and routing needed for any bank operation."""
+    """Common credentials and routing fields required by all banking endpoints."""
 
     model_config = {"extra": "forbid"}
 
-    protocol: str
-    blz: str
-    user_id: str
+    protocol: Literal["fints"]
+    blz: str = Field(min_length=8, max_length=8, pattern=r"^\d{8}$")
+    user_id: str = Field(max_length=64)
     password: SecretStr
+    tan_method: str | None = Field(default=None, max_length=64)
+    tan_medium: str | None = Field(default=None, max_length=64)

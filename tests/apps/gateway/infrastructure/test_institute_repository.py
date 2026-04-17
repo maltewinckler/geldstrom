@@ -10,7 +10,6 @@ from gateway.domain.banking_gateway import (
     BankLeitzahl,
     FinTSInstitute,
 )
-from gateway.infrastructure.persistence.sql import SQLFinTSInstituteRepository
 
 
 async def _seed_institutes(engine, *institutes: FinTSInstitute) -> None:
@@ -41,7 +40,7 @@ def test_institute_repository_list_all(postgres_engine, async_runner) -> None:
             postgres_engine, _institute("12345678"), _institute("87654321")
         )
     )
-    repository = SQLFinTSInstituteRepository(postgres_engine)
+    repository = FinTSInstituteRepositorySqlAlchemy(postgres_engine)
 
     institutes = async_runner(repository.list_all())
 
@@ -51,7 +50,7 @@ def test_institute_repository_list_all(postgres_engine, async_runner) -> None:
 def test_institute_repository_get_by_blz(postgres_engine, async_runner) -> None:
     expected = _institute("12345678")
     async_runner(_seed_institutes(postgres_engine, expected))
-    repository = SQLFinTSInstituteRepository(postgres_engine)
+    repository = FinTSInstituteRepositorySqlAlchemy(postgres_engine)
 
     loaded = async_runner(repository.get_by_blz(BankLeitzahl("12345678")))
 
@@ -61,7 +60,7 @@ def test_institute_repository_get_by_blz(postgres_engine, async_runner) -> None:
 def test_institute_repository_returns_none_for_unknown_blz(
     postgres_engine, async_runner
 ) -> None:
-    repository = SQLFinTSInstituteRepository(postgres_engine)
+    repository = FinTSInstituteRepositorySqlAlchemy(postgres_engine)
 
     loaded = async_runner(repository.get_by_blz(BankLeitzahl("12345678")))
 

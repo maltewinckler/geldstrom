@@ -16,9 +16,8 @@ from gateway.application.banking.queries.get_operation_status import (
     GetOperationStatusQuery,
 )
 from gateway.domain.banking_gateway import BankLeitzahl, OperationStatus, OperationType
-
-from ..dependencies import ApiKey, Factory
-from ..schemas.operations import (
+from gateway.presentation.http.dependencies import ApiKey, Factory
+from gateway.presentation.http.schemas.operations import (
     PollCompletedAccountsResponse,
     PollCompletedBalancesResponse,
     PollCompletedTanMethodsResponse,

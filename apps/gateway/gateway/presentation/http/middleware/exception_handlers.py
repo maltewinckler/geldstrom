@@ -19,8 +19,7 @@ from gateway.application.common import (
     UnsupportedProtocolError,
     ValidationError,
 )
-
-from ..schemas.errors import ErrorResponse
+from gateway.presentation.http.schemas.errors import ErrorResponse
 
 logger = logging.getLogger(__name__)
 

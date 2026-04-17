@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from gateway_admin.application.dtos.product_registration import (
+    ProductRegistrationSummary,
+)
 from gateway_admin.domain.entities.institutes import FinTSInstitute
-
-from .product_registration import ProductRegistrationSummary
 
 
 @dataclass(frozen=True)

@@ -1,5 +1,5 @@
 """Admin CLI Typer entry points."""
 
-from .main import app, main
+from gateway_admin.presentation.cli.main import app, main
 
 __all__ = ["app", "main"]

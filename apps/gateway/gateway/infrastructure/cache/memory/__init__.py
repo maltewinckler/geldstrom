@@ -1,9 +1,13 @@
 """In-memory infrastructure implementations for the gateway."""
 
-from .consumer_cache import InMemoryApiConsumerCache
-from .institute_cache import InMemoryFinTSInstituteCache
-from .notify_listener import PostgresNotifyListener
-from .operation_session_store import InMemoryOperationSessionStore
+from gateway.infrastructure.cache.memory.consumer_cache import InMemoryApiConsumerCache
+from gateway.infrastructure.cache.memory.institute_cache import (
+    InMemoryFinTSInstituteCache,
+)
+from gateway.infrastructure.cache.memory.notify_listener import PostgresNotifyListener
+from gateway.infrastructure.cache.memory.operation_session_store import (
+    InMemoryOperationSessionStore,
+)
 
 __all__ = [
     "InMemoryApiConsumerCache",

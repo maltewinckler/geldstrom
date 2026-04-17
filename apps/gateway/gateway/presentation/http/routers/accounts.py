@@ -10,9 +10,8 @@ from gateway.application.banking.commands.list_accounts import (
     ListAccountsInput,
 )
 from gateway.domain.banking_gateway import BankLeitzahl, BankProtocol, OperationStatus
-
-from ..dependencies import ApiKey, Factory
-from ..schemas.accounts import (
+from gateway.presentation.http.dependencies import ApiKey, Factory
+from gateway.presentation.http.schemas.accounts import (
     AccountsCompletedResponse,
     AccountsPendingResponse,
     ListAccountsRequest,

@@ -1,5 +1,5 @@
 """Cryptographic infrastructure services."""
 
-from .api_key_service import Argon2ApiKeyService
+from gateway.infrastructure.crypto.api_key_service import Argon2ApiKeyService
 
 __all__ = ["Argon2ApiKeyService"]

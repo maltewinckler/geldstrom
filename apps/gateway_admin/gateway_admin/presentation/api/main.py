@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -13,21 +12,19 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
+from gateway_admin.application.commands.initialize_admin import (
+    InitializeDatabaseCommand,
+)
 from gateway_admin.application.commands.update_product_registration import (
     UpdateProductRegistrationCommand,
 )
 from gateway_admin.config import get_settings
-from gateway_admin.infrastructure.persistence.sqlalchemy.db_init import (
-    initialize_database,
-)
 from gateway_admin.infrastructure.persistence.sqlalchemy.factories.admin_factory import (
     AdminRepositoryFactorySQLAlchemy,
 )
 from gateway_admin.infrastructure.persistence.sqlalchemy.factories.service_factory import (
     ServiceFactorySQLAlchemy,
 )
-
-logger = logging.getLogger(__name__)
 
 _default_frontend = Path(__file__).parent.parent.parent.parent / "frontend" / "dist"
 FRONTEND_DIR = Path(os.environ.get("FRONTEND_DIR", str(_default_frontend)))
@@ -36,23 +33,19 @@ FRONTEND_DIR = Path(os.environ.get("FRONTEND_DIR", str(_default_frontend)))
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
-
-    # Ensure schema and DB user exist (idempotent).
-    await initialize_database(settings)
-
     repo_factory = AdminRepositoryFactorySQLAlchemy(settings=settings)
     service_factory = ServiceFactorySQLAlchemy.from_factory(repo_factory)
 
-    # Seed the product registration from settings (idempotent - upserts).
+    await InitializeDatabaseCommand.from_factory(repo_factory)()
     await UpdateProductRegistrationCommand.from_factory(
         repo_factory,
         service_factory,
         product_version=settings.fints_product_version,
     )(settings.fints_product_registration_key)
-    logger.info("Product registration seeded.")
 
     app.state.repo_factory = repo_factory
     app.state.service_factory = service_factory
+    app.state.settings = settings
     yield
     await repo_factory.dispose()
 
@@ -65,12 +58,17 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
+    settings = get_settings()
+    # The admin UI is only reachable via SSH port-forwarding.
+    # Allow only the localhost origin that the browser uses after forwarding.
+    allowed_origin = f"http://localhost:{settings.admin_ui_port}"
+
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_origins=[allowed_origin],
+        allow_credentials=False,
+        allow_methods=["GET", "POST", "DELETE"],
+        allow_headers=["Content-Type"],
     )
 
     from .routes import router

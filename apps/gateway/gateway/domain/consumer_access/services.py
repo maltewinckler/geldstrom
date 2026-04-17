@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from .value_objects import ApiKeyHash
+from gateway.domain.consumer_access.value_objects import ApiKeyHash
 
 
 class ApiKeyVerifier(Protocol):

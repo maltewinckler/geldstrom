@@ -43,6 +43,8 @@ class Settings(BaseSettings):
     smtp_from_email: str = Field(default="noreply@gateway.local")
     smtp_use_tls: bool = Field(default=True)
 
+    admin_ui_port: int = Field(default=8001)
+
     @computed_field
     @property
     def database_url(self) -> str:

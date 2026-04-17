@@ -4,12 +4,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Self
 
+from gateway.application.banking.dtos.lookup_bank import BankInfoEnvelope
 from gateway.application.consumer.queries.authenticate_consumer import (
     AuthenticateConsumerQuery,
 )
-
-from ...ports.bank_catalog import BankCatalogPort
-from ..dtos.lookup_bank import BankInfoEnvelope
+from gateway.application.ports.bank_catalog import BankCatalogPort
 
 if TYPE_CHECKING:
     from gateway.application.ports import ApplicationFactory

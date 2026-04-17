@@ -4,7 +4,11 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from .value_objects import BankLeitzahl, FinTSInstitute, FinTSProductRegistration
+from gateway.domain.banking_gateway.value_objects import (
+    BankLeitzahl,
+    FinTSInstitute,
+    FinTSProductRegistration,
+)
 
 
 class FinTSInstituteRepository(Protocol):

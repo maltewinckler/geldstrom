@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Self
 
 from pydantic import BaseModel
 
+from gateway.application.banking.dtos.list_accounts import ListAccountsResultEnvelope
 from gateway.application.common import (
     IdProvider,
     InstitutionNotFoundError,
@@ -25,8 +26,6 @@ from gateway.domain.banking_gateway import (
     PendingOperationSession,
     PresentedBankCredentials,
 )
-
-from ..dtos.list_accounts import ListAccountsResultEnvelope
 
 if TYPE_CHECKING:
     from gateway.application.ports import ApplicationFactory

@@ -4,14 +4,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Self
 
+from gateway_admin.application.dtos.user import UserSummary, to_user_summary
 from gateway_admin.domain.entities.users import UserStatus
 from gateway_admin.domain.errors import ValidationError
 from gateway_admin.domain.services.gateway_notifications import (
     GatewayNotificationService,
 )
 from gateway_admin.domain.value_objects.user import UserId
-
-from ..dtos.user import UserSummary, to_user_summary
 
 if TYPE_CHECKING:
     from gateway_admin.application.factories.admin_factory import AdminRepositoryFactory

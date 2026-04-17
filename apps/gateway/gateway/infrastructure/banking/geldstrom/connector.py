@@ -24,6 +24,17 @@ from gateway.domain.banking_gateway.value_objects import (
     PresentedBankCredentials,
     RequestedIban,
 )
+from gateway.infrastructure.banking.geldstrom.mapping import (
+    approved_result_payload,
+    to_account_dict,
+    to_balance_dict,
+    to_tan_method,
+    to_transaction_list,
+)
+from gateway.infrastructure.banking.geldstrom.models import (
+    GeldstromClient,
+    GeldstromClientFactory,
+)
 from geldstrom.clients.fints3_decoupled import FinTS3ClientDecoupled
 from geldstrom.domain import (
     Account,
@@ -42,15 +53,6 @@ from geldstrom.infrastructure.fints.exceptions import (
     FinTSUnsupportedOperation,
 )
 from geldstrom.infrastructure.fints.session_snapshot import DecoupledSessionSnapshot
-
-from .mapping import (
-    approved_result_payload,
-    to_account_dict,
-    to_balance_dict,
-    to_tan_method,
-    to_transaction_list,
-)
-from .models import GeldstromClient, GeldstromClientFactory
 
 _logger = logging.getLogger(__name__)
 

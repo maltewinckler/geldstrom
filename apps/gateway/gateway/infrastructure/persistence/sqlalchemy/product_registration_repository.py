@@ -12,7 +12,7 @@ from gateway.domain.banking_gateway import (
 )
 
 
-class SQLFinTSProductRegistrationRepository(FinTSProductRegistrationRepository):
+class FinTSProductRegistrationRepositorySqlAlchemy(FinTSProductRegistrationRepository):
     """Persist the singleton product registration in a SQL database."""
 
     def __init__(self, engine: AsyncEngine) -> None:

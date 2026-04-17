@@ -1,10 +1,12 @@
 """Domain service abstract base classes."""
 
-from .api_key import AdminApiKeyService
-from .email import EmailService
-from .gateway_notifications import GatewayNotificationService
-from .identity import IdProvider
-from .institute_csv import InstituteCsvReaderPort
+from gateway_admin.domain.services.api_key import AdminApiKeyService
+from gateway_admin.domain.services.email import EmailService
+from gateway_admin.domain.services.gateway_notifications import (
+    GatewayNotificationService,
+)
+from gateway_admin.domain.services.identity import IdProvider
+from gateway_admin.domain.services.institute_csv import InstituteCsvReaderPort
 
 __all__ = [
     "AdminApiKeyService",

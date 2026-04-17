@@ -1,11 +1,14 @@
 """Value objects for banking gateway operations."""
 
-from .banking import (
+from gateway.domain.banking_gateway.value_objects.banking import (
     BankLeitzahl,
     PresentedBankCredentials,
     RequestedIban,
 )
-from .fints import FinTSInstitute, FinTSProductRegistration
+from gateway.domain.banking_gateway.value_objects.fints import (
+    FinTSInstitute,
+    FinTSProductRegistration,
+)
 
 __all__ = [
     "BankLeitzahl",

@@ -6,9 +6,12 @@ from fastapi import APIRouter
 from starlette.responses import JSONResponse
 
 from gateway.application.common import GetReadinessQuery
-
-from ..dependencies import Factory
-from ..schemas.health import LivenessResponse, ReadinessCheck, ReadinessResponse
+from gateway.presentation.http.dependencies import Factory
+from gateway.presentation.http.schemas.health import (
+    LivenessResponse,
+    ReadinessCheck,
+    ReadinessResponse,
+)
 
 router = APIRouter(tags=["health"])
 

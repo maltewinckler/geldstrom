@@ -54,6 +54,36 @@ async def initialize_database(settings: Settings) -> None:
             await conn.run_sync(metadata.create_all, checkfirst=True)
             logger.debug("Schema tables verified/created.")
 
+            # Create the delete-prevention trigger on audit_events (idempotent).
+            # CREATE OR REPLACE FUNCTION handles the function side; the trigger
+            # itself has no IF NOT EXISTS syntax, so we guard with a pg_trigger check.
+            await conn.execute(
+                text(
+                    """
+                    CREATE OR REPLACE FUNCTION prevent_audit_delete()
+                    RETURNS TRIGGER LANGUAGE plpgsql AS $$
+                    BEGIN
+                        RAISE EXCEPTION 'Deletion from audit_events is not permitted';
+                    END;
+                    $$
+                    """
+                )
+            )
+            trigger_exists = await conn.scalar(
+                text("SELECT 1 FROM pg_trigger WHERE tgname = 'audit_events_no_delete'")
+            )
+            if not trigger_exists:
+                await conn.execute(
+                    text(
+                        "CREATE TRIGGER audit_events_no_delete "
+                        "BEFORE DELETE ON audit_events "
+                        "FOR EACH ROW EXECUTE FUNCTION prevent_audit_delete()"
+                    )
+                )
+                logger.info("Created audit_events delete-prevention trigger.")
+            else:
+                logger.debug("audit_events delete-prevention trigger already exists.")
+
             gw_user = settings.gateway_db_user
             gw_pw = settings.gateway_db_password.get_secret_value()
             qi = _quote_ident(gw_user)

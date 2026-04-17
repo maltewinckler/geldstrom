@@ -5,10 +5,11 @@ from __future__ import annotations
 from typing import Any
 
 from gateway_contracts.schema import api_consumers_table
-from sqlalchemy import insert, select, update
+from sqlalchemy import func, insert, select, update
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from gateway_admin.domain.entities.users import User, UserStatus
+from gateway_admin.domain.repositories.user_repository import UserPage, UserQuery
 from gateway_admin.domain.value_objects.user import ApiKeyHash, Email, UserId
 
 
@@ -60,11 +61,39 @@ class UserRepositorySQLAlchemy:
                     .values(**{k: v for k, v in payload.items() if k != "consumer_id"})
                 )
 
-    async def list_all(self) -> list[User]:
-        stmt = select(api_consumers_table).order_by(api_consumers_table.c.email.asc())
+    async def query(self, q: UserQuery) -> UserPage:
+        predicates = []
+        if q.email_contains is not None:
+            predicates.append(
+                api_consumers_table.c.email.ilike(f"%{q.email_contains}%")
+            )
+        if q.status is not None:
+            predicates.append(api_consumers_table.c.status == q.status.value)
+
+        count_stmt = select(func.count()).select_from(api_consumers_table)
+        if predicates:
+            count_stmt = count_stmt.where(*predicates)
+
+        offset = (q.page - 1) * q.page_size
+        select_stmt = (
+            select(api_consumers_table)
+            .order_by(api_consumers_table.c.email.asc())
+            .limit(q.page_size)
+            .offset(offset)
+        )
+        if predicates:
+            select_stmt = select_stmt.where(*predicates)
+
         async with self._engine.connect() as conn:
-            rows = (await conn.execute(stmt)).mappings().all()
-        return [_row_to_user(row) for row in rows]
+            total: int = (await conn.execute(count_stmt)).scalar_one()
+            rows = (await conn.execute(select_stmt)).mappings().all()
+
+        return UserPage(
+            users=[_row_to_user(row) for row in rows],
+            total=total,
+            page=q.page,
+            page_size=q.page_size,
+        )
 
 
 def _row_to_user(row: Any) -> User:

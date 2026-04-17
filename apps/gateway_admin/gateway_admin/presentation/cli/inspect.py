@@ -9,8 +9,7 @@ import typer
 from rich.console import Console
 
 from gateway_admin.application.queries import InspectBackendStateQuery
-
-from ._common import build_context
+from gateway_admin.presentation.cli._common import build_context
 
 app = typer.Typer(name="inspect", help="Inspect gateway backend state.")
 console = Console()

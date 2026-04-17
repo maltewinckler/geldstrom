@@ -10,6 +10,7 @@ from uuid import uuid4
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncEngine
 
+from gateway.application.audit import AuditService
 from gateway.application.common import IdProvider, InternalError
 from gateway.application.ports import CacheFactory, RepositoryFactory
 from gateway.domain.banking_gateway import BankingConnector
@@ -24,10 +25,7 @@ from gateway.infrastructure.cache.redis import RedisOperationSessionStore
 from gateway.infrastructure.crypto import (
     Argon2ApiKeyService,
 )
-from gateway.infrastructure.persistence.sql import (
-    SQLApiConsumerRepository,
-    SQLFinTSInstituteRepository,
-    SQLFinTSProductRegistrationRepository,
+from gateway.infrastructure.persistence.sqlalchemy import (
     build_engine,
 )
 from gateway.infrastructure.readiness import SQLGatewayReadinessService
@@ -48,16 +46,16 @@ class _SQLRepositoryFactory(RepositoryFactory):
         self._engine = engine
 
     @cached_property
-    def consumer(self) -> SQLApiConsumerRepository:
-        return SQLApiConsumerRepository(self._engine)
+    def consumer(self) -> ApiConsumerRepositorySqlAlchemy:
+        return ApiConsumerRepositorySqlAlchemy(self._engine)
 
     @cached_property
-    def institute(self) -> SQLFinTSInstituteRepository:
-        return SQLFinTSInstituteRepository(self._engine)
+    def institute(self) -> FinTSInstituteRepositorySqlAlchemy:
+        return FinTSInstituteRepositorySqlAlchemy(self._engine)
 
     @cached_property
-    def product_registration(self) -> SQLFinTSProductRegistrationRepository:
-        return SQLFinTSProductRegistrationRepository(self._engine)
+    def product_registration(self) -> FinTSProductRegistrationRepositorySqlAlchemy:
+        return FinTSProductRegistrationRepositorySqlAlchemy(self._engine)
 
 
 class _GatewayCacheFactory(CacheFactory):
@@ -127,6 +125,14 @@ class GatewayApplicationFactory:
     @property
     def operation_session_ttl_seconds(self) -> int:
         return self._settings.operation_session_ttl_seconds
+
+    @cached_property
+    def audit_repository(self) -> AuditRepositorySqlAlchemy:
+        return AuditRepositorySqlAlchemy(self._engine)
+
+    @cached_property
+    def audit_service(self) -> AuditService:
+        return AuditService(self.audit_repository, self.id_provider)
 
     @cached_property
     def readiness_service(self) -> SQLGatewayReadinessService:

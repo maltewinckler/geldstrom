@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
+from gateway_admin.domain.audit.repository import AuditQueryRepository
 from gateway_admin.domain.repositories import (
     AdminInstituteRepository,
     ProductRegistrationRepository,
@@ -33,3 +34,6 @@ class AdminRepositoryFactory(Protocol):
 
     @property
     def product_registration(self) -> ProductRegistrationRepository: ...
+
+    @property
+    def audit(self) -> AuditQueryRepository: ...

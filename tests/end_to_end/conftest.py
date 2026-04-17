@@ -169,7 +169,9 @@ def seeded_db_url(e2e_postgres_url: str, e2e_credentials: dict[str, str]) -> str
     from gateway_admin.infrastructure.admin_factory import ConcreteAdminFactory
 
     async def _seed() -> None:
-        from gateway.infrastructure.persistence.sql.connection import build_engine
+        from gateway.infrastructure.persistence.sqlalchemy.connection import (
+            build_engine,
+        )
 
         # Create schema
         engine = build_engine(e2e_postgres_url, use_null_pool=True)

@@ -1,7 +1,7 @@
 """User value objects."""
 
-from .api_key_hash import ApiKeyHash
-from .email import Email
-from .user_id import UserId
+from gateway_admin.domain.value_objects.user.api_key_hash import ApiKeyHash
+from gateway_admin.domain.value_objects.user.email import Email
+from gateway_admin.domain.value_objects.user.user_id import UserId
 
 __all__ = ["ApiKeyHash", "Email", "UserId"]
