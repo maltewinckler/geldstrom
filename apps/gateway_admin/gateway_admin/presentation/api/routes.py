@@ -1,7 +1,5 @@
 """API route handlers for gateway-admin-ui."""
 
-from __future__ import annotations
-
 import tempfile
 from datetime import datetime
 from pathlib import Path
@@ -21,7 +19,9 @@ from gateway_admin.application.queries.get_user import GetUserQuery
 from gateway_admin.application.queries.list_audit_events import ListAuditEventsQuery
 from gateway_admin.application.queries.list_users import ListUsersQuery
 from gateway_admin.domain.audit import AuditEventType, AuditQuery
+from gateway_admin.domain.entities.users import UserStatus
 from gateway_admin.domain.errors import ValidationError
+from gateway_admin.domain.repositories.user_repository import UserQuery
 from gateway_admin.infrastructure.services.email_service import EmailServiceError
 from gateway_admin.presentation.api.dependencies import (
     RepoFactoryDep,

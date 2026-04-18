@@ -1,5 +1,5 @@
 ---
-description: "Run the full deployment check: docker compose up, sync catalog, create user if needed, update API key in .env, verify with geldstrom-cli, check all lookup endpoints (auth-protected), and fetch transactions via the decoupled 2FA flow"
+description: "Run the full deployment check: docker compose up, verify admin UI on port 8001, sync catalog, create user if needed, update API key in .env, verify with geldstrom-cli, check all lookup endpoints (auth-protected), and fetch transactions via the decoupled 2FA flow"
 name: "Deployment Check"
 agent: "agent"
 ---
@@ -12,35 +12,49 @@ Run the full geldstrom deployment check sequence. Execute each step in order and
 Run `docker compose build` to confirm there is nothing to build (no build sections expected).
 
 ### 2. Docker Compose Up
-Run `docker compose up -d` and confirm all three containers reach the expected states:
+Run `docker compose up -d` and confirm all four containers reach the expected states:
 - `geldstrom_postgres` — healthy
-- `geldstrom_gateway_admin_cli` — exited (0)
+- `geldstrom_redis` — healthy
+- `geldstrom_gateway_admin` — running (FastAPI admin UI on 127.0.0.1:8001)
 - `geldstrom_gateway` — running
 
+Verify with:
+```bash
+docker compose ps
+```
+
 ### 3. Sync the FinTS Institute Catalog
-Run:
+The catalog is uploaded via the admin UI or via the API. Use the API directly:
+```bash
+curl -s -X POST http://localhost:8001/admin/catalog/sync \
+  -F "file=@data/fints_institute.csv" | python3 -m json.tool
 ```
-docker compose run --rm gateway-admin-cli gw-admin catalog sync /data/fints_institute.csv
+Expected response shape:
+```json
+{"loaded_count": 16000, "skipped_count": 0}
 ```
+
 Check the gateway health endpoint (`curl -s http://localhost:8000/health/ready`) — `catalog` must be `"ok"` before proceeding.
 
 If the readiness response reports `"product_key":"missing"`, verify that
-`FINTS_PRODUCT_REGISTRATION_KEY` is set in `config/admin_cli.env` or run:
+`FINTS_PRODUCT_REGISTRATION_KEY` is set in `config/admin_cli.env`. The admin
+service applies the product key automatically on startup from the env file.
+Restart the service and re-check readiness:
+```bash
+docker compose restart gateway-admin
+curl -s http://localhost:8000/health/ready
 ```
-docker compose run --rm gateway-admin-cli gw-admin product update "<YOUR_PRODUCT_KEY>" --product-version "1.0.0"
-```
-Then re-check readiness before proceeding.
 
 ### 4. Create a User (if none exist)
-Run:
+List users via the admin API:
+```bash
+curl -s http://localhost:8001/admin/users | python3 -m json.tool
 ```
-docker compose run --rm gateway-admin-cli gw-admin users list
+If `"total": 0`, create a user via the admin CLI inside the running container:
+```bash
+docker compose exec gateway-admin gw-admin users create malte@example.com
 ```
-If the table is empty, create one:
-```
-docker compose run --rm gateway-admin-cli gw-admin users create malte@example.com
-```
-Capture the raw API key printed (shown once).
+Capture the raw API key printed (shown once). The key is also sent by email if SMTP is configured.
 
 ### 5. Update API Key in `.env`
 Open [`.env`](../../.env) and replace the `GATEWAY_API_KEY` value with the newly generated key.
@@ -137,14 +151,22 @@ Expected: `401`
 
 All checks must match the expected status codes.
 
-### 8. Rebuild Docker image (when code has changed)
+### 8. Rebuild Docker images (when code has changed)
 
 If any source files under `packages/geldstrom/` or `apps/gateway/` have been
-modified since the last image was built, rebuild before testing:
+modified since the last image was built, rebuild the gateway before testing:
 
 ```bash
 docker build -f apps/gateway/Dockerfile -t maltewin/geldstrom-gateway:latest .
 docker compose up -d --force-recreate gateway
+```
+
+If any source files under `apps/gateway_admin/` have been modified, rebuild
+the admin UI image (frontend is built inside the Dockerfile):
+
+```bash
+docker build -f apps/gateway_admin/Dockerfile -t maltewin/geldstrom-gateway-admin:latest .
+docker compose up -d --force-recreate gateway-admin
 ```
 
 Then re-check `curl -s http://localhost:8000/health/ready` until it reports all
