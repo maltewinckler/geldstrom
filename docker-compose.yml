@@ -24,7 +24,7 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # a) Load the FinTS institute catalog:
 #
-#       docker compose exec gateway-admin gw-admin catalog sync /data/fints_institute.csv
+#       Upload fints_institute.csv via the admin UI at http://localhost:8001
 #
 # b) Create the first API consumer (token is emailed automatically):
 #
@@ -92,8 +92,6 @@ services:
       - config/admin_cli.env
     environment:
       POSTGRES_HOST: postgres
-    volumes:
-      - ./data:/data:ro
     ports:
       - 127.0.0.1:8001:8000
 
