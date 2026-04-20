@@ -13,6 +13,7 @@ from httpx import ASGITransport, AsyncClient
 from hypothesis import HealthCheck, settings
 
 from gateway_admin.domain.entities.users import User
+from gateway_admin.domain.repositories.user_repository import UserPage, UserQuery
 from gateway_admin.domain.value_objects.user import ApiKeyHash, Email, UserId
 from gateway_admin.infrastructure.services.email_service import MockEmailService
 from gateway_admin.presentation.api.dependencies import (
@@ -51,6 +52,24 @@ class InMemoryUserRepository:
 
     async def save(self, user: User) -> None:
         self._store[str(user.user_id)] = user
+
+    async def query(self, q: UserQuery) -> UserPage:
+        users = list(self._store.values())
+        if q.email_contains is not None:
+            users = [
+                u for u in users if q.email_contains.lower() in u.email.value.lower()
+            ]
+        if q.status is not None:
+            users = [u for u in users if u.status == q.status]
+        users.sort(key=lambda u: u.email.value)
+        total = len(users)
+        offset = (q.page - 1) * q.page_size
+        return UserPage(
+            users=users[offset : offset + q.page_size],
+            total=total,
+            page=q.page,
+            page_size=q.page_size,
+        )
 
     async def list_all(self) -> list[User]:
         return list(self._store.values())

@@ -1,7 +1,5 @@
 """API route handlers for gateway-admin-ui."""
 
-from __future__ import annotations
-
 import tempfile
 from datetime import datetime
 from pathlib import Path
