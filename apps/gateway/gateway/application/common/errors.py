@@ -16,6 +16,7 @@ class GatewayErrorCode(StrEnum):
     OPERATION_EXPIRED = "operation_expired"
     UNSUPPORTED_PROTOCOL = "unsupported_protocol"
     BANK_UPSTREAM_UNAVAILABLE = "bank_upstream_unavailable"
+    GATEWAY_MISCONFIGURED = "gateway_misconfigured"
     INTERNAL_ERROR = "internal_error"
 
 
@@ -60,6 +61,12 @@ class UnsupportedProtocolError(ApplicationError):
 
 class BankUpstreamUnavailableError(ApplicationError):
     default_code = GatewayErrorCode.BANK_UPSTREAM_UNAVAILABLE
+
+
+class GatewayMisconfiguredError(ApplicationError):
+    """Raised when the gateway lacks required configuration (e.g. no product registration)."""
+
+    default_code = GatewayErrorCode.GATEWAY_MISCONFIGURED
 
 
 class InternalError(ApplicationError):

@@ -33,8 +33,7 @@ def update_product(
                 result = await UpdateProductRegistrationCommand.from_factory(
                     ctx.repo_factory,
                     ctx.service_factory,
-                    product_version=product_version,
-                )(plaintext_key)
+                )(plaintext_key, product_version)
             except ValidationError as exc:
                 typer.echo(f"Error: {exc}", err=True)
                 raise typer.Exit(code=1) from exc

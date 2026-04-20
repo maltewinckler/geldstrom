@@ -17,6 +17,7 @@ from sqlalchemy import Column, DateTime, MetaData, String, Table, Uuid, select
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from gateway.domain.audit import AuditEvent, AuditEventType
+from gateway.infrastructure.persistence.sqlalchemy import AuditRepositorySqlAlchemy
 
 # ---------------------------------------------------------------------------
 # Strategies

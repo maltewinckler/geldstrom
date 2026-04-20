@@ -44,7 +44,6 @@ def test_settings_apply_default_values(monkeypatch) -> None:
     assert settings.operation_session_ttl_seconds == 120
     assert settings.rate_limit_requests_per_minute == 60
     assert settings.notify_reconnect_backoff_seconds == 1.0
-    assert settings.fints_product_version == "1.0.0"
 
 
 def test_factory_is_singleton_and_deps_are_cached(monkeypatch) -> None:

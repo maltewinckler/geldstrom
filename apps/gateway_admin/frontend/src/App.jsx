@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import AddUserForm from './components/AddUserForm'
 import CatalogUpload from './components/CatalogUpload'
+import ProductRegistration from './components/ProductRegistration'
 import UserList from './components/UserList'
 import Toast from './components/Toast'
 import ConfirmDialog from './components/ConfirmDialog'
@@ -96,6 +97,8 @@ function App() {
       <main>
         <AddUserForm onUserCreated={(msg) => { showToast(msg); fetchUsers() }} />
         <CatalogUpload onSynced={(msg) => showToast(msg)} />
+
+        <ProductRegistration onToast={showToast} />
 
         <section className="user-list">
           <h2>API Consumers</h2>

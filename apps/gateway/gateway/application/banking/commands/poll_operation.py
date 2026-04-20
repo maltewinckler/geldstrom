@@ -15,7 +15,6 @@ from gateway.application.consumer.queries.authenticate_consumer import (
     AuthenticateConsumerQuery,
 )
 from gateway.domain.banking_gateway import (
-    BankingConnector,
     BankLeitzahl,
     FinTSInstituteRepository,
     OperationSessionStore,
@@ -52,14 +51,14 @@ class PollOperationCommand:
         self,
         authenticate_consumer: AuthenticateConsumerQuery,
         institute_catalog: FinTSInstituteRepository,
-        connector: BankingConnector,
+        factory: ApplicationFactory,
         session_store: OperationSessionStore,
         id_provider: IdProvider,
         ttl_seconds: int = 120,
     ) -> None:
         self._authenticate_consumer = authenticate_consumer
         self._institute_catalog = institute_catalog
-        self._connector = connector
+        self._factory = factory
         self._session_store = session_store
         self._id_provider = id_provider
         self._ttl_seconds = ttl_seconds
@@ -69,7 +68,7 @@ class PollOperationCommand:
         return cls(
             authenticate_consumer=AuthenticateConsumerQuery.from_factory(factory),
             institute_catalog=factory.caches.institute,
-            connector=factory.banking_connector,
+            factory=factory,
             session_store=factory.caches.session_store,
             id_provider=factory.id_provider,
             ttl_seconds=factory.operation_session_ttl_seconds,
@@ -109,6 +108,7 @@ class PollOperationCommand:
                 failure_reason=session.failure_reason,
             )
 
+        connector = await self._factory.get_banking_connector()
         institute = await self._institute_catalog.get_by_blz(request.blz)
         if institute is None:
             raise InstitutionNotFoundError(f"No institute found for BLZ {request.blz}")
@@ -120,7 +120,7 @@ class PollOperationCommand:
             tan_medium=request.tan_medium,
         )
 
-        result = await self._connector.resume_operation(
+        result = await connector.resume_operation(
             session.session_state, credentials, institute
         )
 

@@ -55,6 +55,24 @@ class InMemoryUserRepository:
     async def list_all(self) -> list[User]:
         return list(self._store.values())
 
+    async def query(self, q) -> object:
+        from gateway_admin.domain.repositories.user_repository import UserPage
+
+        users = list(self._store.values())
+        if q.email_contains:
+            users = [
+                u for u in users if q.email_contains.lower() in u.email.value.lower()
+            ]
+        if q.status is not None:
+            users = [u for u in users if u.status == q.status]
+        users.sort(key=lambda u: u.email.value)
+        total = len(users)
+        start = (q.page - 1) * q.page_size
+        end = start + q.page_size
+        return UserPage(
+            users=users[start:end], total=total, page=q.page, page_size=q.page_size
+        )
+
 
 class NoOpGatewayNotificationService:
     """No-op gateway notification service for tests."""

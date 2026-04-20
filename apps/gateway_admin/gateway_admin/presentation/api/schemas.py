@@ -62,3 +62,14 @@ class AuditPageResponse(BaseModel):
     total: int
     page: int
     page_size: int
+
+
+class ProductRegistrationResponse(BaseModel):
+    product_key: str
+    product_version: str
+    updated_at: datetime
+
+
+class UpdateProductRegistrationRequest(BaseModel):
+    product_key: str = Field(..., min_length=1)
+    product_version: str = Field(..., min_length=1)

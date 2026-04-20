@@ -15,9 +15,6 @@ from fastapi.staticfiles import StaticFiles
 from gateway_admin.application.commands.initialize_admin import (
     InitializeDatabaseCommand,
 )
-from gateway_admin.application.commands.update_product_registration import (
-    UpdateProductRegistrationCommand,
-)
 from gateway_admin.config import get_settings
 from gateway_admin.infrastructure.persistence.sqlalchemy.factories.admin_factory import (
     AdminRepositoryFactorySQLAlchemy,
@@ -37,11 +34,6 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     service_factory = ServiceFactorySQLAlchemy.from_factory(repo_factory)
 
     await InitializeDatabaseCommand.from_factory(repo_factory)()
-    await UpdateProductRegistrationCommand.from_factory(
-        repo_factory,
-        service_factory,
-        product_version=settings.fints_product_version,
-    )(settings.fints_product_registration_key)
 
     app.state.repo_factory = repo_factory
     app.state.service_factory = service_factory
@@ -58,16 +50,21 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
-    settings = get_settings()
     # The admin UI is only reachable via SSH port-forwarding.
     # Allow only the localhost origin that the browser uses after forwarding.
-    allowed_origin = f"http://localhost:{settings.admin_ui_port}"
+    # Use the default port here; the lifespan will have the real settings.
+    try:
+        settings = get_settings()
+        admin_ui_port = settings.admin_ui_port
+    except Exception:
+        admin_ui_port = 8001
+    allowed_origin = f"http://localhost:{admin_ui_port}"
 
     app.add_middleware(
         CORSMiddleware,
         allow_origins=[allowed_origin],
         allow_credentials=False,
-        allow_methods=["GET", "POST", "DELETE"],
+        allow_methods=["GET", "POST", "DELETE", "PUT"],
         allow_headers=["Content-Type"],
     )
 

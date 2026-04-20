@@ -17,11 +17,19 @@ from gateway_admin.application.commands.rotate_user_key import RotateUserKeyComm
 from gateway_admin.application.commands.sync_institute_catalog import (
     SyncInstituteCatalogCommand,
 )
+from gateway_admin.application.commands.update_product_registration import (
+    UpdateProductRegistrationCommand,
+)
+from gateway_admin.application.queries.get_product_registration import (
+    GetProductRegistrationQuery,
+)
 from gateway_admin.application.queries.get_user import GetUserQuery
 from gateway_admin.application.queries.list_audit_events import ListAuditEventsQuery
 from gateway_admin.application.queries.list_users import ListUsersQuery
 from gateway_admin.domain.audit import AuditEventType, AuditQuery
+from gateway_admin.domain.entities.users import UserStatus
 from gateway_admin.domain.errors import ValidationError
+from gateway_admin.domain.repositories.user_repository import UserQuery
 from gateway_admin.infrastructure.services.email_service import EmailServiceError
 from gateway_admin.presentation.api.dependencies import (
     RepoFactoryDep,
@@ -34,6 +42,8 @@ from gateway_admin.presentation.api.schemas import (
     CreateUserRequest,
     CreateUserResponse,
     ErrorResponse,
+    ProductRegistrationResponse,
+    UpdateProductRegistrationRequest,
     UserListResponse,
 )
 from gateway_admin.presentation.api.schemas import (
@@ -41,6 +51,51 @@ from gateway_admin.presentation.api.schemas import (
 )
 
 router = APIRouter()
+
+
+@router.get(
+    "/product-registration",
+    response_model=ProductRegistrationResponse,
+    responses={404: {"model": ErrorResponse}},
+)
+async def get_product_registration(repo: RepoFactoryDep) -> ProductRegistrationResponse:
+    result = await GetProductRegistrationQuery.from_factory(repo)()
+    if result is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No product registration found",
+        )
+    return ProductRegistrationResponse(
+        product_key=result.product_key,
+        product_version=result.product_version,
+        updated_at=result.updated_at,
+    )
+
+
+@router.put(
+    "/product-registration",
+    response_model=ProductRegistrationResponse,
+    responses={422: {"model": ErrorResponse}},
+)
+async def update_product_registration(
+    request: UpdateProductRegistrationRequest,
+    repo: RepoFactoryDep,
+    svc: ServiceFactoryDep,
+) -> ProductRegistrationResponse:
+    try:
+        result = await UpdateProductRegistrationCommand.from_factory(repo, svc)(
+            request.product_key, request.product_version
+        )
+    except ValidationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(e),
+        ) from e
+    return ProductRegistrationResponse(
+        product_key=result.product_key,
+        product_version=result.product_version,
+        updated_at=result.updated_at,
+    )
 
 
 @router.get(

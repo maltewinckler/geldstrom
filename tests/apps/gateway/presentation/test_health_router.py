@@ -97,3 +97,37 @@ def test_readiness_returns_503_when_product_key_missing() -> None:
     body = resp.json()
     assert body["status"] == "not_ready"
     assert body["checks"]["product_key"] == "missing"
+
+
+def test_readiness_reports_product_key_missing_when_no_row_exists() -> None:
+    """Readiness endpoint reports product_key: 'missing' when no product registration row exists.
+
+    Validates: Requirements 6.4
+    """
+    client = TestClient(
+        _make_app(
+            readiness_status=ReadinessStatus(
+                db=True, product_key=False, catalog=False, redis=True
+            )
+        )
+    )
+    resp = client.get("/health/ready")
+
+    assert resp.json()["checks"]["product_key"] == "missing"
+
+
+def test_readiness_reports_product_key_loaded_when_row_exists() -> None:
+    """Readiness endpoint reports product_key: 'loaded' when a product registration row exists.
+
+    Validates: Requirements 6.4
+    """
+    client = TestClient(
+        _make_app(
+            readiness_status=ReadinessStatus(
+                db=True, product_key=True, catalog=False, redis=True
+            )
+        )
+    )
+    resp = client.get("/health/ready")
+
+    assert resp.json()["checks"]["product_key"] == "loaded"

@@ -28,37 +28,39 @@ class UpdateProductRegistrationCommand:
         repository,
         gateway: GatewayNotificationService,
         id_provider: IdProvider,
-        *,
-        product_version: str,
     ) -> None:
         self._repository = repository
         self._gateway = gateway
         self._id_provider = id_provider
-        self._product_version = product_version
 
     @classmethod
     def from_factory(
         cls,
         repo_factory: AdminRepositoryFactory,
         service_factory: ServiceFactory,
-        *,
-        product_version: str,
     ) -> Self:
         return cls(
             repository=repo_factory.product_registration,
             gateway=service_factory.gateway_notifications,
             id_provider=service_factory.id_provider,
-            product_version=product_version,
         )
 
-    async def __call__(self, plaintext_product_key: str) -> ProductRegistrationSummary:
+    async def __call__(
+        self,
+        plaintext_product_key: str,
+        product_version: str,
+    ) -> ProductRegistrationSummary:
         normalized_key = plaintext_product_key.strip()
         if not normalized_key:
             raise ValidationError("Product key must not be empty")
 
+        normalized_version = product_version.strip()
+        if not normalized_version:
+            raise ValidationError("Product version must not be empty")
+
         registration = ProductRegistration(
             product_key=normalized_key,
-            product_version=self._product_version,
+            product_version=normalized_version,
             updated_at=self._id_provider.now(),
         )
         await self._repository.save_current(registration)

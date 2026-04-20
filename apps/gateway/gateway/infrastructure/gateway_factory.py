@@ -11,7 +11,11 @@ from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from gateway.application.audit import AuditService
-from gateway.application.common import IdProvider, InternalError
+from gateway.application.common import (
+    GatewayMisconfiguredError,
+    IdProvider,
+    InternalError,
+)
 from gateway.application.ports import CacheFactory, RepositoryFactory
 from gateway.domain.banking_gateway import BankingConnector
 from gateway.infrastructure.banking.geldstrom import GeldstromBankingConnector
@@ -26,6 +30,10 @@ from gateway.infrastructure.crypto import (
     Argon2ApiKeyService,
 )
 from gateway.infrastructure.persistence.sqlalchemy import (
+    ApiConsumerRepositorySqlAlchemy,
+    AuditRepositorySqlAlchemy,
+    FinTSInstituteRepositorySqlAlchemy,
+    FinTSProductRegistrationRepositorySqlAlchemy,
     build_engine,
 )
 from gateway.infrastructure.readiness import SQLGatewayReadinessService
@@ -82,7 +90,6 @@ class GatewayApplicationFactory:
 
     def __init__(self, settings) -> None:  # type: ignore[no-untyped-def]
         self._settings = settings
-        self._loaded_product_key: str | None = None
         self._redis: Redis | None = None
 
     @cached_property
@@ -109,16 +116,6 @@ class GatewayApplicationFactory:
         return self.api_key_service
 
     @cached_property
-    def banking_connector(self) -> BankingConnector:
-        if self._loaded_product_key is None:
-            raise InternalError("Product key not loaded")
-        fints_connector = GeldstromBankingConnector(
-            self._loaded_product_key,
-            product_version=self._settings.fints_product_version,
-        )
-        return BankingConnectorDispatcher(fints_connector=fints_connector)
-
-    @cached_property
     def id_provider(self) -> _RuntimeIdProvider:
         return _RuntimeIdProvider()
 
@@ -140,6 +137,19 @@ class GatewayApplicationFactory:
             raise InternalError("Redis not initialised - call startup() first")
         return SQLGatewayReadinessService(self._engine, self._redis)
 
+    async def get_banking_connector(self) -> BankingConnector:
+        registration = await self.repos.product_registration.get_current()
+        if registration is None:
+            raise GatewayMisconfiguredError(
+                "gateway misconfigured: no product registration"
+            )
+        return BankingConnectorDispatcher(
+            fints_connector=GeldstromBankingConnector(
+                registration.product_key,
+                product_version=registration.product_version,
+            )
+        )
+
     @cached_property
     def _engine(self) -> AsyncEngine:
         return build_engine(self._settings.database_url.get_secret_value())
@@ -159,7 +169,6 @@ class GatewayApplicationFactory:
     async def startup(self) -> None:
         """Warm all runtime caches and start background workers."""
         await self._connect_redis()
-        await self._warm_product_key()
         await self._start_notify_listener()
         await self._warm_consumer_cache()
         await self._warm_institute_cache()
@@ -171,15 +180,6 @@ class GatewayApplicationFactory:
         await self._close_redis()
         await self._close_db_engine()
         _logger.info("gateway shutdown complete")
-
-    async def _warm_product_key(self) -> None:
-        from gateway.application.common import InternalError
-
-        registration = await self.repos.product_registration.get_current()
-        if registration is None:
-            raise InternalError("No product registration found in the database")
-        self._loaded_product_key = registration.product_key
-        _logger.info("product key loaded")
 
     async def _warm_consumer_cache(self) -> None:
         consumers = await self.repos.consumer.list_all_active()

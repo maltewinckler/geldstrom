@@ -11,6 +11,7 @@ from gateway.application.common import (
     ApplicationError,
     BankUpstreamUnavailableError,
     ForbiddenError,
+    GatewayMisconfiguredError,
     InstitutionNotFoundError,
     InternalError,
     OperationExpiredError,
@@ -32,6 +33,7 @@ _CODE_TO_STATUS: dict[type[ApplicationError], int] = {
     OperationNotFoundError: 404,
     OperationExpiredError: 404,
     BankUpstreamUnavailableError: 502,
+    GatewayMisconfiguredError: 503,
     InternalError: 500,
 }
 
@@ -44,5 +46,7 @@ async def application_error_handler(
     status = _CODE_TO_STATUS.get(type(exc), 500)
     if status >= 500:
         logger.exception("Unhandled application error", exc_info=exc)
+    if isinstance(exc, GatewayMisconfiguredError):
+        return JSONResponse(status_code=status, content={"detail": exc.message})
     body = ErrorResponse(error=exc.code.value, message=exc.message)
     return JSONResponse(status_code=status, content=body.model_dump())

@@ -39,7 +39,6 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
     rate_limit_requests_per_minute: int = 60
     notify_reconnect_backoff_seconds: float = 1.0
-    fints_product_version: str = "1.0.0"
 
     host: str = "0.0.0.0"
     port: int = 8000

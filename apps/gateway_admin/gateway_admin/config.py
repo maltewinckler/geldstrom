@@ -29,13 +29,6 @@ class Settings(BaseSettings):
     gateway_db_user: str = Field(validation_alias="GATEWAY_DB_USER")
     gateway_db_password: SecretStr = Field(validation_alias="GATEWAY_DB_PASSWORD")
 
-    fints_product_registration_key: str = Field(
-        validation_alias="FINTS_PRODUCT_REGISTRATION_KEY"
-    )
-    fints_product_version: str = Field(
-        default="1.0.0", validation_alias="FINTS_PRODUCT_VERSION"
-    )
-
     smtp_host: str = Field(default="localhost")
     smtp_port: int = Field(default=587)
     smtp_user: str = ""
