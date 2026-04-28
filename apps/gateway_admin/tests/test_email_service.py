@@ -114,7 +114,8 @@ def test_property_14_token_not_stored_in_repository(recipient: str) -> None:
     import asyncio
 
     from gateway_admin.application.commands.create_user import CreateUserCommand
-    from tests.conftest import (
+
+    from .conftest import (
         InMemoryUserRepository,
         SimpleApiKeyService,
         SimpleIdProvider,
