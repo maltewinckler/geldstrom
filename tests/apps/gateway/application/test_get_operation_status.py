@@ -28,7 +28,7 @@ from gateway.domain.consumer_access import (
 )
 from tests.apps.gateway.fakes import (
     FakeAuditService,
-    FakeConsumerCache,
+    FakeConsumerRepository,
     FakeIdProvider,
     FakeOperationSessionStore,
 )
@@ -126,7 +126,9 @@ def _build_use_case(
 ) -> tuple[GetOperationStatusQuery, FakeOperationSessionStore]:
     resolved_consumers = consumers or [_consumer()]
     authenticate_consumer = AuthenticateConsumerQuery(
-        FakeConsumerCache(resolved_consumers), StubApiKeyVerifier(), FakeAuditService()
+        FakeConsumerRepository(resolved_consumers),
+        StubApiKeyVerifier(),
+        FakeAuditService(),
     )
     session_store = FakeOperationSessionStore(sessions)
     resolved_id_provider = id_provider or FakeIdProvider(

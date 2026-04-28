@@ -1,4 +1,4 @@
-"""Authenticate gateway consumers from the active in-memory cache."""
+"""Authenticate gateway consumers via direct database lookup."""
 
 from __future__ import annotations
 
@@ -8,8 +8,8 @@ from uuid import UUID
 from gateway.application.common import ForbiddenError, UnauthorizedError
 from gateway.domain.audit import AuditEventType
 from gateway.domain.consumer_access import (
+    ApiConsumerRepository,
     ApiKeyVerifier,
-    ConsumerCache,
 )
 
 if TYPE_CHECKING:
@@ -18,22 +18,22 @@ if TYPE_CHECKING:
 
 
 class AuthenticateConsumerQuery:
-    """Authenticate a presented API key against cached consumer hashes."""
+    """Authenticate a presented API key against stored consumer hashes."""
 
     def __init__(
         self,
-        consumer_cache: ConsumerCache,
+        consumer_repository: ApiConsumerRepository,
         api_key_verifier: ApiKeyVerifier,
         audit_service: AuditService,
     ) -> None:
-        self._consumer_cache = consumer_cache
+        self._consumer_repository = consumer_repository
         self._api_key_verifier = api_key_verifier
         self._audit_service = audit_service
 
     @classmethod
     def from_factory(cls, factory: ApplicationFactory) -> Self:
         return cls(
-            factory.caches.consumer,
+            factory.repos.consumer,
             factory.api_key_verifier,
             factory.audit_service,
         )
@@ -44,7 +44,7 @@ class AuthenticateConsumerQuery:
             await self._audit_service.record(AuditEventType.CONSUMER_AUTH_FAILED, None)
             raise UnauthorizedError("Invalid API key")
 
-        consumer = await self._consumer_cache.get_by_key_prefix(prefix)
+        consumer = await self._consumer_repository.get_by_key_prefix(prefix)
         if consumer is None:
             await self._audit_service.record(AuditEventType.CONSUMER_AUTH_FAILED, None)
             raise UnauthorizedError("Invalid API key")
@@ -57,7 +57,7 @@ class AuthenticateConsumerQuery:
 
         # consumer.api_key_hash is non-None here: the ACTIVE invariant on
         # ApiConsumer guarantees it (enforced by _check_active_has_hash).
-        # Cache only holds ACTIVE and DISABLED, so not-disabled implies active.
+        # The query only returns ACTIVE and DISABLED, so not-disabled implies active.
         if not self._api_key_verifier.verify(presented_key, consumer.api_key_hash):  # type: ignore[arg-type]
             await self._audit_service.record(AuditEventType.CONSUMER_AUTH_FAILED, None)
             raise UnauthorizedError("Invalid API key")

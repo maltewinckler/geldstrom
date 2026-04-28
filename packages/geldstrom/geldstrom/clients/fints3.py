@@ -67,6 +67,17 @@ class FinTS3Client(BankClient):
             product_id=product_id,
             product_version=product_version,
         )
+        # Warn here (not in _init_common) so from_gateway_credentials never warns:
+        # that method is gateway-internal and always receives already-validated credentials.
+        if not tan_method:
+            warnings.warn(
+                "No 'tan_method' configured. Most German banks require TAN "
+                "authentication (2FA) even for basic operations like listing "
+                "accounts. If you encounter errors, set 'tan_method' to your "
+                "bank's TAN method (e.g., '946' for SecureGo+/Decoupled TAN).",
+                UserWarning,
+                stacklevel=1,
+            )
         self._init_common(session_state, challenge_handler, tan_config)
 
     @classmethod
@@ -109,17 +120,6 @@ class FinTS3Client(BankClient):
         self._accounts: Sequence[Account] = ()
         self._capabilities: BankCapabilities | None = None
         self._connected = False
-
-        # Most German banks require a TAN method even for read operations.
-        if not self._credentials.credentials.two_factor_method:
-            warnings.warn(
-                "No 'tan_method' configured. Most German banks require TAN "
-                "authentication (2FA) even for basic operations like listing "
-                "accounts. If you encounter errors, set 'tan_method' to your "
-                "bank's TAN method (e.g., '946' for SecureGo+/Decoupled TAN).",
-                UserWarning,
-                stacklevel=3,
-            )
 
     def __enter__(self) -> FinTS3Client:
         self.connect()

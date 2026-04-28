@@ -31,7 +31,7 @@ from gateway.domain.consumer_access import (
 from tests.apps.gateway.fakes import (
     FakeAuditService,
     FakeBankingConnector,
-    FakeConsumerCache,
+    FakeConsumerRepository,
     FakeIdProvider,
     FakeInstituteCache,
     FakeOperationSessionStore,
@@ -175,7 +175,7 @@ def _build_use_case(
         created_at=datetime.now(UTC),
     )
     authenticate_consumer = AuthenticateConsumerQuery(
-        FakeConsumerCache([consumer]), StubApiKeyVerifier(), FakeAuditService()
+        FakeConsumerRepository([consumer]), StubApiKeyVerifier(), FakeAuditService()
     )
     resolved_institute_cache = institute_cache or FakeInstituteCache([_institute()])
     resolved_connector = connector or FakeBankingConnector(

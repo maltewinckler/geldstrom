@@ -1,5 +1,5 @@
 ---
-description: "Run the full deployment check: docker compose up, verify admin UI on port 8001, sync catalog, create user if needed, update API key in .env, verify with geldstrom-cli, check all lookup endpoints (auth-protected), and fetch transactions via the decoupled 2FA flow"
+description: "Run the full deployment check: docker compose up, verify admin UI on port 8001, sync catalog, create user if needed, update API key in .env, verify with geldstrom-cli, check all lookup endpoints (auth-protected), fetch transactions via the decoupled 2FA flow, and verify the audit trail"
 name: "Deployment Check"
 agent: "agent"
 ---
@@ -245,3 +245,72 @@ curl -s -X POST http://localhost:8000/v1/banking/operations/$OP_ID/poll \
 
 **Expected:** After TAN approval the poll returns `"status": "completed"` with
 a `result_payload.transactions` list.
+
+### 10. Verify Audit Trail and Integrity
+
+This step confirms that the audit service is persisting events correctly (i.e. the `GRANT INSERT ON audit_events` regression is not present) and that the trail is tamper-evident (DELETE is blocked by the database trigger).
+
+#### 10a. Confirm audit events were recorded
+
+Fetch the recent audit log from the admin API:
+```bash
+curl -s "http://localhost:8001/admin/audit?page_size=10" | python3 -m json.tool
+```
+
+Expected response shape:
+```json
+{
+  "events": [
+    {
+      "event_id": "<uuid>",
+      "event_type": "consumer_authenticated",
+      "consumer_id": "<uuid>",
+      "occurred_at": "<timestamp>"
+    }
+  ],
+  "total": <N>,
+  "page": 1,
+  "page_size": 10
+}
+```
+
+**Requirements:**
+- `total` must be **≥ 1** — at least one `consumer_authenticated` event must exist from the `geldstrom-cli accounts` call in step 7. If `total` is 0 this is the `GRANT INSERT` regression.
+- Every event must have a non-null `event_id`, `event_type`, and `occurred_at`.
+- The `consumer_id` field may be `null` only for `consumer_auth_failed` events (unknown key); it must be a UUID for `consumer_authenticated`.
+
+Report the total event count and the event types present.
+
+#### 10b. Filter by event type
+
+Verify that filtering works and that authentication events are properly typed:
+```bash
+curl -s "http://localhost:8001/admin/audit?event_type=consumer_authenticated&page_size=5" \
+  | python3 -m json.tool
+```
+
+Expected: only `"event_type": "consumer_authenticated"` entries in the `events` array.
+
+#### 10c. Verify the delete-prevention trigger (tamper-evidence)
+
+Attempt to delete an audit row directly via the PostgreSQL superuser — this **must fail**:
+```bash
+docker compose exec postgres psql -U postgres -d geldstrom \
+  -c "DELETE FROM audit_events WHERE event_id = (SELECT event_id FROM audit_events LIMIT 1);" 2>&1
+```
+
+Expected output contains: `ERROR:  Deletion from audit_events is not permitted`
+
+If the DELETE succeeds without error, the tamper-prevention trigger is missing or broken.
+
+#### 10d. Confirm the gateway user cannot delete audit events
+
+Verify the gateway DB user (read-only except for INSERT) also cannot delete:
+```bash
+GW_PASS=$(grep GATEWAY_DB_PASSWORD config/gateway.env | cut -d= -f2 | tr -d '"')
+docker compose exec postgres psql \
+  "postgresql://gateway:${GW_PASS}@localhost/geldstrom" \
+  -c "DELETE FROM audit_events;" 2>&1
+```
+
+Expected: either the trigger error (`Deletion from audit_events is not permitted`) if rows exist, or a privilege error if the trigger fires first. Either outcome confirms the trail cannot be silently cleared by the application user.

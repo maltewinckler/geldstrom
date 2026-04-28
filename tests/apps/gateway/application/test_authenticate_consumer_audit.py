@@ -20,7 +20,7 @@ from gateway.application.consumer.queries.authenticate_consumer import (
 )
 from gateway.domain.audit import AuditEventType
 from gateway.domain.consumer_access import ApiConsumer, ApiKeyHash, ConsumerStatus
-from tests.apps.gateway.fakes import FakeAuditService, FakeConsumerCache
+from tests.apps.gateway.fakes import FakeAuditService, FakeConsumerRepository
 
 _CONSUMER_ID = UUID("12345678-1234-5678-1234-567812345678")
 _KEY_PREFIX = _CONSUMER_ID.hex[:8]
@@ -66,7 +66,7 @@ def _disabled_consumer(
 def test_audit_record_called_with_consumer_authenticated_on_success() -> None:
     audit = FakeAuditService()
     use_case = AuthenticateConsumerQuery(
-        FakeConsumerCache([_active_consumer()]),
+        FakeConsumerRepository([_active_consumer()]),
         StubApiKeyVerifier(),
         audit,
     )
@@ -89,7 +89,7 @@ def test_audit_record_called_with_consumer_auth_failed_and_none_on_unknown_key()
 ):
     audit = FakeAuditService()
     use_case = AuthenticateConsumerQuery(
-        FakeConsumerCache([_active_consumer()]),
+        FakeConsumerRepository([_active_consumer()]),
         StubApiKeyVerifier(),
         audit,
     )
@@ -107,7 +107,7 @@ def test_audit_record_called_with_none_consumer_id_when_prefix_not_found() -> No
     """Key prefix doesn't match any consumer — consumer is completely unknown."""
     audit = FakeAuditService()
     use_case = AuthenticateConsumerQuery(
-        FakeConsumerCache([]),  # empty cache
+        FakeConsumerRepository([]),  # empty cache
         StubApiKeyVerifier(),
         audit,
     )
@@ -131,7 +131,7 @@ def test_audit_record_called_with_consumer_auth_failed_and_consumer_id_on_disabl
 ):
     audit = FakeAuditService()
     use_case = AuthenticateConsumerQuery(
-        FakeConsumerCache([_disabled_consumer()]),
+        FakeConsumerRepository([_disabled_consumer()]),
         StubApiKeyVerifier(),
         audit,
     )
@@ -153,7 +153,7 @@ def test_audit_record_uses_correct_consumer_id_for_disabled_consumer() -> None:
 
     audit = FakeAuditService()
     use_case = AuthenticateConsumerQuery(
-        FakeConsumerCache(
+        FakeConsumerRepository(
             [_disabled_consumer(consumer_id=other_id, api_key_hash=other_key)]
         ),
         StubApiKeyVerifier(),
@@ -177,7 +177,7 @@ def test_audit_record_uses_correct_consumer_id_for_disabled_consumer() -> None:
 def test_exactly_one_audit_event_recorded_per_authentication_call() -> None:
     audit = FakeAuditService()
     use_case = AuthenticateConsumerQuery(
-        FakeConsumerCache([_active_consumer()]),
+        FakeConsumerRepository([_active_consumer()]),
         StubApiKeyVerifier(),
         audit,
     )

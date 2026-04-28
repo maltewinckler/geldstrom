@@ -5,26 +5,17 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
-from uuid import UUID
 
 import asyncpg
-from gateway_contracts.channels import (
-    CATALOG_REPLACED_CHANNEL,
-    CONSUMER_UPDATED_CHANNEL,
-)
-from gateway_contracts.payloads import ConsumerUpdatedPayload
+from gateway_contracts.channels import CATALOG_REPLACED_CHANNEL
 from sqlalchemy.engine import URL, make_url
 
 from gateway.domain.banking_gateway import (
     FinTSInstituteRepository,
     InstituteCacheLoader,
 )
-from gateway.domain.consumer_access import ApiConsumerRepository, ConsumerCache
 
-LISTEN_CHANNELS = (
-    CONSUMER_UPDATED_CHANNEL,
-    CATALOG_REPLACED_CHANNEL,
-)
+LISTEN_CHANNELS = (CATALOG_REPLACED_CHANNEL,)
 
 logger = logging.getLogger(__name__)
 
@@ -36,16 +27,12 @@ class PostgresNotifyListener:
         self,
         *,
         database_url: str,
-        consumer_repository: ApiConsumerRepository,
-        consumer_cache: ConsumerCache,
         institute_repository: FinTSInstituteRepository,
         institute_cache: InstituteCacheLoader,
         reconnect_backoff_seconds: float = 1.0,
         max_reconnect_backoff_seconds: float = 30.0,
     ) -> None:
         self._database_url = _normalize_database_url(database_url)
-        self._consumer_repository = consumer_repository
-        self._consumer_cache = consumer_cache
         self._institute_repository = institute_repository
         self._institute_cache = institute_cache
         self._base_backoff_seconds = max(reconnect_backoff_seconds, 0.1)
@@ -172,25 +159,9 @@ class PostgresNotifyListener:
             )
 
     async def _dispatch_notification(self, channel: str, payload: str) -> None:
-        if channel == CONSUMER_UPDATED_CHANNEL:
-            try:
-                parsed = ConsumerUpdatedPayload.deserialize(payload)
-            except (ValueError, KeyError):
-                logger.warning("Invalid consumer_updated payload: %s", payload)
-                return
-            await self._refresh_consumer(parsed)
-            return
         if channel == CATALOG_REPLACED_CHANNEL:
             await self._refresh_catalog()
             return
-
-    async def _refresh_consumer(self, payload: ConsumerUpdatedPayload) -> None:
-        consumer_id = UUID(payload.consumer_id)
-        consumer = await self._consumer_repository.get_by_id(consumer_id)
-        if consumer is None:
-            await self._consumer_cache.evict(consumer_id)
-            return
-        await self._consumer_cache.reload_one(consumer)
 
     async def _refresh_catalog(self) -> None:
         institutes = await self._institute_repository.list_all()

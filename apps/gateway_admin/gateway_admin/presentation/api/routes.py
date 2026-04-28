@@ -86,7 +86,7 @@ async def update_product_registration(
         )
     except ValidationError as e:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=str(e),
         ) from e
     return ProductRegistrationResponse(
@@ -147,7 +147,7 @@ async def create_user(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST
             if "already exists" in str(e)
-            else status.HTTP_422_UNPROCESSABLE_ENTITY,
+            else status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=str(e),
         ) from e
     except EmailServiceError as e:

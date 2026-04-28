@@ -61,7 +61,7 @@ class BalanceOperations:
         self._parameters = parameters
 
     def fetch_balance(self, account: SEPAAccount) -> BalanceResult:
-        logger.info(
+        logger.debug(
             "Fetching balance for account %s", account.iban or account.accountnumber
         )
 

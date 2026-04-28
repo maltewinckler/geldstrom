@@ -61,7 +61,7 @@ class FinTSBalanceService(FinTSServiceBase):
                     snapshot = self._balance_from_operations(account_id, result)
                     results.append(snapshot)
                 except Exception as e:
-                    logger.warning("Failed to fetch balance for %s: %s", account_id, e)
+                    logger.debug("Failed to fetch balance for %s: %s", account_id, e)
                     continue
 
         return tuple(results)

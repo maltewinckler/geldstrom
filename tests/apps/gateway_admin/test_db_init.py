@@ -4,6 +4,7 @@ Verifies that:
 - initialize_database creates the audit_events table (Requirement 4.4)
 - initialize_database creates the audit_events_no_delete trigger (Requirement 6.3)
 - A raw DELETE FROM audit_events raises a database exception (Requirement 6.3)
+- The gateway DB user receives INSERT privileges on audit_events (regression guard)
 """
 
 from __future__ import annotations
@@ -50,11 +51,11 @@ async def _create_trigger(engine: AsyncEngine) -> None:
             text(
                 """
                 CREATE OR REPLACE FUNCTION prevent_audit_delete()
-                RETURNS TRIGGER LANGUAGE plpgsql AS $
+                RETURNS TRIGGER LANGUAGE plpgsql AS $$
                 BEGIN
                     RAISE EXCEPTION 'Deletion from audit_events is not permitted';
                 END;
-                $
+                $$
                 """
             )
         )
@@ -138,3 +139,74 @@ async def _insert_audit_event(engine: AsyncEngine, event_id: object) -> None:
 async def _raw_delete(engine: AsyncEngine) -> None:
     async with engine.begin() as conn:
         await conn.execute(text("DELETE FROM audit_events"))
+
+
+async def _gateway_user_can_insert(
+    superuser_engine: AsyncEngine,
+    postgres_database_url: str,
+    gw_user: str,
+    gw_password: str,
+) -> None:
+    """Return without error if the gateway user can INSERT into audit_events."""
+    from sqlalchemy.engine import make_url
+    from sqlalchemy.ext.asyncio import create_async_engine
+
+    gw_url = (
+        make_url(postgres_database_url)
+        .set(username=gw_user, password=gw_password)
+        .render_as_string(hide_password=False)
+    )
+    gw_engine = create_async_engine(gw_url, poolclass=None)
+    try:
+        async with gw_engine.begin() as conn:
+            await conn.execute(
+                audit_events_table.insert().values(
+                    event_id=uuid4(),
+                    event_type="consumer_authenticated",
+                    consumer_id=None,
+                    occurred_at=datetime(2026, 1, 1, 12, 0, tzinfo=UTC),
+                )
+            )
+    finally:
+        await gw_engine.dispose()
+
+
+def test_gateway_user_has_insert_on_audit_events(
+    postgres_engine: AsyncEngine,
+    postgres_database_url: str,
+    async_runner: Callable[[Awaitable[object]], object],
+) -> None:
+    """initialize_database grants INSERT on audit_events to the gateway DB user.
+
+    Regression guard: the gateway user previously only had SELECT, causing
+    'permission denied for table audit_events' errors when the audit service
+    tried to persist events.
+    """
+    from unittest.mock import MagicMock
+
+    from pydantic import SecretStr
+
+    from gateway_admin.infrastructure.persistence.sqlalchemy.db_init import (
+        initialize_database,
+    )
+
+    gw_user = "test_gw_user"
+    gw_password = "test_gw_pass"
+
+    settings = MagicMock()
+    settings.postgres_db = "test"
+    settings.gateway_db_user = gw_user
+    settings.gateway_db_password = SecretStr(gw_password)
+    settings.database_url = postgres_database_url
+    settings.maintenance_url = (
+        postgres_database_url  # already exists; skip CREATE DATABASE
+    )
+
+    async_runner(initialize_database(settings))
+
+    # The gateway user must now be able to INSERT into audit_events without error.
+    async_runner(
+        _gateway_user_can_insert(
+            postgres_engine, postgres_database_url, gw_user, gw_password
+        )
+    )

@@ -105,6 +105,7 @@ async def initialize_database(settings: Settings) -> None:
             await conn.execute(
                 text(f"GRANT SELECT ON ALL TABLES IN SCHEMA public TO {qi}")
             )
+            await conn.execute(text(f"GRANT INSERT ON audit_events TO {qi}"))
             await conn.execute(
                 text(
                     f"ALTER DEFAULT PRIVILEGES IN SCHEMA public"

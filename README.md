@@ -10,14 +10,11 @@ Access German bank accounts programmatically. Geldstrom is a pure-Python FinTS 3
 | Component | Path | Description |
 |-----------|------|-------------|
 | **geldstrom** | `packages/geldstrom/` | Pure-Python FinTS 3.0 client library |
-| **gateway** | `apps/gateway/` | FastAPI banking gateway (REST → FinTS) |
+| **gateway** | `apps/gateway/` | FastAPI banking gateway (REST for FinTS) |
 | **gateway-admin** | `apps/gateway_admin/` | Admin web UI and CLI for managing the gateway |
-| **gateway-contracts** | `packages/gateway-contracts/` | Shared SQLAlchemy schema and NOTIFY channels |
-| **geldstrom-cli** | `packages/geldstrom_cli/` | Developer CLI for manual gateway testing |
+| **geldstrom-cli** | `packages/geldstrom_cli/` | Minimal developer CLI for manual gateway testing |
 
-`data/fints_institute.csv` - Bundesbank-sourced FinTS institute catalog (BLZ → PIN-TAN URL).
-
-## Quick start - library
+## Quick start with library
 
 ```python
 from geldstrom import FinTS3Client
@@ -27,7 +24,7 @@ with FinTS3Client(
     server_url="https://banking.example.com/fints",
     user_id="your_username",
     pin="your_pin",
-    product_id="YOUR_PRODUCT_ID",   # register at fints.org (free)
+    product_id="YOUR_PRODUCT_ID",
     tan_method="946",
 ) as client:
     for account in client.list_accounts():
@@ -39,7 +36,7 @@ For banks that require app-based 2FA (SecureGo+, pushTAN, ...) without blocking,
 
 > **Product ID**: Registration with the [Deutsche Kreditwirtschaft](https://www.fints.org/de/hersteller/produktregistrierung) is required and free.
 
-## Quick start - gateway (Docker)
+## Quick start with gateway (Docker)
 
 ```bash
 cp config/admin_cli.env.example config/admin_cli.env   # fill in passwords + SMTP

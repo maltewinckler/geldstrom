@@ -64,7 +64,6 @@ def test_warm_product_key_not_called_during_startup() -> None:
             return_value=mock_redis,
         ),
         patch.object(factory, "_start_notify_listener", new_callable=AsyncMock),
-        patch.object(factory, "_warm_consumer_cache", new_callable=AsyncMock),
         patch.object(factory, "_warm_institute_cache", new_callable=AsyncMock),
     ):
         asyncio.run(factory.startup())

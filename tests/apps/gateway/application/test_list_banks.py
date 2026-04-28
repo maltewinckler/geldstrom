@@ -21,7 +21,7 @@ from gateway.domain.consumer_access import (
 )
 from tests.apps.gateway.fakes import (
     FakeAuditService,
-    FakeConsumerCache,
+    FakeConsumerRepository,
     FakeInstituteCache,
 )
 
@@ -40,7 +40,7 @@ def _make_auth() -> AuthenticateConsumerQuery:
         created_at=datetime.now(UTC),
     )
     return AuthenticateConsumerQuery(
-        FakeConsumerCache([consumer]), StubApiKeyVerifier(), FakeAuditService()
+        FakeConsumerRepository([consumer]), StubApiKeyVerifier(), FakeAuditService()
     )
 
 

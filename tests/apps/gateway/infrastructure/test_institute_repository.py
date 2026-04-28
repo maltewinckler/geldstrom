@@ -10,6 +10,9 @@ from gateway.domain.banking_gateway import (
     BankLeitzahl,
     FinTSInstitute,
 )
+from gateway.infrastructure.persistence.sqlalchemy import (
+    FinTSInstituteRepositorySqlAlchemy,
+)
 
 
 async def _seed_institutes(engine, *institutes: FinTSInstitute) -> None:

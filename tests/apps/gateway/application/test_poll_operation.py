@@ -32,7 +32,7 @@ from gateway.domain.consumer_access import (
 from tests.apps.gateway.fakes import (
     FakeAuditService,
     FakeBankingConnector,
-    FakeConsumerCache,
+    FakeConsumerRepository,
     FakeIdProvider,
     FakeOperationSessionStore,
 )
@@ -114,7 +114,7 @@ def _build_use_case(
     institute_catalog = FakeInstituteCache(institutes=[institute] if institute else [])
 
     authenticate = AuthenticateConsumerQuery(
-        consumer_cache=FakeConsumerCache(consumers=[consumer]),
+        consumer_repository=FakeConsumerRepository(consumers=[consumer]),
         api_key_verifier=StubApiKeyVerifier(),
         audit_service=FakeAuditService(),
     )

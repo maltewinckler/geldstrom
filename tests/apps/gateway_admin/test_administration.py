@@ -48,6 +48,14 @@ class FakeUserRepository:
     async def list_all(self) -> list[User]:
         return sorted(self._users.values(), key=lambda user: user.email.value)
 
+    async def query(self, q) -> object:
+        from gateway_admin.domain.repositories.user_repository import UserPage
+
+        users = sorted(self._users.values(), key=lambda user: user.email.value)
+        return UserPage(
+            users=users, total=len(users), page=q.page, page_size=q.page_size
+        )
+
     async def get_by_id(self, user_id: UserId) -> User | None:
         return self._users.get(str(user_id))
 
@@ -187,11 +195,11 @@ def test_list_users_returns_summaries_without_secret_fields() -> None:
 
     result = asyncio.run(ListUsersQuery(repository)())
 
-    assert [summary.email for summary in result] == [
+    assert [summary.email for summary in result.users] == [
         "b@example.com",
         "consumer@example.com",
     ]
-    assert all(not hasattr(summary, "api_key_hash") for summary in result)
+    assert all(not hasattr(summary, "api_key_hash") for summary in result.users)
 
 
 def test_update_user_changes_email() -> None:
@@ -314,10 +322,9 @@ def test_update_product_registration_saves_and_notifies() -> None:
             now_value=datetime(2026, 3, 12, 12, 0, tzinfo=UTC),
             operation_ids=[],
         ),
-        product_version="1.0.0",
     )
 
-    result = asyncio.run(use_case("new-product-key"))
+    result = asyncio.run(use_case("new-product-key", "1.0.0"))
     stored = asyncio.run(repository.get_current())
 
     assert result.product_version == "1.0.0"

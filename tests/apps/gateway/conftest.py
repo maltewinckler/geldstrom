@@ -65,7 +65,7 @@ def postgres_engine(
 def postgres_database_url() -> Generator[str]:
     testcontainers = pytest.importorskip("testcontainers.postgres")
     try:
-        container = testcontainers.PostgresContainer("postgres:16-alpine")
+        container = testcontainers.PostgresContainer("postgres:18-alpine")
         container.start()
     except Exception as exc:
         pytest.skip(f"Unable to start PostgreSQL testcontainer: {exc}")

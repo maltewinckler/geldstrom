@@ -74,7 +74,7 @@ class Mt940Fetcher:
         end_date: date | None = None,
     ) -> TransactionFeed:
         """Fetch MT940 transactions and return a domain TransactionFeed."""
-        logger.info(
+        logger.debug(
             "Fetching MT940 transactions for %s from %s to %s",
             account.iban or account.accountnumber,
             start_date,

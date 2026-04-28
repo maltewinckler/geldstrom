@@ -134,7 +134,7 @@ def e2e_postgres_url() -> str:
     """Start a disposable PostgreSQL container and return its asyncpg URL."""
     testcontainers = pytest.importorskip("testcontainers.postgres")
     try:
-        container = testcontainers.PostgresContainer("postgres:16-alpine")
+        container = testcontainers.PostgresContainer("postgres:18-alpine")
         container.start()
     except Exception as exc:
         pytest.skip(f"Cannot start PostgreSQL testcontainer: {exc}")

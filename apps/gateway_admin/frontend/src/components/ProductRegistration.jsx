@@ -57,52 +57,41 @@ function ProductRegistration({ onToast }) {
   }
 
   return (
-    <section className="product-registration">
-      <h2>Product Registration</h2>
+    <div className="product-registration">
+      <h3>Product Registration</h3>
       {loading ? (
-        <p className="loading">Loading…</p>
-      ) : registration === null ? (
-        <p className="not-configured">No product registration has been configured yet.</p>
+        <p className="registration-status">Loading…</p>
       ) : registration ? (
-        <dl className="registration-fields">
-          <dt>Product Key</dt>
-          <dd>{registration.product_key}</dd>
-          <dt>Product Version</dt>
-          <dd>{registration.product_version}</dd>
-        </dl>
-      ) : null}
-
-      <form className="product-registration-form" onSubmit={handleSubmit}>
-        <h3>Edit Product Registration</h3>
-        <label>
-          Product Key
-          <input
-            type="text"
-            value={productKey}
-            onChange={(e) => setProductKey(e.target.value)}
-            placeholder="product_key"
-            required
-            disabled={submitting}
-            aria-label="Product Key"
-          />
-        </label>
-        <label>
-          Product Version
-          <input
-            type="text"
-            value={productVersion}
-            onChange={(e) => setProductVersion(e.target.value)}
-            placeholder="product_version"
-            required
-            disabled={submitting}
-            aria-label="Product Version"
-          />
-        </label>
+        <p className="registration-status">
+          Current: <code>{registration.product_key}</code> · v<code>{registration.product_version}</code>
+        </p>
+      ) : (
+        <p className="registration-status not-configured">No product registration has been configured yet.</p>
+      )}
+      <form onSubmit={handleSubmit}>
+        <input
+          type="text"
+          value={productKey}
+          onChange={(e) => setProductKey(e.target.value)}
+          placeholder="Product key"
+          required
+          disabled={submitting}
+          aria-label="Product Key"
+        />
+        <input
+          type="text"
+          value={productVersion}
+          onChange={(e) => setProductVersion(e.target.value)}
+          placeholder="Version (e.g. 1.0.0)"
+          required
+          disabled={submitting}
+          aria-label="Product Version"
+        />
         <button type="submit" disabled={submitting}>
           {submitting ? 'Saving…' : 'Save'}
         </button>
       </form>
-    </section>
+    </div>
   )
 }
 

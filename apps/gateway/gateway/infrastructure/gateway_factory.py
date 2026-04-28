@@ -21,7 +21,6 @@ from gateway.domain.banking_gateway import BankingConnector
 from gateway.infrastructure.banking.geldstrom import GeldstromBankingConnector
 from gateway.infrastructure.banking.protocols import BankingConnectorDispatcher
 from gateway.infrastructure.cache.memory import (
-    InMemoryApiConsumerCache,
     InMemoryFinTSInstituteCache,
     PostgresNotifyListener,
 )
@@ -67,14 +66,10 @@ class _SQLRepositoryFactory(RepositoryFactory):
 
 
 class _GatewayCacheFactory(CacheFactory):
-    """Consumer and institute caches in-memory; session store in Redis."""
+    """Institute cache in-memory; session store in Redis."""
 
     def __init__(self, redis: Redis) -> None:
         self._redis = redis
-
-    @cached_property
-    def consumer(self) -> InMemoryApiConsumerCache:
-        return InMemoryApiConsumerCache()
 
     @cached_property
     def institute(self) -> InMemoryFinTSInstituteCache:
@@ -159,8 +154,6 @@ class GatewayApplicationFactory:
         s = self._settings
         return PostgresNotifyListener(
             database_url=s.database_url.get_secret_value(),
-            consumer_repository=self.repos.consumer,
-            consumer_cache=self.caches.consumer,
             institute_repository=self.repos.institute,
             institute_cache=self.caches.institute,
             reconnect_backoff_seconds=s.notify_reconnect_backoff_seconds,
@@ -170,7 +163,6 @@ class GatewayApplicationFactory:
         """Warm all runtime caches and start background workers."""
         await self._connect_redis()
         await self._start_notify_listener()
-        await self._warm_consumer_cache()
         await self._warm_institute_cache()
         _logger.info("gateway startup complete")
 
@@ -180,11 +172,6 @@ class GatewayApplicationFactory:
         await self._close_redis()
         await self._close_db_engine()
         _logger.info("gateway shutdown complete")
-
-    async def _warm_consumer_cache(self) -> None:
-        consumers = await self.repos.consumer.list_all_active()
-        await self.caches.consumer.load(consumers)
-        _logger.info("consumer cache warmed", extra={"count": len(consumers)})
 
     async def _warm_institute_cache(self) -> None:
         institutes = await self.repos.institute.list_all()

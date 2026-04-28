@@ -57,7 +57,7 @@ from gateway.domain.consumer_access import (
 from tests.apps.gateway.fakes import (
     FakeAuditService,
     FakeBankingConnector,
-    FakeConsumerCache,
+    FakeConsumerRepository,
     FakeIdProvider,
     FakeInstituteCache,
     FakeOperationSessionStore,
@@ -89,7 +89,7 @@ def _consumer() -> ApiConsumer:
 
 def _authenticate_consumer() -> AuthenticateConsumerQuery:
     return AuthenticateConsumerQuery(
-        FakeConsumerCache([_consumer()]),
+        FakeConsumerRepository([_consumer()]),
         _StubApiKeyVerifier(),
         FakeAuditService(),
     )

@@ -12,6 +12,9 @@ from gateway.domain.consumer_access import (
     ApiKeyHash,
     ConsumerStatus,
 )
+from gateway.infrastructure.persistence.sqlalchemy import (
+    ApiConsumerRepositorySqlAlchemy,
+)
 
 
 async def _seed_consumers(engine, *consumers: ApiConsumer) -> None:
@@ -96,6 +99,27 @@ def test_consumer_repository_lists_all_consumers(postgres_engine, async_runner) 
     loaded = async_runner(repository.list_all())
 
     assert loaded == [active, disabled]
+
+
+def test_consumer_repository_get_by_key_prefix(postgres_engine, async_runner) -> None:
+    consumer = _consumer()
+    async_runner(_seed_consumers(postgres_engine, consumer))
+    repository = ApiConsumerRepositorySqlAlchemy(postgres_engine)
+
+    prefix = consumer.consumer_id.hex[:8]
+    loaded = async_runner(repository.get_by_key_prefix(prefix))
+
+    assert loaded == consumer
+
+
+def test_consumer_repository_get_by_key_prefix_returns_none_for_unknown(
+    postgres_engine, async_runner
+) -> None:
+    repository = ApiConsumerRepositorySqlAlchemy(postgres_engine)
+
+    result = async_runner(repository.get_by_key_prefix("00000000"))
+
+    assert result is None
 
 
 def _consumer() -> ApiConsumer:

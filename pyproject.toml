@@ -78,6 +78,7 @@ addopts = "-v --tb=short"
 filterwarnings = [
     "ignore::DeprecationWarning",
     "ignore::PendingDeprecationWarning",
+    "ignore::UserWarning:geldstrom\\.clients\\.fints3",
 ]
 markers = [
     "integration: marks tests as integration tests (require bank credentials)",

@@ -206,7 +206,7 @@ class FinTSConnectionHelper:
         if creds.tan_method:
             security_function = creds.tan_method
             tan_strategy = DecoupledTanStrategy(security_function)
-            logger.info(
+            logger.debug(
                 "Using two-step TAN: security_function=%s, tan_medium=%s",
                 security_function,
                 creds.tan_medium,
@@ -338,7 +338,7 @@ class FinTSConnectionHelper:
                 raise ValueError("Could not obtain system ID from bank")
 
             system_id = hisyn.system_id
-            logger.info("Obtained system ID: %s", system_id)
+            logger.debug("Obtained system ID: %s", system_id)
             logger.info(
                 "BPD version after sync: %d, %d segments",
                 parameters.bpd_version,

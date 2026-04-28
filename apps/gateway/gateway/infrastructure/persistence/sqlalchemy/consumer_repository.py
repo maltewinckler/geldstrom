@@ -5,8 +5,9 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from uuid import UUID
 
+import sqlalchemy as sa
 from gateway_contracts.schema import api_consumers_table
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from gateway.domain.consumer_access import (
@@ -57,6 +58,21 @@ class ApiConsumerRepositorySqlAlchemy(ApiConsumerRepository):
         async with self._engine.connect() as connection:
             rows = (await connection.execute(statement)).mappings().all()
         return [_row_to_consumer(row) for row in rows]
+
+    async def get_by_key_prefix(self, prefix: str) -> ApiConsumer | None:
+        cid_col = func.cast(api_consumers_table.c.consumer_id, type_=sa.Text)
+        statement = (
+            select(api_consumers_table)
+            .where(func.left(cid_col, 8) == prefix)
+            .where(
+                api_consumers_table.c.status.in_(
+                    [ConsumerStatus.ACTIVE.value, ConsumerStatus.DISABLED.value]
+                )
+            )
+        )
+        async with self._engine.connect() as connection:
+            row = (await connection.execute(statement)).mappings().first()
+        return _row_to_consumer(row)
 
 
 def _row_to_consumer(row: RowMapping | None) -> ApiConsumer | None:

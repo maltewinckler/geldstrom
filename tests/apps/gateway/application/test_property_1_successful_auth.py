@@ -20,7 +20,7 @@ from gateway.application.consumer.queries.authenticate_consumer import (
 )
 from gateway.domain.audit import AuditEvent, AuditEventType
 from gateway.domain.consumer_access import ApiConsumer, ApiKeyHash, ConsumerStatus
-from tests.apps.gateway.fakes import FakeConsumerCache, FakeIdProvider
+from tests.apps.gateway.fakes import FakeConsumerRepository, FakeIdProvider
 
 # ---------------------------------------------------------------------------
 # Capturing AuditRepository
@@ -121,7 +121,7 @@ def test_property_1_successful_auth_produces_consumer_authenticated_event(
     audit_service = AuditService(repo=repo, id_provider=id_provider)
 
     use_case = AuthenticateConsumerQuery(
-        consumer_cache=FakeConsumerCache([consumer]),
+        consumer_repository=FakeConsumerRepository([consumer]),
         api_key_verifier=_StubApiKeyVerifier(),
         audit_service=audit_service,
     )

@@ -95,10 +95,9 @@ function App() {
       </header>
 
       <main>
-        <AddUserForm onUserCreated={(msg) => { showToast(msg); fetchUsers() }} />
-        <CatalogUpload onSynced={(msg) => showToast(msg)} />
-
         <ProductRegistration onToast={showToast} />
+        <CatalogUpload onSynced={(msg) => showToast(msg)} />
+        <AddUserForm onUserCreated={(msg) => { showToast(msg); fetchUsers() }} />
 
         <section className="user-list">
           <h2>API Consumers</h2>
