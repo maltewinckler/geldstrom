@@ -16,33 +16,12 @@ from gateway.domain.banking_gateway import (
     PresentedBankCredentials,
     ResumeResult,
 )
-from gateway.domain.consumer_access import (
-    ApiConsumer,
-    ApiKeyHash,
-    ConsumerStatus,
-)
 from tests.apps.gateway.fakes import (
     FakeBankingConnector,
-    FakeConsumerRepository,
     FakeIdProvider,
     FakeInstituteCache,
     FakeOperationSessionStore,
 )
-
-
-def test_fake_consumer_repository_returns_active_consumers() -> None:
-    consumer = ApiConsumer(
-        consumer_id=UUID("12345678-1234-5678-1234-567812345678"),
-        email="consumer@example.com",
-        api_key_hash=ApiKeyHash("hash-1"),
-        status=ConsumerStatus.ACTIVE,
-        created_at=datetime(2026, 3, 7, tzinfo=UTC),
-    )
-    repo = FakeConsumerRepository([consumer])
-
-    loaded = _run(repo.list_all_active())
-
-    assert loaded == [consumer]
 
 
 def test_fake_institute_cache_indexes_by_blz() -> None:

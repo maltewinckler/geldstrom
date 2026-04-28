@@ -57,11 +57,6 @@ class FakeApiKeyService:
         return ApiKeyHash(f"hashed::{raw_key}")
 
 
-class FakeGatewayNotifications:
-    async def notify_user_updated(self, user_id: str) -> None:
-        pass
-
-
 class FakeEmailService:
     async def send_token_email(self, email: str, token: str) -> None:
         pass
@@ -122,7 +117,6 @@ def test_property_3_token_reroll_produces_token_rerolled_event(user: User) -> No
     audit_repo = CapturingAuditRepository()
     command = RotateUserKeyCommand(
         repository=FakeUserRepository([user]),
-        gateway=FakeGatewayNotifications(),
         api_key_service=FakeApiKeyService(),
         id_provider=FakeIdProvider(now_value=datetime(2026, 1, 1, 12, 0, tzinfo=UTC)),
         email_service=FakeEmailService(),

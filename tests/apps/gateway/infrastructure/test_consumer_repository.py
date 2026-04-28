@@ -67,23 +67,6 @@ def test_consumer_repository_get_by_email(postgres_engine, async_runner) -> None
     assert loaded == consumer
 
 
-def test_consumer_repository_lists_active(postgres_engine, async_runner) -> None:
-    active = _consumer()
-    disabled = ApiConsumer(
-        consumer_id=UUID("87654321-4321-8765-4321-876543218765"),
-        email="disabled@example.com",
-        api_key_hash=None,
-        status=ConsumerStatus.DISABLED,
-        created_at=datetime(2026, 3, 7, 12, 0, tzinfo=UTC),
-    )
-    async_runner(_seed_consumers(postgres_engine, active, disabled))
-    repository = ApiConsumerRepositorySqlAlchemy(postgres_engine)
-
-    loaded = async_runner(repository.list_all_active())
-
-    assert loaded == [active]
-
-
 def test_consumer_repository_lists_all_consumers(postgres_engine, async_runner) -> None:
     active = _consumer()
     disabled = ApiConsumer(

@@ -116,7 +116,6 @@ def test_property_14_token_not_stored_in_repository(recipient: str) -> None:
     from gateway_admin.application.commands.create_user import CreateUserCommand
     from tests.conftest import (
         InMemoryUserRepository,
-        NoOpGatewayNotificationService,
         SimpleApiKeyService,
         SimpleIdProvider,
     )
@@ -125,12 +124,10 @@ def test_property_14_token_not_stored_in_repository(recipient: str) -> None:
     repo = InMemoryUserRepository()
     api_key_svc = SimpleApiKeyService()
     id_prov = SimpleIdProvider()
-    gateway = NoOpGatewayNotificationService()
 
     async def _run() -> None:
         cmd = CreateUserCommand(
             repository=repo,
-            gateway=gateway,
             api_key_service=api_key_svc,
             id_provider=id_prov,
             email_service=email_svc,

@@ -69,14 +69,6 @@ class FakeUserRepository:
         self._users[str(user.user_id)] = user
 
 
-class FakeGatewayNotifications:
-    def __init__(self) -> None:
-        self.notified_user_ids: list[str] = []
-
-    async def notify_user_updated(self, user_id: str) -> None:
-        self.notified_user_ids.append(user_id)
-
-
 class FakeEmailService:
     def __init__(self) -> None:
         self.sent: list[tuple[str, str]] = []
@@ -159,11 +151,9 @@ class FakeIdProvider:
 
 def test_create_user_returns_raw_key_once() -> None:
     repository = FakeUserRepository()
-    gateway = FakeGatewayNotifications()
     email_service = FakeEmailService()
     use_case = CreateUserCommand(
         repository=repository,
-        gateway=gateway,
         api_key_service=FakeApiKeyService(["raw-key-1"]),
         id_provider=FakeIdProvider(
             now_value=datetime(2026, 3, 12, 10, 0, tzinfo=UTC),
@@ -179,7 +169,6 @@ def test_create_user_returns_raw_key_once() -> None:
     assert result.user.email == "consumer@example.com"
     assert stored is not None
     assert stored.api_key_hash == ApiKeyHash("hashed::raw-key-1")
-    assert gateway.notified_user_ids == ["12345678-1234-5678-1234-567812345678"]
 
 
 def test_list_users_returns_summaries_without_secret_fields() -> None:
@@ -205,8 +194,7 @@ def test_list_users_returns_summaries_without_secret_fields() -> None:
 def test_update_user_changes_email() -> None:
     user = _user()
     repository = FakeUserRepository([user])
-    gateway = FakeGatewayNotifications()
-    use_case = UpdateUserCommand(repository=repository, gateway=gateway)
+    use_case = UpdateUserCommand(repository=repository)
 
     result = asyncio.run(use_case(str(user.user_id), email="updated@example.com"))
     stored = asyncio.run(repository.get_by_id(user.user_id))
@@ -219,11 +207,9 @@ def test_update_user_changes_email() -> None:
 def test_rotate_user_key_returns_new_raw_key_once() -> None:
     user = _user(status=UserStatus.ACTIVE)
     repository = FakeUserRepository([user])
-    gateway = FakeGatewayNotifications()
     email_service = FakeEmailService()
     use_case = RotateUserKeyCommand(
         repository=repository,
-        gateway=gateway,
         api_key_service=FakeApiKeyService(["raw-key-2"]),
         id_provider=FakeIdProvider(
             now_value=datetime(2026, 3, 12, 11, 0, tzinfo=UTC),
@@ -253,11 +239,9 @@ def test_rotate_user_key_continues_when_audit_repo_raises() -> None:
 
     user = _user(status=UserStatus.ACTIVE)
     repository = FakeUserRepository([user])
-    gateway = FakeGatewayNotifications()
     email_service = FakeEmailService()
     use_case = RotateUserKeyCommand(
         repository=repository,
-        gateway=gateway,
         api_key_service=FakeApiKeyService(["raw-key-3"]),
         id_provider=FakeIdProvider(
             now_value=datetime(2026, 3, 12, 11, 0, tzinfo=UTC),
@@ -274,24 +258,18 @@ def test_rotate_user_key_continues_when_audit_repo_raises() -> None:
     assert len(email_service.sent) == 1
 
 
-def test_disable_and_delete_user_notify_gateway() -> None:
+def test_disable_and_delete_user() -> None:
     user = _user()
     repository = FakeUserRepository([user])
-    gateway = FakeGatewayNotifications()
 
-    disabled = asyncio.run(
-        DisableUserCommand(repository=repository, gateway=gateway)(str(user.user_id))
-    )
-    deleted = asyncio.run(
-        DeleteUserCommand(repository=repository, gateway=gateway)(str(user.user_id))
-    )
+    disabled = asyncio.run(DisableUserCommand(repository=repository)(str(user.user_id)))
+    deleted = asyncio.run(DeleteUserCommand(repository=repository)(str(user.user_id)))
     stored = asyncio.run(repository.get_by_id(user.user_id))
 
     assert disabled.status is UserStatus.DISABLED
     assert deleted.status is UserStatus.DELETED
     assert stored is not None
     assert stored.api_key_hash is None
-    assert len(gateway.notified_user_ids) == 2
 
 
 def test_sync_institute_catalog_canonicalizes_and_notifies_gateway() -> None:

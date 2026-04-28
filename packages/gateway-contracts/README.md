@@ -22,10 +22,9 @@ PostgreSQL NOTIFY channel name constants so the gateway and the CLI always agree
 
 | Constant | Channel | Triggered by |
 |----------|---------|--------------|
-| `CONSUMER_UPDATED_CHANNEL` | `gw.consumer_updated` | Create / update / disable / rotate user |
 | `CATALOG_REPLACED_CHANNEL` | `gw.catalog_replaced` | `catalog sync` |
 | `PRODUCT_REGISTRATION_UPDATED_CHANNEL` | `gw.product_registration_updated` | `product update` |
 
 ### `payloads`
 
-Typed dataclasses for the JSON payloads sent over those NOTIFY channels. Currently only `ConsumerUpdatedPayload` is used (carries `consumer_id`); catalog and product updates use no payload body.
+Currently empty — catalog and product-registration updates carry no payload body.

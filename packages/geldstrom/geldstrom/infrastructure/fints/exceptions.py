@@ -2,59 +2,39 @@
 
 
 class FinTSError(Exception):
-    pass
+    """Base exception for all FinTS errors."""
 
 
 class FinTSClientError(FinTSError):
-    pass
-
-
-class FinTSClientPINError(FinTSClientError):
-    pass
-
-
-class FinTSClientTemporaryAuthError(FinTSClientError):
-    pass
+    """Base exception for FinTS client errors."""
 
 
 class FinTSSCARequiredError(FinTSClientError):
-    pass
+    """Raised when strong customer authentication (SCA) is required."""
 
 
 class FinTSDialogError(FinTSError):
-    pass
-
-
-class FinTSDialogStateError(FinTSDialogError):
-    pass
-
-
-class FinTSDialogInitError(FinTSDialogError):
-    pass
+    """Base exception for FinTS dialog errors."""
 
 
 class FinTSConnectionError(FinTSError):
-    pass
+    """Raised when a connection error occurs."""
 
 
 class FinTSUnsupportedOperation(FinTSError):
-    pass
+    """Raised when an unsupported operation is requested."""
 
 
 class FinTSNoResponseError(FinTSError):
-    pass
+    """Raised when no response is received from the server."""
 
 
 __all__ = [
-    "FinTSClientError",
-    "FinTSClientPINError",
-    "FinTSClientTemporaryAuthError",
-    "FinTSConnectionError",
-    "FinTSDialogError",
-    "FinTSDialogInitError",
-    "FinTSDialogStateError",
     "FinTSError",
-    "FinTSNoResponseError",
+    "FinTSClientError",
     "FinTSSCARequiredError",
+    "FinTSDialogError",
+    "FinTSConnectionError",
     "FinTSUnsupportedOperation",
+    "FinTSNoResponseError",
 ]

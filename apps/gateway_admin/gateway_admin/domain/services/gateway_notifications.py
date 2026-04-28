@@ -6,10 +6,7 @@ from abc import ABC, abstractmethod
 
 
 class GatewayNotificationService(ABC):
-    """Signals the running gateway process to invalidate or reload its in-memory caches."""
-
-    @abstractmethod
-    async def notify_user_updated(self, user_id: str) -> None: ...
+    """Signals the running gateway process to reload its in-memory caches."""
 
     @abstractmethod
     async def notify_institute_catalog_replaced(self) -> None: ...

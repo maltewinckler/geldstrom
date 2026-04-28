@@ -10,9 +10,6 @@ from gateway_admin.domain.entities.users import User, UserStatus
 from gateway_admin.domain.errors import ValidationError
 from gateway_admin.domain.services.api_key import AdminApiKeyService
 from gateway_admin.domain.services.email import EmailService
-from gateway_admin.domain.services.gateway_notifications import (
-    GatewayNotificationService,
-)
 from gateway_admin.domain.services.identity import IdProvider
 from gateway_admin.domain.value_objects.user import Email, UserId
 
@@ -27,13 +24,11 @@ class CreateUserCommand:
     def __init__(
         self,
         repository,
-        gateway: GatewayNotificationService,
         api_key_service: AdminApiKeyService,
         id_provider: IdProvider,
         email_service: EmailService,
     ) -> None:
         self._repository = repository
-        self._gateway = gateway
         self._api_key_service = api_key_service
         self._id_provider = id_provider
         self._email_service = email_service
@@ -46,7 +41,6 @@ class CreateUserCommand:
     ) -> Self:
         return cls(
             repository=repo_factory.users,
-            gateway=service_factory.gateway_notifications,
             api_key_service=service_factory.api_key_service,
             id_provider=service_factory.id_provider,
             email_service=service_factory.email_service,
@@ -70,6 +64,5 @@ class CreateUserCommand:
             created_at=self._id_provider.now(),
         )
         await self._repository.save(user)
-        await self._gateway.notify_user_updated(str(user.user_id))
         await self._email_service.send_token_email(normalized_email.value, raw_key)
         return UserKeyResult(user=to_user_summary(user), raw_api_key=raw_key)

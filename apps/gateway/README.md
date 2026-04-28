@@ -8,7 +8,7 @@ FastAPI HTTP service that turns bank credentials into structured JSON. It wraps 
 - Responds synchronously (`200`) when the bank answers immediately, or asynchronously (`202` + polling URL) when a TAN confirmation is required
 - Authenticates API consumers via Argon2id-hashed Bearer tokens
 - Keeps the FinTS institute catalog and API consumer records in PostgreSQL; caches them in memory
-- Reacts to `gw.catalog_replaced` and `gw.consumer_updated` PostgreSQL NOTIFY events (via `PostgresNotifyListener`) to refresh in-memory caches without a restart
+- Reacts to `gw.catalog_replaced` PostgreSQL NOTIFY events (via `PostgresNotifyListener`) to refresh the in-memory FinTS institute cache without a restart
 - Runs a background resume worker that polls pending decoupled-TAN sessions every 5 seconds
 - Rates-limit incoming requests per-process (in-memory, single-worker safe)
 

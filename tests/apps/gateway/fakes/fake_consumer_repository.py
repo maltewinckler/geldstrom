@@ -28,9 +28,6 @@ class FakeConsumerRepository:
                 return c
         return None
 
-    async def list_all_active(self) -> list[ApiConsumer]:
-        return [c for c in self._consumers if c.status is ConsumerStatus.ACTIVE]
-
     async def get_by_key_prefix(self, prefix: str) -> ApiConsumer | None:
         for consumer in self._consumers:
             if consumer.consumer_id.hex[:8] == prefix:

@@ -10,10 +10,8 @@ from typing import TYPE_CHECKING, Self
 
 from gateway_contracts.channels import (
     CATALOG_REPLACED_CHANNEL,
-    CONSUMER_UPDATED_CHANNEL,
     PRODUCT_REGISTRATION_UPDATED_CHANNEL,
 )
-from gateway_contracts.payloads import ConsumerUpdatedPayload
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
@@ -41,14 +39,6 @@ class GatewayNotificationServiceSQLAlchemy(GatewayNotificationService):
 
         assert isinstance(repo_factory, AdminRepositoryFactorySQLAlchemy)
         return cls(repo_factory._engine)
-
-    async def notify_user_updated(self, user_id: str) -> None:
-        payload = ConsumerUpdatedPayload(consumer_id=user_id)
-        async with self._engine.begin() as conn:
-            await conn.execute(
-                _NOTIFY_SQL,
-                {"channel": CONSUMER_UPDATED_CHANNEL, "payload": payload.serialize()},
-            )
 
     async def notify_institute_catalog_replaced(self) -> None:
         async with self._engine.begin() as conn:

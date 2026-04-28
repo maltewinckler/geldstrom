@@ -78,9 +78,6 @@ class InMemoryUserRepository:
 class NoOpGatewayNotificationService:
     """No-op gateway notification service for tests."""
 
-    async def notify_user_updated(self, user_id: str) -> None:
-        pass
-
     async def notify_institute_catalog_replaced(self) -> None:
         pass
 

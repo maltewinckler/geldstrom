@@ -43,9 +43,7 @@ from gateway_admin.presentation.api.schemas import (
     ProductRegistrationResponse,
     UpdateProductRegistrationRequest,
     UserListResponse,
-)
-from gateway_admin.presentation.api.schemas import (
-    UserSummary as UserSummarySchema,
+    UserSummary,
 )
 
 router = APIRouter()
@@ -111,7 +109,7 @@ async def list_users(
     q = UserQuery(email_contains=email, status=status, page=page, page_size=page_size)
     result = await ListUsersQuery.from_factory(repo)(q)
     return UserListResponse(
-        users=[UserSummarySchema.model_validate(u) for u in result.users],
+        users=[UserSummary.model_validate(u) for u in result.users],
         total=result.total,
         page=result.page,
         page_size=result.page_size,
@@ -120,14 +118,14 @@ async def list_users(
 
 @router.get(
     "/users/{user_id}",
-    response_model=UserSummarySchema,
+    response_model=UserSummary,
     responses={404: {"model": ErrorResponse}},
 )
-async def get_user(user_id: str, repo: RepoFactoryDep) -> UserSummarySchema:
+async def get_user(user_id: str, repo: RepoFactoryDep) -> UserSummary:
     result = await GetUserQuery.from_factory(repo)(user_id)
     if result is None:
         raise HTTPException(status_code=404, detail=f"User {user_id} not found")
-    return UserSummarySchema.model_validate(result)
+    return UserSummary.model_validate(result)
 
 
 @router.post(
@@ -161,7 +159,7 @@ async def create_user(
             detail=f"Failed to create user: {e}",
         ) from e
     return CreateUserResponse(
-        user=UserSummarySchema.model_validate(result.user),
+        user=UserSummary.model_validate(result.user),
         message="Token sent to email",
     )
 
@@ -196,21 +194,21 @@ async def reroll_user(
             detail=f"Failed to reroll token: {e}",
         ) from e
     return CreateUserResponse(
-        user=UserSummarySchema.model_validate(result.user),
+        user=UserSummary.model_validate(result.user),
         message="Token sent to email",
     )
 
 
 @router.post(
     "/users/{user_id}/disable",
-    response_model=UserSummarySchema,
+    response_model=UserSummary,
     responses={404: {"model": ErrorResponse}, 400: {"model": ErrorResponse}},
 )
 async def disable_user(
     user_id: str,
     repo: RepoFactoryDep,
     svc: ServiceFactoryDep,
-) -> UserSummarySchema:
+) -> UserSummary:
     try:
         result = await DisableUserCommand.from_factory(repo, svc)(user_id)
     except ValidationError as e:
@@ -220,7 +218,7 @@ async def disable_user(
             else status.HTTP_400_BAD_REQUEST,
             detail=str(e),
         ) from e
-    return UserSummarySchema.model_validate(result)
+    return UserSummary.model_validate(result)
 
 
 @router.post(
@@ -243,7 +241,7 @@ async def reactivate_user(
             detail=str(e),
         ) from e
     return CreateUserResponse(
-        user=UserSummarySchema.model_validate(result.user),
+        user=UserSummary.model_validate(result.user),
         message="Token sent to email",
     )
 

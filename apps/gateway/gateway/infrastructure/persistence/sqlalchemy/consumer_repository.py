@@ -51,14 +51,6 @@ class ApiConsumerRepositorySqlAlchemy(ApiConsumerRepository):
             rows = (await connection.execute(statement)).mappings().all()
         return [_row_to_consumer(row) for row in rows]
 
-    async def list_all_active(self) -> list[ApiConsumer]:
-        statement = select(api_consumers_table).where(
-            api_consumers_table.c.status == ConsumerStatus.ACTIVE.value
-        )
-        async with self._engine.connect() as connection:
-            rows = (await connection.execute(statement)).mappings().all()
-        return [_row_to_consumer(row) for row in rows]
-
     async def get_by_key_prefix(self, prefix: str) -> ApiConsumer | None:
         cid_col = func.cast(api_consumers_table.c.consumer_id, type_=sa.Text)
         statement = (
