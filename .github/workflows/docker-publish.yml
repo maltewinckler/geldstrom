@@ -1,16 +1,8 @@
 name: Publish Docker Images
 
-# Triggered when relevant source files land on main. Creates 'latest' and
-# immutable 'sha-<commit>' tags so every main-branch state is traceable.
-# When a GitHub release is published (e.g. v1.2.3), semver tags are added too.
+# Triggered only when a GitHub release is published (e.g. v1.2.3).
+# Semver tags (1.2.3, 1.2, 1) and 'latest' are pushed to Docker Hub.
 on:
-  push:
-    branches: [main]
-    paths:
-      - "apps/gateway/**"
-      - "apps/gateway_admin/**"
-      - "packages/**"
-      - "uv.lock"
   release:
     types: [published]
 
@@ -52,10 +44,8 @@ jobs:
         with:
           images: ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.image_suffix }}
           tags: |
-            # 'latest' on every push to main
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
-            # immutable SHA tag on every push to main (e.g. sha-a1b2c3d)
-            type=sha,prefix=sha-,enable=${{ github.ref == 'refs/heads/main' }}
+            # 'latest' on every release
+            type=raw,value=latest
             # semver tags on GitHub releases (e.g. v1.2.3 → 1.2.3, 1.2, 1)
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
