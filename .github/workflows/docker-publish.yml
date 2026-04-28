@@ -8,7 +8,7 @@ on:
     branches: [main]
     paths:
       - "apps/gateway/**"
-      - "apps/gateway_admin_cli/**"
+      - "apps/gateway_admin/**"
       - "packages/**"
       - "uv.lock"
   release:
@@ -30,9 +30,9 @@ jobs:
             image_suffix: geldstrom-gateway
             dockerfile: apps/gateway/Dockerfile
 
-          - service: gateway-admin-cli
-            image_suffix: geldstrom-gateway-admin-cli
-            dockerfile: apps/gateway_admin_cli/Dockerfile
+          - service: gateway-admin
+            image_suffix: geldstrom-gateway-admin
+            dockerfile: apps/gateway_admin/Dockerfile
 
     steps:
       - uses: actions/checkout@v4

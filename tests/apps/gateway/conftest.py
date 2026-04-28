@@ -19,7 +19,7 @@ from gateway_contracts.schema import (
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from gateway.infrastructure.persistence.sql.connection import build_engine
+from gateway.infrastructure.persistence.sqlalchemy.connection import build_engine
 
 
 def _ensure_docker_host() -> None:
@@ -65,7 +65,7 @@ def postgres_engine(
 def postgres_database_url() -> Generator[str]:
     testcontainers = pytest.importorskip("testcontainers.postgres")
     try:
-        container = testcontainers.PostgresContainer("postgres:16-alpine")
+        container = testcontainers.PostgresContainer("postgres:18-alpine")
         container.start()
     except Exception as exc:
         pytest.skip(f"Unable to start PostgreSQL testcontainer: {exc}")

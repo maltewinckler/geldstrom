@@ -214,7 +214,7 @@ class FinTS3ClientDecoupled(FinTS3Client):
         if response is None:
             return PollResult(status="pending")
 
-        # TAN approved — parse the response based on operation type
+        # TAN approved - parse the response based on operation type
         data = self._complete_approved_operation(response)
         self.cleanup_pending()
         return PollResult(status="approved", data=data)
@@ -239,7 +239,7 @@ class FinTS3ClientDecoupled(FinTS3Client):
         if op.operation_type == "transactions":
             account_id = op.operation_meta.get("account_id", "")
 
-            # DKB (and similar) banks require TAN even for connect/list_accounts.
+            # DKB-style banks require TAN even for connect/list_accounts.
             # When that happens the snapshot stores only the IBAN (no account_id yet).
             # self._accounts was just populated by _resume_accounts_from_context above,
             # so we can resolve IBAN → account_id here without another bank round-trip.
@@ -454,11 +454,10 @@ class FinTS3ClientDecoupled(FinTS3Client):
     def snapshot_pending(self) -> bytes:
         """Serialize the pending TAN state and release the live connection.
 
-        Returns the ``DecoupledSessionSnapshot`` as bytes suitable for
-        external storage (e.g. Redis).  After this call the live dialog
-        and connection are closed — resumption must go through
-        ``FinTSConnectionHelper.resume_for_polling()`` with fresh
-        credentials.
+        Returns the ``DecoupledSessionSnapshot`` as bytes for external storage
+        (e.g. Redis). After this call the live dialog and connection are closed -
+        resumption must go through ``FinTSConnectionHelper.resume_for_polling()``
+        with fresh credentials.
 
         Raises ``RuntimeError`` if there is no pending TAN challenge.
         """
@@ -490,7 +489,7 @@ class FinTS3ClientDecoupled(FinTS3Client):
 
         serialized = snapshot.serialize()
 
-        # Release only the network connection — do NOT send HKEND, because
+        # Release only the network connection - do NOT send HKEND, because
         # the dialog must remain open at the bank so that subsequent
         # HKTAN process=S poll messages are accepted.
         pending = self._pending
@@ -543,7 +542,7 @@ class FinTS3ClientDecoupled(FinTS3Client):
             return PollResult(status="failed", error=str(exc))
 
         if response is None:
-            # Still pending — persist the updated dialog state for next poll.
+            # Still pending - persist the updated dialog state for next poll.
             updated = DecoupledSessionSnapshot(
                 dialog_snapshot=ctx.dialog.snapshot().to_dict(),
                 task_reference=snapshot.task_reference,
@@ -555,7 +554,7 @@ class FinTS3ClientDecoupled(FinTS3Client):
             _close_connection_only(ctx)
             return PollResult(status="pending", data=updated.serialize())
 
-        # TAN approved — rehydrate _pending so _complete_approved_operation works.
+        # TAN approved - rehydrate _pending so _complete_approved_operation works.
         self._pending = _PendingTANState(
             context=ctx,
             task_reference=snapshot.task_reference,

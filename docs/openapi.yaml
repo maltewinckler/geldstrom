@@ -8,13 +8,13 @@ info:
 
     ## Authentication
 
-    All `/v1/banking/*` endpoints require a bearer token:
+    All `/v1/banking/*` and `/v1/lookup/*` endpoints require a bearer token:
 
     ```
     Authorization: Bearer <api-key>
     ```
 
-    API keys are provisioned via the admin CLI.
+    API keys are provisioned via the admin UI or CLI.
 
     ## Async operations (2FA)
 
@@ -38,6 +38,8 @@ tags:
     description: Liveness and readiness checks. No authentication required.
   - name: banking
     description: Bank data operations (accounts, balances, transactions, TAN methods).
+  - name: lookup
+    description: Institute catalog lookups (BLZ → BIC, name, FinTS capability).
 
 paths:
   /health/live:
@@ -65,8 +67,9 @@ paths:
 
         Checks:
         - **db** — can the service reach PostgreSQL
-        - **product_key** — is the Fernet product key loaded
+        - **product_key** — is the FinTS product key loaded
         - **catalog** — is the institute catalog non-empty
+        - **redis** — can the service reach Redis
       operationId: readiness
       responses:
         "200":
@@ -81,6 +84,7 @@ paths:
                   db: ok
                   product_key: loaded
                   catalog: ok
+                  redis: ok
         "503":
           description: One or more checks failed.
           content:
@@ -93,6 +97,69 @@ paths:
                   db: error
                   product_key: loaded
                   catalog: ok
+                  redis: ok
+
+  /v1/lookup/{blz}:
+    get:
+      tags: [lookup]
+      summary: Look up a bank by BLZ
+      description: |
+        Returns name, BIC, and FinTS capability for a single bank routing number.
+      operationId: lookupBank
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: blz
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^\\d{8}$"
+          description: German bank code (Bankleitzahl), exactly 8 digits.
+          example: "10010010"
+      responses:
+        "200":
+          description: Bank found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BankInfoResponse"
+              example:
+                blz: "10010010"
+                bic: "PBNKDEFFXXX"
+                name: "Postbank"
+                organization: "BdB"
+                is_fints_capable: true
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: No bank found for this BLZ.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /v1/lookup:
+    get:
+      tags: [lookup]
+      summary: List all banks
+      description: |
+        Returns the full institute catalog — all banks with FinTS metadata.
+        Useful for building BLZ pickers or validating routing numbers.
+      operationId: listBanks
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Full bank list.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BankListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
 
   /v1/banking/accounts:
     post:
@@ -198,7 +265,7 @@ paths:
       tags: [banking]
       summary: Fetch transactions
       description: |
-        Returns MT940 transactions for a specific IBAN, optionally filtered by date range.
+        Returns transactions for a specific IBAN, optionally filtered by date range.
 
         `start_date` and `end_date` are optional ISO 8601 dates. If omitted the bank
         decides how far back to go (usually 90 days).
@@ -307,10 +374,10 @@ paths:
         Retrieve the current state of a pending 2FA operation.
 
         Status values:
-        - `pending_confirmation` — waiting for user confirmation; retry shortly
-        - `completed` — confirmed; data fields are inlined based on `operation_type`
-        - `failed` — confirmation rejected or timed out; `failure_reason` explains why
-        - `expired` — the operation TTL elapsed
+        - `pending_confirmation` — waiting for user confirmation; returns 202
+        - `completed` — confirmed; data fields are inlined based on `operation_type`; returns 200
+        - `failed` — confirmation rejected or timed out; `failure_reason` explains why; returns 200
+        - `expired` — the operation TTL elapsed; returns 200
       operationId: getOperationStatus
       security:
         - BearerAuth: []
@@ -324,12 +391,11 @@ paths:
           description: The operation UUID returned in a 202 response.
       responses:
         "200":
-          description: Operation found (terminal or pending).
+          description: Operation completed, failed, or expired.
           content:
             application/json:
               schema:
                 oneOf:
-                  - $ref: "#/components/schemas/PollPendingResponse"
                   - $ref: "#/components/schemas/PollCompletedAccountsResponse"
                   - $ref: "#/components/schemas/PollCompletedBalancesResponse"
                   - $ref: "#/components/schemas/PollCompletedTransactionsResponse"
@@ -338,14 +404,6 @@ paths:
                 discriminator:
                   propertyName: operation_type
               examples:
-                pending:
-                  summary: Still waiting for TAN approval
-                  value:
-                    status: pending_confirmation
-                    operation_type: accounts
-                    operation_id: 550e8400-e29b-41d4-a716-446655440000
-                    expires_at: "2026-04-02T14:05:00Z"
-                    polling_interval_seconds: 5
                 completed_accounts:
                   summary: Accounts retrieved
                   value:
@@ -362,6 +420,18 @@ paths:
                     operation_type: accounts
                     operation_id: 550e8400-e29b-41d4-a716-446655440000
                     failure_reason: TAN confirmation rejected by bank
+        "202":
+          description: Still waiting for TAN confirmation.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PollPendingResponse"
+              example:
+                status: pending_confirmation
+                operation_type: accounts
+                operation_id: 550e8400-e29b-41d4-a716-446655440000
+                expires_at: "2026-04-02T14:05:00Z"
+                polling_interval_seconds: 5
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
@@ -441,7 +511,7 @@ components:
     BearerAuth:
       type: http
       scheme: bearer
-      description: API key provisioned via the gateway admin CLI.
+      description: API key provisioned via the gateway admin UI or CLI.
 
   responses:
     Unauthorized:
@@ -461,6 +531,41 @@ components:
             $ref: "#/components/schemas/ErrorResponse"
 
   schemas:
+    # ── Lookup ──────────────────────────────────────────────────────────────
+
+    BankInfoResponse:
+      type: object
+      required: [blz, name, is_fints_capable]
+      additionalProperties: false
+      properties:
+        blz:
+          type: string
+          description: German bank routing number (8 digits).
+        bic:
+          type: string
+          nullable: true
+          description: BIC/SWIFT code, if available.
+        name:
+          type: string
+          description: Bank name.
+        organization:
+          type: string
+          nullable: true
+          description: Banking association (e.g. "BdB", "DKB").
+        is_fints_capable:
+          type: boolean
+          description: True if the bank has a known FinTS PIN/TAN endpoint.
+
+    BankListResponse:
+      type: object
+      required: [banks]
+      additionalProperties: false
+      properties:
+        banks:
+          type: array
+          items:
+            $ref: "#/components/schemas/BankInfoResponse"
+
     # ── Common request fields ───────────────────────────────────────────────
 
     BankingRequest:
@@ -522,6 +627,8 @@ components:
               nullable: true
               description: End of the date range (ISO 8601). Defaults to today.
 
+    # ── Initial 202 response (all banking endpoints) ────────────────────────
+
     PendingResponse:
       type: object
       description: Returned when the bank requires 2FA before data can be retrieved.
@@ -547,6 +654,8 @@ components:
           type: integer
           default: 5
           description: Recommended polling interval in seconds.
+
+    # ── Synchronous 200 responses ───────────────────────────────────────────
 
     AccountsCompletedResponse:
       type: object
@@ -606,7 +715,7 @@ components:
             type: object
             additionalProperties: true
           description: |
-            Parsed MT940 transactions. Typical fields: `date`, `amount`, `currency`,
+            Parsed transactions. Typical fields: `date`, `amount`, `currency`,
             `purpose`, `applicant_name`, `applicant_iban`.
 
     TanMethodsCompletedResponse:
@@ -636,48 +745,126 @@ components:
                 type: boolean
                 description: True if this method uses decoupled / push-based confirmation.
 
-    AccountsPendingResponse:
-      $ref: "#/components/schemas/PendingResponse"
+    # ── Poll endpoint responses ─────────────────────────────────────────────
 
-    BalancesPendingResponse:
-      $ref: "#/components/schemas/PendingResponse"
-
-    TransactionsPendingResponse:
-      $ref: "#/components/schemas/PendingResponse"
-
-    TanMethodsPendingResponse:
-      $ref: "#/components/schemas/PendingResponse"
-
-    OperationStatusResponse:
+    PollPendingResponse:
       type: object
-      required: [status, operation_id]
+      required: [status, operation_type, operation_id, expires_at]
       additionalProperties: false
       properties:
         status:
           type: string
-          enum: [pending, completed, failed, expired]
+          enum: [pending_confirmation]
+        operation_type:
+          type: string
         operation_id:
           type: string
           format: uuid
-        result_payload:
-          type: object
-          nullable: true
-          additionalProperties: true
-          description: |
-            Present when `status` is `completed`. Has the same shape as the 200
-            response body for the originating endpoint.
-        failure_reason:
-          type: string
-          nullable: true
-          description: Present when `status` is `failed`.
         expires_at:
           type: string
           format: date-time
-          nullable: true
         polling_interval_seconds:
           type: integer
-          nullable: true
           default: 5
+
+    PollCompletedAccountsResponse:
+      type: object
+      required: [status, operation_type, operation_id, accounts]
+      additionalProperties: false
+      properties:
+        status:
+          type: string
+          enum: [completed]
+        operation_type:
+          type: string
+          enum: [accounts]
+        operation_id:
+          type: string
+          format: uuid
+        accounts:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+
+    PollCompletedBalancesResponse:
+      type: object
+      required: [status, operation_type, operation_id, balances]
+      additionalProperties: false
+      properties:
+        status:
+          type: string
+          enum: [completed]
+        operation_type:
+          type: string
+          enum: [balances]
+        operation_id:
+          type: string
+          format: uuid
+        balances:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+
+    PollCompletedTransactionsResponse:
+      type: object
+      required: [status, operation_type, operation_id, transactions]
+      additionalProperties: false
+      properties:
+        status:
+          type: string
+          enum: [completed]
+        operation_type:
+          type: string
+          enum: [transactions]
+        operation_id:
+          type: string
+          format: uuid
+        transactions:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+
+    PollCompletedTanMethodsResponse:
+      type: object
+      required: [status, operation_type, operation_id, methods]
+      additionalProperties: false
+      properties:
+        status:
+          type: string
+          enum: [completed]
+        operation_type:
+          type: string
+          enum: [tan_methods]
+        operation_id:
+          type: string
+          format: uuid
+        methods:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+
+    PollFailedResponse:
+      type: object
+      required: [status, operation_type, operation_id]
+      additionalProperties: false
+      properties:
+        status:
+          type: string
+          enum: [failed, expired]
+        operation_type:
+          type: string
+        operation_id:
+          type: string
+          format: uuid
+        failure_reason:
+          type: string
+          nullable: true
+
+    # ── Health ──────────────────────────────────────────────────────────────
 
     LivenessResponse:
       type: object
@@ -690,7 +877,7 @@ components:
 
     ReadinessCheck:
       type: object
-      required: [db, product_key, catalog]
+      required: [db, product_key, catalog, redis]
       additionalProperties: false
       properties:
         db:
@@ -700,11 +887,15 @@ components:
         product_key:
           type: string
           enum: [loaded, missing]
-          description: Whether the Fernet product key is configured.
+          description: Whether the FinTS product key is configured.
         catalog:
           type: string
           enum: [ok, empty]
           description: Whether the institute catalog has entries.
+        redis:
+          type: string
+          enum: [ok, error]
+          description: Redis reachability.
 
     ReadinessResponse:
       type: object
@@ -716,6 +907,8 @@ components:
           enum: [ready, not_ready]
         checks:
           $ref: "#/components/schemas/ReadinessCheck"
+
+    # ── Errors ──────────────────────────────────────────────────────────────
 
     ErrorResponse:
       type: object

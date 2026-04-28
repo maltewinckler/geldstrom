@@ -6,7 +6,6 @@ import fakeredis.aioredis
 
 from gateway.config import Settings
 from gateway.infrastructure.cache.memory import (
-    InMemoryApiConsumerCache,
     PostgresNotifyListener,
 )
 from gateway.infrastructure.cache.redis import RedisOperationSessionStore
@@ -44,7 +43,6 @@ def test_settings_apply_default_values(monkeypatch) -> None:
     assert settings.operation_session_ttl_seconds == 120
     assert settings.rate_limit_requests_per_minute == 60
     assert settings.notify_reconnect_backoff_seconds == 1.0
-    assert settings.fints_product_version == "1.0.0"
 
 
 def test_factory_is_singleton_and_deps_are_cached(monkeypatch) -> None:
@@ -57,8 +55,6 @@ def test_factory_is_singleton_and_deps_are_cached(monkeypatch) -> None:
 
     assert isinstance(factory, GatewayApplicationFactory)
     assert get_factory() is factory
-    assert isinstance(factory.caches.consumer, InMemoryApiConsumerCache)
-    assert factory.caches.consumer is factory.caches.consumer
     assert isinstance(factory.caches.session_store, RedisOperationSessionStore)
     assert factory.caches.session_store is factory.caches.session_store
     assert isinstance(factory.api_key_service, Argon2ApiKeyService)

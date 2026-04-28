@@ -12,7 +12,9 @@ from gateway.domain.consumer_access import (
     ApiKeyHash,
     ConsumerStatus,
 )
-from gateway.infrastructure.persistence.sql import SQLApiConsumerRepository
+from gateway.infrastructure.persistence.sqlalchemy import (
+    ApiConsumerRepositorySqlAlchemy,
+)
 
 
 async def _seed_consumers(engine, *consumers: ApiConsumer) -> None:
@@ -36,7 +38,7 @@ async def _seed_consumers(engine, *consumers: ApiConsumer) -> None:
 def test_consumer_repository_get_by_id(postgres_engine, async_runner) -> None:
     consumer = _consumer()
     async_runner(_seed_consumers(postgres_engine, consumer))
-    repository = SQLApiConsumerRepository(postgres_engine)
+    repository = ApiConsumerRepositorySqlAlchemy(postgres_engine)
 
     loaded = async_runner(repository.get_by_id(consumer.consumer_id))
 
@@ -46,7 +48,7 @@ def test_consumer_repository_get_by_id(postgres_engine, async_runner) -> None:
 def test_consumer_repository_get_by_id_returns_none_for_unknown(
     postgres_engine, async_runner
 ) -> None:
-    repository = SQLApiConsumerRepository(postgres_engine)
+    repository = ApiConsumerRepositorySqlAlchemy(postgres_engine)
 
     result = async_runner(
         repository.get_by_id(UUID("00000000-0000-0000-0000-000000000000"))
@@ -58,28 +60,11 @@ def test_consumer_repository_get_by_id_returns_none_for_unknown(
 def test_consumer_repository_get_by_email(postgres_engine, async_runner) -> None:
     consumer = _consumer()
     async_runner(_seed_consumers(postgres_engine, consumer))
-    repository = SQLApiConsumerRepository(postgres_engine)
+    repository = ApiConsumerRepositorySqlAlchemy(postgres_engine)
 
     loaded = async_runner(repository.get_by_email(consumer.email))
 
     assert loaded == consumer
-
-
-def test_consumer_repository_lists_active(postgres_engine, async_runner) -> None:
-    active = _consumer()
-    disabled = ApiConsumer(
-        consumer_id=UUID("87654321-4321-8765-4321-876543218765"),
-        email="disabled@example.com",
-        api_key_hash=None,
-        status=ConsumerStatus.DISABLED,
-        created_at=datetime(2026, 3, 7, 12, 0, tzinfo=UTC),
-    )
-    async_runner(_seed_consumers(postgres_engine, active, disabled))
-    repository = SQLApiConsumerRepository(postgres_engine)
-
-    loaded = async_runner(repository.list_all_active())
-
-    assert loaded == [active]
 
 
 def test_consumer_repository_lists_all_consumers(postgres_engine, async_runner) -> None:
@@ -92,11 +77,32 @@ def test_consumer_repository_lists_all_consumers(postgres_engine, async_runner) 
         created_at=datetime(2026, 3, 7, 12, 0, tzinfo=UTC),
     )
     async_runner(_seed_consumers(postgres_engine, active, disabled))
-    repository = SQLApiConsumerRepository(postgres_engine)
+    repository = ApiConsumerRepositorySqlAlchemy(postgres_engine)
 
     loaded = async_runner(repository.list_all())
 
     assert loaded == [active, disabled]
+
+
+def test_consumer_repository_get_by_key_prefix(postgres_engine, async_runner) -> None:
+    consumer = _consumer()
+    async_runner(_seed_consumers(postgres_engine, consumer))
+    repository = ApiConsumerRepositorySqlAlchemy(postgres_engine)
+
+    prefix = consumer.consumer_id.hex[:8]
+    loaded = async_runner(repository.get_by_key_prefix(prefix))
+
+    assert loaded == consumer
+
+
+def test_consumer_repository_get_by_key_prefix_returns_none_for_unknown(
+    postgres_engine, async_runner
+) -> None:
+    repository = ApiConsumerRepositorySqlAlchemy(postgres_engine)
+
+    result = async_runner(repository.get_by_key_prefix("00000000"))
+
+    assert result is None
 
 
 def _consumer() -> ApiConsumer:

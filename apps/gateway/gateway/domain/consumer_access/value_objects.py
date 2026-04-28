@@ -10,8 +10,6 @@ from gateway.domain import DomainError
 
 
 class ConsumerStatus(StrEnum):
-    """Lifecycle status for an API consumer."""
-
     ACTIVE = "active"
     DISABLED = "disabled"
     DELETED = "deleted"

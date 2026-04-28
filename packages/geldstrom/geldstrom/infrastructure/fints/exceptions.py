@@ -4,79 +4,57 @@
 class FinTSError(Exception):
     """Base exception for all FinTS errors."""
 
-    pass
-
 
 class FinTSClientError(FinTSError):
-    """Client-side error."""
-
-    pass
+    """Base exception for FinTS client errors."""
 
 
 class FinTSClientPINError(FinTSClientError):
-    """PIN-related error."""
-
-    pass
+    """Raised when the PIN is rejected by the bank."""
 
 
 class FinTSClientTemporaryAuthError(FinTSClientError):
-    """Temporary authentication error."""
-
-    pass
+    """Raised when the bank rejects the request temporarily (e.g. too many attempts)."""
 
 
 class FinTSSCARequiredError(FinTSClientError):
-    """Strong Customer Authentication required."""
-
-    pass
+    """Raised when strong customer authentication (SCA) is required."""
 
 
 class FinTSDialogError(FinTSError):
-    """Dialog-related error."""
-
-    pass
+    """Base exception for FinTS dialog errors."""
 
 
 class FinTSDialogStateError(FinTSDialogError):
-    """Invalid dialog state error."""
-
-    pass
+    """Raised when a dialog operation is attempted in an invalid state."""
 
 
 class FinTSDialogInitError(FinTSDialogError):
-    """Dialog initialization error."""
-
-    pass
+    """Raised when a FinTS dialog cannot be established with the bank."""
 
 
 class FinTSConnectionError(FinTSError):
-    """Connection error."""
-
-    pass
+    """Raised when a connection error occurs."""
 
 
 class FinTSUnsupportedOperation(FinTSError):
-    """Operation not supported by bank."""
-
-    pass
+    """Raised when an unsupported operation is requested."""
 
 
 class FinTSNoResponseError(FinTSError):
-    """No response received from bank."""
-
-    pass
+    """Raised when no response is received from the server."""
 
 
 __all__ = [
+    "FinTSError",
     "FinTSClientError",
     "FinTSClientPINError",
     "FinTSClientTemporaryAuthError",
-    "FinTSConnectionError",
-    "FinTSDialogError",
-    "FinTSDialogInitError",
-    "FinTSDialogStateError",
-    "FinTSError",
-    "FinTSNoResponseError",
     "FinTSSCARequiredError",
+    "FinTSDialogError",
+    "FinTSDialogStateError",
+    "FinTSDialogInitError",
+    "FinTSConnectionError",
     "FinTSUnsupportedOperation",
+    "FinTSNoResponseError",
 ]

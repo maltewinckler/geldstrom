@@ -4,15 +4,14 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Self
 
+from gateway.application.banking.dtos.lookup_bank import BankInfoEnvelope
 from gateway.application.common import InstitutionNotFoundError, ValidationError
 from gateway.application.consumer.queries.authenticate_consumer import (
     AuthenticateConsumerQuery,
 )
+from gateway.application.ports.bank_metadata import BankMetadataPort
 from gateway.domain.banking_gateway import BankLeitzahl
 from gateway.domain.errors import DomainError
-
-from ...ports.bank_metadata import BankMetadataPort
-from ..dtos.lookup_bank import BankInfoEnvelope
 
 if TYPE_CHECKING:
     from gateway.application.ports import ApplicationFactory

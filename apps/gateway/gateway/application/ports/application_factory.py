@@ -2,15 +2,17 @@
 
 from __future__ import annotations
 
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
 from gateway.application.common import IdProvider
-from gateway.domain.banking_gateway import BankingConnector
+from gateway.application.ports.cache_factory import CacheFactory
+from gateway.application.ports.gateway_readiness_service import GatewayReadinessPort
+from gateway.application.ports.repository_factory import RepositoryFactory
 from gateway.domain.consumer_access import ApiKeyVerifier
 
-from .cache_factory import CacheFactory
-from .gateway_readiness_service import GatewayReadinessPort
-from .repository_factory import RepositoryFactory
+if TYPE_CHECKING:
+    from gateway.application.audit import AuditService
+    from gateway.domain.banking_gateway import BankingConnector
 
 
 class ApplicationFactory(Protocol):
@@ -26,9 +28,6 @@ class ApplicationFactory(Protocol):
     def api_key_verifier(self) -> ApiKeyVerifier: ...
 
     @property
-    def banking_connector(self) -> BankingConnector: ...
-
-    @property
     def id_provider(self) -> IdProvider: ...
 
     @property
@@ -36,3 +35,8 @@ class ApplicationFactory(Protocol):
 
     @property
     def readiness_service(self) -> GatewayReadinessPort: ...
+
+    @property
+    def audit_service(self) -> AuditService: ...
+
+    async def get_banking_connector(self) -> BankingConnector: ...

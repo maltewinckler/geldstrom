@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Self
 
 from pydantic import BaseModel
 
+from gateway.application.banking.dtos.list_accounts import ListAccountsResultEnvelope
 from gateway.application.common import (
     IdProvider,
     InstitutionNotFoundError,
@@ -15,7 +16,6 @@ from gateway.application.consumer.queries.authenticate_consumer import (
     AuthenticateConsumerQuery,
 )
 from gateway.domain.banking_gateway import (
-    BankingConnector,
     BankLeitzahl,
     BankProtocol,
     FinTSInstituteRepository,
@@ -25,8 +25,6 @@ from gateway.domain.banking_gateway import (
     PendingOperationSession,
     PresentedBankCredentials,
 )
-
-from ..dtos.list_accounts import ListAccountsResultEnvelope
 
 if TYPE_CHECKING:
     from gateway.application.ports import ApplicationFactory
@@ -50,14 +48,14 @@ class ListAccountsCommand:
         self,
         authenticate_consumer: AuthenticateConsumerQuery,
         institute_catalog: FinTSInstituteRepository,
-        connector: BankingConnector,
+        factory: ApplicationFactory,
         session_store: OperationSessionStore,
         id_provider: IdProvider,
         ttl_seconds: int = 120,
     ) -> None:
         self._authenticate_consumer = authenticate_consumer
         self._institute_catalog = institute_catalog
-        self._connector = connector
+        self._factory = factory
         self._session_store = session_store
         self._id_provider = id_provider
         self._ttl_seconds = ttl_seconds
@@ -67,7 +65,7 @@ class ListAccountsCommand:
         return cls(
             authenticate_consumer=AuthenticateConsumerQuery.from_factory(factory),
             institute_catalog=factory.caches.institute,
-            connector=factory.banking_connector,
+            factory=factory,
             session_store=factory.caches.session_store,
             id_provider=factory.id_provider,
             ttl_seconds=factory.operation_session_ttl_seconds,
@@ -77,6 +75,7 @@ class ListAccountsCommand:
         self, request: ListAccountsInput, presented_api_key: str
     ) -> ListAccountsResultEnvelope:
         authenticated_consumer = await self._authenticate_consumer(presented_api_key)
+        connector = await self._factory.get_banking_connector()
         credentials = PresentedBankCredentials(
             user_id=request.user_id,
             password=request.password,
@@ -88,7 +87,7 @@ class ListAccountsCommand:
         if institute is None:
             raise InstitutionNotFoundError(f"No institute found for BLZ {request.blz}")
 
-        result = await self._connector.list_accounts(institute, credentials)
+        result = await connector.list_accounts(institute, credentials)
 
         if result.status is OperationStatus.PENDING_CONFIRMATION:
             operation_id = self._id_provider.new_operation_id()

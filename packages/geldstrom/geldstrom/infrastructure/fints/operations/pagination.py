@@ -29,17 +29,7 @@ class PaginatedResult(Generic[T]):  # noqa: UP046
 
 
 class TouchdownPaginator:
-    """
-    Handles FinTS touchdown paging for multi-page query results.
-
-    Usage:
-        paginator = TouchdownPaginator(dialog)
-        result = paginator.fetch(
-            segment_factory=lambda tp: HKKAZ7(..., touchdown_point=tp),
-            response_type="HIKAZ",
-            extract_items=lambda seg: seg.statement_booked,
-        )
-    """
+    """Handles FinTS touchdown paging for multi-page query results."""
 
     CONTINUE_CODE = "3040"  # "More data available" response code
 
@@ -97,7 +87,6 @@ class TouchdownPaginator:
         response_type: str,
         extract_items: Callable[[Any], T] | None,
     ) -> list[Any]:
-        """Extract items from response segments."""
         items = []
 
         if response.raw_response is None:
@@ -119,7 +108,6 @@ class TouchdownPaginator:
     def _get_touchdown_point(
         self, response: ProcessedResponse, request_segment: Any
     ) -> str | None:
-        """Extract touchdown point from 3040 response if present."""
         if response.raw_response is None:
             return None
 

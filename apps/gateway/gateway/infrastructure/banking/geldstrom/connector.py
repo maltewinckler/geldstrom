@@ -24,6 +24,17 @@ from gateway.domain.banking_gateway.value_objects import (
     PresentedBankCredentials,
     RequestedIban,
 )
+from gateway.infrastructure.banking.geldstrom.mapping import (
+    approved_result_payload,
+    to_account_dict,
+    to_balance_dict,
+    to_tan_method,
+    to_transaction_list,
+)
+from gateway.infrastructure.banking.geldstrom.models import (
+    GeldstromClient,
+    GeldstromClientFactory,
+)
 from geldstrom.clients.fints3_decoupled import FinTS3ClientDecoupled
 from geldstrom.domain import (
     Account,
@@ -42,15 +53,6 @@ from geldstrom.infrastructure.fints.exceptions import (
     FinTSUnsupportedOperation,
 )
 from geldstrom.infrastructure.fints.session_snapshot import DecoupledSessionSnapshot
-
-from .mapping import (
-    approved_result_payload,
-    to_account_dict,
-    to_balance_dict,
-    to_tan_method,
-    to_transaction_list,
-)
-from .models import GeldstromClient, GeldstromClientFactory
 
 _logger = logging.getLogger(__name__)
 
@@ -192,7 +194,7 @@ class GeldstromBankingConnector(BankingConnector):
             )
         except DecoupledTANPending:
             # The TAN may have been triggered by list_accounts() before we
-            # even reached get_transactions().  The client's internal snapshot
+            # even reached get_transactions(). The client's internal snapshot
             # records operation_type='accounts' in that case, so we patch it
             # here to 'transactions' and embed the IBAN + date range so the
             # poll handler can fetch the right data after TAN approval.
@@ -277,7 +279,7 @@ class GeldstromBankingConnector(BankingConnector):
         if original.operation_type == "transactions":
             # TAN was triggered by get_transactions() directly.
             # The snapshot already carries account_id, was_connected=True,
-            # and the correct date range — no patching required.
+            # and the correct date range - no patching required.
             _logger.debug(
                 "_snapshot_transactions_pending: operation_type already 'transactions'; "
                 "preserving original snapshot (account_id=%s)",

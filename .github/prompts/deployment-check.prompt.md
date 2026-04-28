@@ -1,5 +1,5 @@
 ---
-description: "Run the full deployment check: docker compose up, sync catalog, create user if needed, update API key in .env, verify with geldstrom-cli, check all lookup endpoints (auth-protected), and fetch transactions via the decoupled 2FA flow"
+description: "Run the full deployment check: docker compose up, verify admin UI on port 8001, sync catalog, create user if needed, update API key in .env, verify with geldstrom-cli, check all lookup endpoints (auth-protected), fetch transactions via the decoupled 2FA flow, and verify the audit trail"
 name: "Deployment Check"
 agent: "agent"
 ---
@@ -12,35 +12,49 @@ Run the full geldstrom deployment check sequence. Execute each step in order and
 Run `docker compose build` to confirm there is nothing to build (no build sections expected).
 
 ### 2. Docker Compose Up
-Run `docker compose up -d` and confirm all three containers reach the expected states:
+Run `docker compose up -d` and confirm all four containers reach the expected states:
 - `geldstrom_postgres` — healthy
-- `geldstrom_gateway_admin_cli` — exited (0)
+- `geldstrom_redis` — healthy
+- `geldstrom_gateway_admin` — running (FastAPI admin UI on 127.0.0.1:8001)
 - `geldstrom_gateway` — running
 
+Verify with:
+```bash
+docker compose ps
+```
+
 ### 3. Sync the FinTS Institute Catalog
-Run:
+The catalog is uploaded via the admin UI or via the API. Use the API directly:
+```bash
+curl -s -X POST http://localhost:8001/admin/catalog/sync \
+  -F "file=@data/fints_institute.csv" | python3 -m json.tool
 ```
-docker compose run --rm gateway-admin-cli gw-admin catalog sync /data/fints_institute.csv
+Expected response shape:
+```json
+{"loaded_count": 16000, "skipped_count": 0}
 ```
+
 Check the gateway health endpoint (`curl -s http://localhost:8000/health/ready`) — `catalog` must be `"ok"` before proceeding.
 
 If the readiness response reports `"product_key":"missing"`, verify that
-`FINTS_PRODUCT_REGISTRATION_KEY` is set in `config/admin_cli.env` or run:
+`FINTS_PRODUCT_REGISTRATION_KEY` is set in `config/admin_cli.env`. The admin
+service applies the product key automatically on startup from the env file.
+Restart the service and re-check readiness:
+```bash
+docker compose restart gateway-admin
+curl -s http://localhost:8000/health/ready
 ```
-docker compose run --rm gateway-admin-cli gw-admin product update "<YOUR_PRODUCT_KEY>" --product-version "1.0.0"
-```
-Then re-check readiness before proceeding.
 
 ### 4. Create a User (if none exist)
-Run:
+List users via the admin API:
+```bash
+curl -s http://localhost:8001/admin/users | python3 -m json.tool
 ```
-docker compose run --rm gateway-admin-cli gw-admin users list
+If `"total": 0`, create a user via the admin CLI inside the running container:
+```bash
+docker compose exec gateway-admin gw-admin users create malte@example.com
 ```
-If the table is empty, create one:
-```
-docker compose run --rm gateway-admin-cli gw-admin users create malte@example.com
-```
-Capture the raw API key printed (shown once).
+Capture the raw API key printed (shown once). The key is also sent by email if SMTP is configured.
 
 ### 5. Update API Key in `.env`
 Open [`.env`](../../.env) and replace the `GATEWAY_API_KEY` value with the newly generated key.
@@ -137,14 +151,22 @@ Expected: `401`
 
 All checks must match the expected status codes.
 
-### 8. Rebuild Docker image (when code has changed)
+### 8. Rebuild Docker images (when code has changed)
 
 If any source files under `packages/geldstrom/` or `apps/gateway/` have been
-modified since the last image was built, rebuild before testing:
+modified since the last image was built, rebuild the gateway before testing:
 
 ```bash
 docker build -f apps/gateway/Dockerfile -t maltewin/geldstrom-gateway:latest .
 docker compose up -d --force-recreate gateway
+```
+
+If any source files under `apps/gateway_admin/` have been modified, rebuild
+the admin UI image (frontend is built inside the Dockerfile):
+
+```bash
+docker build -f apps/gateway_admin/Dockerfile -t maltewin/geldstrom-gateway-admin:latest .
+docker compose up -d --force-recreate gateway-admin
 ```
 
 Then re-check `curl -s http://localhost:8000/health/ready` until it reports all
@@ -223,3 +245,72 @@ curl -s -X POST http://localhost:8000/v1/banking/operations/$OP_ID/poll \
 
 **Expected:** After TAN approval the poll returns `"status": "completed"` with
 a `result_payload.transactions` list.
+
+### 10. Verify Audit Trail and Integrity
+
+This step confirms that the audit service is persisting events correctly (i.e. the `GRANT INSERT ON audit_events` regression is not present) and that the trail is tamper-evident (DELETE is blocked by the database trigger).
+
+#### 10a. Confirm audit events were recorded
+
+Fetch the recent audit log from the admin API:
+```bash
+curl -s "http://localhost:8001/admin/audit?page_size=10" | python3 -m json.tool
+```
+
+Expected response shape:
+```json
+{
+  "events": [
+    {
+      "event_id": "<uuid>",
+      "event_type": "consumer_authenticated",
+      "consumer_id": "<uuid>",
+      "occurred_at": "<timestamp>"
+    }
+  ],
+  "total": <N>,
+  "page": 1,
+  "page_size": 10
+}
+```
+
+**Requirements:**
+- `total` must be **≥ 1** — at least one `consumer_authenticated` event must exist from the `geldstrom-cli accounts` call in step 7. If `total` is 0 this is the `GRANT INSERT` regression.
+- Every event must have a non-null `event_id`, `event_type`, and `occurred_at`.
+- The `consumer_id` field may be `null` only for `consumer_auth_failed` events (unknown key); it must be a UUID for `consumer_authenticated`.
+
+Report the total event count and the event types present.
+
+#### 10b. Filter by event type
+
+Verify that filtering works and that authentication events are properly typed:
+```bash
+curl -s "http://localhost:8001/admin/audit?event_type=consumer_authenticated&page_size=5" \
+  | python3 -m json.tool
+```
+
+Expected: only `"event_type": "consumer_authenticated"` entries in the `events` array.
+
+#### 10c. Verify the delete-prevention trigger (tamper-evidence)
+
+Attempt to delete an audit row directly via the PostgreSQL superuser — this **must fail**:
+```bash
+docker compose exec postgres psql -U postgres -d geldstrom \
+  -c "DELETE FROM audit_events WHERE event_id = (SELECT event_id FROM audit_events LIMIT 1);" 2>&1
+```
+
+Expected output contains: `ERROR:  Deletion from audit_events is not permitted`
+
+If the DELETE succeeds without error, the tamper-prevention trigger is missing or broken.
+
+#### 10d. Confirm the gateway user cannot delete audit events
+
+Verify the gateway DB user (read-only except for INSERT) also cannot delete:
+```bash
+GW_PASS=$(grep GATEWAY_DB_PASSWORD config/gateway.env | cut -d= -f2 | tr -d '"')
+docker compose exec postgres psql \
+  "postgresql://gateway:${GW_PASS}@localhost/geldstrom" \
+  -c "DELETE FROM audit_events;" 2>&1
+```
+
+Expected: either the trigger error (`Deletion from audit_events is not permitted`) if rows exist, or a privilege error if the trigger fires first. Either outcome confirms the trail cannot be silently cleared by the application user.

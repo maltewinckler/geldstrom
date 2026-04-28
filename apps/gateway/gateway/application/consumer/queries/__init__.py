@@ -1,5 +1,7 @@
 """Authentication query handlers."""
 
-from .authenticate_consumer import AuthenticateConsumerQuery
+from gateway.application.consumer.queries.authenticate_consumer import (
+    AuthenticateConsumerQuery,
+)
 
 __all__ = ["AuthenticateConsumerQuery"]

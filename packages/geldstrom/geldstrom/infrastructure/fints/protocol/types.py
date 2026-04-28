@@ -1,4 +1,4 @@
-"""FinTS Annotated Types — wire-format validators and serializers for Pydantic models."""
+"""FinTS Annotated Types - wire-format validators and serializers for Pydantic models."""
 
 from __future__ import annotations
 

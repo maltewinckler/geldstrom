@@ -10,13 +10,16 @@ from fastapi import FastAPI
 
 from gateway.application.common import ApplicationError
 from gateway.presentation.http import lifecycle
-
-from .middleware.cache_control import CacheControlMiddleware
-from .middleware.exception_handlers import application_error_handler
-from .middleware.rate_limit import RateLimitMiddleware
-from .middleware.request_id import RequestIDMiddleware
-from .middleware.security_headers import SecurityHeadersMiddleware
-from .routers import (
+from gateway.presentation.http.middleware.cache_control import CacheControlMiddleware
+from gateway.presentation.http.middleware.exception_handlers import (
+    application_error_handler,
+)
+from gateway.presentation.http.middleware.rate_limit import RateLimitMiddleware
+from gateway.presentation.http.middleware.request_id import RequestIDMiddleware
+from gateway.presentation.http.middleware.security_headers import (
+    SecurityHeadersMiddleware,
+)
+from gateway.presentation.http.routers import (
     accounts,
     balances,
     health,
@@ -49,7 +52,7 @@ def create_app() -> FastAPI:
     workers = int(os.getenv("GATEWAY_WORKERS", "1"))
     if workers > 1 and settings.rate_limit_requests_per_minute > 0:
         logger.warning(
-            "RateLimitMiddleware uses in-process state — rate limits are NOT "
+            "RateLimitMiddleware uses in-process state - rate limits are NOT "
             "shared across %d workers. Set GATEWAY_WORKERS=1 or replace the "
             "middleware with a shared store (e.g. Redis).",
             workers,

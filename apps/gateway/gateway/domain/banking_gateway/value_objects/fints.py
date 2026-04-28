@@ -6,7 +6,7 @@ from datetime import date, datetime
 
 from pydantic import BaseModel
 
-from .banking import BankLeitzahl
+from gateway.domain.banking_gateway.value_objects.banking import BankLeitzahl
 
 
 class FinTSInstitute(BaseModel):

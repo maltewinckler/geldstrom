@@ -1,4 +1,4 @@
-"""FinTS orchestration layer — connection lifecycle and domain mapping.
+"""FinTS orchestration layer - connection lifecycle and domain mapping.
 
 Each service manages the full FinTS connection lifecycle
 (connect -> sync -> dialog -> business request -> close) and maps

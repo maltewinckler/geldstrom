@@ -134,7 +134,7 @@ def e2e_postgres_url() -> str:
     """Start a disposable PostgreSQL container and return its asyncpg URL."""
     testcontainers = pytest.importorskip("testcontainers.postgres")
     try:
-        container = testcontainers.PostgresContainer("postgres:16-alpine")
+        container = testcontainers.PostgresContainer("postgres:18-alpine")
         container.start()
     except Exception as exc:
         pytest.skip(f"Cannot start PostgreSQL testcontainer: {exc}")
@@ -160,16 +160,18 @@ def seeded_db_url(e2e_postgres_url: str, e2e_credentials: dict[str, str]) -> str
     """
     from gateway_contracts.schema import create_test_schema
 
-    from gateway_admin_cli.application.commands.sync_institute_catalog import (
+    from gateway_admin.application.commands.sync_institute_catalog import (
         SyncInstituteCatalogCommand,
     )
-    from gateway_admin_cli.application.commands.update_product_registration import (
+    from gateway_admin.application.commands.update_product_registration import (
         UpdateProductRegistrationCommand,
     )
-    from gateway_admin_cli.infrastructure.admin_factory import ConcreteAdminFactory
+    from gateway_admin.infrastructure.admin_factory import ConcreteAdminFactory
 
     async def _seed() -> None:
-        from gateway.infrastructure.persistence.sql.connection import build_engine
+        from gateway.infrastructure.persistence.sqlalchemy.connection import (
+            build_engine,
+        )
 
         # Create schema
         engine = build_engine(e2e_postgres_url, use_null_pool=True)
@@ -206,8 +208,8 @@ def seeded_db_url(e2e_postgres_url: str, e2e_credentials: dict[str, str]) -> str
 @pytest.fixture(scope="session")
 def e2e_api_key(seeded_db_url: str) -> str:
     """Create a test user in the seeded DB and return the raw API key."""
-    from gateway_admin_cli.application.commands.create_user import CreateUserCommand
-    from gateway_admin_cli.infrastructure.admin_factory import ConcreteAdminFactory
+    from gateway_admin.application.commands.create_user import CreateUserCommand
+    from gateway_admin.infrastructure.admin_factory import ConcreteAdminFactory
 
     async def _create_user() -> str:
         factory = ConcreteAdminFactory(

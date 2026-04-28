@@ -29,8 +29,9 @@ from gateway.domain.consumer_access import (
     ConsumerStatus,
 )
 from tests.apps.gateway.fakes import (
+    FakeAuditService,
     FakeBankingConnector,
-    FakeConsumerCache,
+    FakeConsumerRepository,
     FakeIdProvider,
     FakeInstituteCache,
     FakeOperationSessionStore,
@@ -197,6 +198,8 @@ def _build_use_case(
     FakeBankingConnector,
     FakeIdProvider,
 ]:
+    from unittest.mock import AsyncMock
+
     consumer = ApiConsumer(
         consumer_id=UUID("12345678-1234-5678-1234-567812345678"),
         email="consumer@example.com",
@@ -205,7 +208,7 @@ def _build_use_case(
         created_at=datetime.now(UTC),
     )
     authenticate_consumer = AuthenticateConsumerQuery(
-        FakeConsumerCache([consumer]), StubApiKeyVerifier()
+        FakeConsumerRepository([consumer]), StubApiKeyVerifier(), FakeAuditService()
     )
     resolved_institute_cache = institute_cache or FakeInstituteCache([_institute()])
     resolved_connector = connector or FakeBankingConnector(
@@ -216,11 +219,17 @@ def _build_use_case(
         now_value=datetime(2026, 3, 7, 12, 0, tzinfo=UTC),
         operation_ids=["op-1"],
     )
+    factory = AsyncMock()
+    factory.get_banking_connector = AsyncMock(return_value=resolved_connector)
+    factory.caches.institute = resolved_institute_cache
+    factory.caches.session_store = resolved_session_store
+    factory.id_provider = resolved_id_provider
+    factory.operation_session_ttl_seconds = ttl_seconds
     return (
         FetchTransactionsCommand(
             authenticate_consumer=authenticate_consumer,
             institute_catalog=resolved_institute_cache,
-            connector=resolved_connector,
+            factory=factory,
             session_store=resolved_session_store,
             id_provider=resolved_id_provider,
             ttl_seconds=ttl_seconds,

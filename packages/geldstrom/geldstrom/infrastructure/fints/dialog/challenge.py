@@ -12,18 +12,7 @@ from geldstrom.infrastructure.fints.challenge import (
 
 
 class FinTSChallenge(Challenge):
-    """
-    FinTS-specific challenge wrapping HITAN segment data.
-
-    This implementation extracts challenge information from HITAN segments
-    returned by the bank when decoupled TAN approval is required.
-
-    Attributes:
-        _hitan: The raw HITAN segment from the bank response
-        _challenge_text: Human-readable challenge text
-        _challenge_data: Optional binary data for visual challenges
-        _is_decoupled: Whether this is a decoupled (app-based) challenge
-    """
+    """FinTS-specific challenge wrapping HITAN segment data."""
 
     def __init__(self, hitan: Any, *, is_decoupled: bool | None = None) -> None:
         self._hitan = hitan
@@ -53,34 +42,28 @@ class FinTSChallenge(Challenge):
 
     @property
     def challenge_type(self) -> ChallengeType:
-        """The type of challenge presented to the user."""
         if self._is_decoupled:
             return ChallengeType.DECOUPLED
         return ChallengeType.TEXT
 
     @property
     def challenge_text(self) -> str | None:
-        """Human-readable challenge text to display."""
         return self._challenge_text
 
     @property
     def challenge_html(self) -> str | None:
-        """HTML-formatted challenge text (not supported in FinTS)."""
         return None
 
     @property
     def challenge_data(self) -> ChallengeData | None:
-        """Binary data for visual challenges."""
         return self._challenge_data
 
     @property
     def is_decoupled(self) -> bool:
-        """Whether this challenge uses a decoupled confirmation flow."""
         return self._is_decoupled
 
     @property
     def task_reference(self) -> str | None:
-        """The task reference for status polling."""
         return self._task_reference
 
     def get_data(self) -> bytes:

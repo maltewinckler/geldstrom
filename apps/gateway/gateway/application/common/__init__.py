@@ -1,10 +1,11 @@
 """Shared application-layer primitives."""
 
-from .errors import (
+from gateway.application.common.errors import (
     ApplicationError,
     BankUpstreamUnavailableError,
     ForbiddenError,
     GatewayErrorCode,
+    GatewayMisconfiguredError,
     InstitutionNotFoundError,
     InternalError,
     OperationExpiredError,
@@ -13,8 +14,8 @@ from .errors import (
     UnsupportedProtocolError,
     ValidationError,
 )
-from .readiness import GetReadinessQuery, ReadinessStatus
-from .time import IdProvider, cap_session_expires_at
+from gateway.application.common.readiness import GetReadinessQuery, ReadinessStatus
+from gateway.application.common.time import IdProvider, cap_session_expires_at
 
 __all__ = [
     "ApplicationError",
@@ -22,6 +23,7 @@ __all__ = [
     "cap_session_expires_at",
     "ForbiddenError",
     "GatewayErrorCode",
+    "GatewayMisconfiguredError",
     "IdProvider",
     "InstitutionNotFoundError",
     "InternalError",

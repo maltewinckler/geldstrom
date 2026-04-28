@@ -71,7 +71,7 @@ COUNTRY_NUMERIC_TO_ALPHA["276"] = "DE"
 class BankIdentifier(FinTSDataElementGroup):
     """Kreditinstitutskennung (Bank Identifier).
 
-    bank_code is optional — some banks (e.g., DKB) send incomplete data with only the country code.
+    bank_code is optional - some banks (e.g., DKB) send incomplete data with only the country code.
     """
 
     country_identifier: FinTSCountry = Field(

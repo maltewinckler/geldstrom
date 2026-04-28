@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Self
 
+from gateway.application.banking.dtos.get_operation_status import (
+    OperationStatusEnvelope,
+)
 from gateway.application.common import (
     ForbiddenError,
     IdProvider,
@@ -13,8 +16,6 @@ from gateway.application.consumer.queries.authenticate_consumer import (
     AuthenticateConsumerQuery,
 )
 from gateway.domain.banking_gateway import OperationSessionStore, OperationStatus
-
-from ..dtos.get_operation_status import OperationStatusEnvelope
 
 if TYPE_CHECKING:
     from gateway.application.ports import ApplicationFactory

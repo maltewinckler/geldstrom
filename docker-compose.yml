@@ -24,18 +24,18 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # a) Load the FinTS institute catalog:
 #
-#       docker compose run --rm gateway-admin-cli gw-admin catalog sync /data/fints_institute.csv
+#       Upload fints_institute.csv via the admin UI at http://localhost:8001
 #
-# b) Store your FinTS product registration key:
+# b) Create the first API consumer (token is emailed automatically):
 #
-#       docker compose run --rm gateway-admin-cli gw-admin product update "YOUR_PRODUCT_KEY" \
-#           --product-version "1.0.0"
+#       docker compose exec gateway-admin gw-admin users create you@example.com
 #
-# c) Create the first API consumer:
+# Admin UI
+# ────────
+# The admin UI binds to 127.0.0.1:8001.  Access via SSH port-forwarding only:
 #
-#       docker compose run --rm gateway-admin-cli gw-admin users create you@example.com
-#
-#    The raw API key is printed exactly once — copy it immediately.
+#   ssh -L 8001:localhost:8001 user@vps
+#   open http://localhost:8001
 #
 # Caddy / Nginx
 # ─────────────
@@ -76,18 +76,24 @@ services:
       timeout: 5s
       retries: 5
 
-  gateway-admin-cli:
-    image: maltewin/geldstrom-gateway-admin-cli:latest
-    container_name: geldstrom_gateway_admin_cli
-    restart: "no"
+  # ── Admin UI ────────────────────────────────────────────────────────────────
+  # Initialises the database schema on startup (idempotent), then serves the
+  # admin web UI.  Access via SSH port-forwarding only — not exposed publicly.
+  # On your local machine: ssh -L 8001:localhost:8001 user@vps
+  # Then open: http://localhost:8001
+  gateway-admin:
+    image: maltewin/geldstrom-gateway-admin:latest
+    container_name: geldstrom_gateway_admin
+    restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy
     env_file:
       - config/admin_cli.env
-    volumes:
-      - ./data:/data:ro
-    command: ["gw-admin", "db", "init"]
+    environment:
+      POSTGRES_HOST: postgres
+    ports:
+      - 127.0.0.1:8001:8000
 
   gateway:
     image: maltewin/geldstrom-gateway:latest
@@ -98,8 +104,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      gateway-admin-cli:
-        condition: service_completed_successfully
+      gateway-admin:
+        condition: service_started
     # Secrets (DB password) come from the env file.
     # GATEWAY_DB_HOST overrides the 'localhost' default from the env file with
     # the Docker service name.  All other env-file values are used as-is.

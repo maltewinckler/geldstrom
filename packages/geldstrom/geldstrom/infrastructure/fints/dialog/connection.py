@@ -63,7 +63,6 @@ class HTTPSDialogConnection:
 
     @property
     def url(self) -> str:
-        """Return the connection URL."""
         return self._config.url
 
     def send_raw(self, data: bytes) -> bytes:
@@ -122,7 +121,6 @@ class HTTPSDialogConnection:
         return retval
 
     def close(self) -> None:
-        """Close the session and release resources."""
         self._session.close()
 
     def __enter__(self) -> HTTPSDialogConnection:

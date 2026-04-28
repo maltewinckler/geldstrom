@@ -35,7 +35,7 @@ SUPPORTED_HKCAZ = (HKCAZ1,)
 
 
 # ---------------------------------------------------------------------------
-# Fetcher — segments → domain models
+# Fetcher - segments -> domain models
 # ---------------------------------------------------------------------------
 
 
@@ -62,7 +62,7 @@ class CamtFetcher:
         include_pending: bool = False,
     ) -> TransactionFeed:
         """Fetch CAMT transactions and return a domain TransactionFeed."""
-        logger.info(
+        logger.debug(
             "Fetching CAMT transactions for %s from %s to %s",
             account.iban or account.accountnumber,
             start_date,

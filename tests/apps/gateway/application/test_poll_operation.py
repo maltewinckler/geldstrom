@@ -30,8 +30,9 @@ from gateway.domain.consumer_access import (
     ConsumerStatus,
 )
 from tests.apps.gateway.fakes import (
+    FakeAuditService,
     FakeBankingConnector,
-    FakeConsumerCache,
+    FakeConsumerRepository,
     FakeIdProvider,
     FakeOperationSessionStore,
 )
@@ -79,6 +80,8 @@ def _build_use_case(
     resume_results=None,
     has_institute: bool = True,
 ):
+    from unittest.mock import AsyncMock
+
     consumer = ApiConsumer(
         consumer_id=_CONSUMER_ID,
         email="test@example.com",
@@ -88,9 +91,7 @@ def _build_use_case(
     )
     session_store = FakeOperationSessionStore(sessions or [])
     connector = FakeBankingConnector(resume_results=resume_results or [])
-    # institute_cache = FakeConsumerCache()
 
-    # Reuse the FakeConsumerCache pattern for institute catalog
     from tests.apps.gateway.fakes import FakeInstituteCache
 
     institute = None
@@ -113,14 +114,18 @@ def _build_use_case(
     institute_catalog = FakeInstituteCache(institutes=[institute] if institute else [])
 
     authenticate = AuthenticateConsumerQuery(
-        consumer_cache=FakeConsumerCache(consumers=[consumer]),
+        consumer_repository=FakeConsumerRepository(consumers=[consumer]),
         api_key_verifier=StubApiKeyVerifier(),
+        audit_service=FakeAuditService(),
     )
+
+    factory = AsyncMock()
+    factory.get_banking_connector = AsyncMock(return_value=connector)
 
     command = PollOperationCommand(
         authenticate_consumer=authenticate,
         institute_catalog=institute_catalog,
-        connector=connector,
+        factory=factory,
         session_store=session_store,
         id_provider=FakeIdProvider(now_value=_NOW, operation_ids=[]),
         ttl_seconds=120,

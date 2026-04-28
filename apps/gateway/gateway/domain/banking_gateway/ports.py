@@ -5,9 +5,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Protocol
 
-from gateway.domain.banking_gateway.value_objects import FinTSInstitute
-
-from .operations import (
+from gateway.domain.banking_gateway.operations import (
     AccountsResult,
     BalancesResult,
     PendingOperationSession,
@@ -15,7 +13,11 @@ from .operations import (
     TanMethodsResult,
     TransactionsResult,
 )
-from .value_objects import PresentedBankCredentials, RequestedIban
+from gateway.domain.banking_gateway.value_objects import (
+    FinTSInstitute,
+    PresentedBankCredentials,
+    RequestedIban,
+)
 
 
 class BankingConnector(Protocol):

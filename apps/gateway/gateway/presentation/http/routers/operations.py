@@ -16,9 +16,8 @@ from gateway.application.banking.queries.get_operation_status import (
     GetOperationStatusQuery,
 )
 from gateway.domain.banking_gateway import BankLeitzahl, OperationStatus, OperationType
-
-from ..dependencies import ApiKey, Factory
-from ..schemas.operations import (
+from gateway.presentation.http.dependencies import ApiKey, Factory
+from gateway.presentation.http.schemas.operations import (
     PollCompletedAccountsResponse,
     PollCompletedBalancesResponse,
     PollCompletedTanMethodsResponse,
@@ -75,7 +74,7 @@ def _build_response(result: Any) -> dict[str, Any]:
                 operation_id=op_id,
                 methods=payload.get("methods", []),
             ).model_dump(mode="json")
-        # fallback — unknown operation type completed
+        # fallback - unknown operation type completed
         return {"status": status, "operation_type": op_type, "operation_id": op_id}
 
     # failed / expired
@@ -104,7 +103,7 @@ async def get_operation_status(
     "/operations/{operation_id}/poll",
     responses={
         200: {"description": "Operation completed or failed"},
-        202: {"description": "TAN still pending — continue polling"},
+        202: {"description": "TAN still pending - continue polling"},
     },
 )
 async def poll_operation(

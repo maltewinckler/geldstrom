@@ -6,7 +6,7 @@ requires-python = ">=3.13"
 dependencies = [
     "geldstrom",
     "gateway",
-    "gateway-admin-cli",
+    "gateway-admin",
     "gateway-contracts",
 ]
 
@@ -15,10 +15,13 @@ dev = [
     "geldstrom-cli",
     "fakeredis[lua]>=2.21",
     "httpx>=0.28.1",
+    "hypothesis>=6.0",
     "pre-commit>=4.2,<5.0",
-    "pytest>=7.0,<8.0",
+    "pytest>=8.2,<9.0",
+    "pytest-asyncio>=0.24",
     "ruff>=0.8,<1.0",
     "testcontainers>=4.9,<5.0",
+    "aiosqlite>=0.22.1",
 ]
 
 [tool.uv]
@@ -28,7 +31,7 @@ package = false
 [tool.uv.sources]
 geldstrom = { workspace = true }
 gateway = { workspace = true }
-gateway-admin-cli = { workspace = true }
+gateway-admin = { workspace = true }
 gateway-contracts = { workspace = true }
 geldstrom-cli = { workspace = true }
 
@@ -62,7 +65,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["geldstrom", "gateway", "gateway_admin_cli", "geldstrom_cli"]
+known-first-party = ["geldstrom", "gateway", "gateway_admin", "geldstrom_cli"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*" = ["ARG", "B", "SIM"]
@@ -75,6 +78,7 @@ addopts = "-v --tb=short"
 filterwarnings = [
     "ignore::DeprecationWarning",
     "ignore::PendingDeprecationWarning",
+    "ignore::UserWarning:geldstrom\\.clients\\.fints3",
 ]
 markers = [
     "integration: marks tests as integration tests (require bank credentials)",

@@ -1,4 +1,4 @@
-"""FinTS protocol engine — session management, transport, and security.
+"""FinTS protocol engine - session management, transport, and security.
 
 This package handles the low-level FinTS dialog lifecycle:
 - Opening/closing FinTS dialog sessions (``core``)

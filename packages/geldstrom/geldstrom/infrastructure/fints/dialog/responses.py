@@ -29,12 +29,10 @@ class DialogResponse:
 
     @property
     def is_success(self) -> bool:
-        """Return True if this is a success response."""
         return self.code.startswith("0")
 
     @property
     def is_error(self) -> bool:
-        """Return True if this is an error response."""
         return self.code.startswith("9")
 
 
@@ -58,23 +56,19 @@ class ProcessedResponse:
 
     @property
     def has_errors(self) -> bool:
-        """Return True if any response is an error."""
         return any(r.is_error for r in self.all_responses)
 
     @property
     def all_responses(self) -> Sequence[DialogResponse]:
-        """Return all responses (global and segment-level)."""
         return list(self.global_responses) + list(self.segment_responses)
 
     def get_response_by_code(self, code: str) -> DialogResponse | None:
-        """Find a response by its code."""
         for resp in self.all_responses:
             if resp.code == code:
                 return resp
         return None
 
     def find_segment_first(self, segment_type) -> object | None:
-        """Find the first segment of a given type in the raw response."""
         if self.raw_response is None:
             return None
         return self.raw_response.find_segment_first(segment_type)
@@ -84,27 +78,15 @@ ResponseCallback = Callable[[DialogResponse, object | None], None]
 
 
 class ResponseProcessor:
-    """
-    Processes FinTS institute responses and extracts relevant data.
-
-    This class handles:
-    - Extracting dialog ID from response headers
-    - Parsing global (HIRMG) and segment-level (HIRMS) responses
-    - Extracting bank parameter data (BPD) updates
-    - Extracting user parameter data (UPD) updates
-    - Invoking callbacks for response handling
-    """
+    """Processes FinTS institute responses and extracts relevant data."""
 
     def __init__(self) -> None:
-        """Initialize the response processor."""
         self._callbacks: list[ResponseCallback] = []
 
     def add_callback(self, callback: ResponseCallback) -> None:
-        """Add a callback to be invoked for each response."""
         self._callbacks.append(callback)
 
     def remove_callback(self, callback: ResponseCallback) -> None:
-        """Remove a previously added callback."""
         self._callbacks.remove(callback)
 
     def process(self, response: FinTSInstituteMessage) -> ProcessedResponse:
@@ -148,7 +130,6 @@ class ResponseProcessor:
     def _extract_global_responses(
         self, response: FinTSInstituteMessage
     ) -> Sequence[DialogResponse]:
-        """Extract global (message-level) responses from HIRMG segments."""
         responses = []
         for seg in response.find_segments(HIRMG2):
             for resp in seg.responses:
@@ -164,7 +145,6 @@ class ResponseProcessor:
     def _extract_segment_responses(
         self, response: FinTSInstituteMessage
     ) -> Sequence[DialogResponse]:
-        """Extract segment-level responses from HIRMS segments."""
         responses = []
         for seg in response.find_segments(HIRMS2):
             for resp in seg.responses:
@@ -180,7 +160,6 @@ class ResponseProcessor:
     def _extract_bpd(
         self, response: FinTSInstituteMessage
     ) -> tuple[object | None, int | None, SegmentSequence | None]:
-        """Extract bank parameter data from response."""
         bpa = response.find_segment_first(HIBPA3)
         if not bpa:
             return None, None, None
@@ -201,7 +180,6 @@ class ResponseProcessor:
     def _extract_upd(
         self, response: FinTSInstituteMessage
     ) -> tuple[object | None, int | None, SegmentSequence | None]:
-        """Extract user parameter data from response."""
         upa = response.find_segment_first(HIUPA4)
         if not upa:
             return None, None, None
@@ -214,7 +192,6 @@ class ResponseProcessor:
     def _invoke_callbacks(
         self, response: DialogResponse, segment: object | None
     ) -> None:
-        """Invoke registered callbacks for a response."""
         for callback in self._callbacks:
             try:
                 callback(response, segment)

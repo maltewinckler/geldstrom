@@ -10,9 +10,8 @@ from gateway.application.banking.commands.fetch_transactions import (
     FetchTransactionsInput,
 )
 from gateway.domain.banking_gateway import BankLeitzahl, BankProtocol, OperationStatus
-
-from ..dependencies import ApiKey, Factory
-from ..schemas.transactions import (
+from gateway.presentation.http.dependencies import ApiKey, Factory
+from gateway.presentation.http.schemas.transactions import (
     FetchTransactionsRequest,
     TransactionsCompletedResponse,
     TransactionsPendingResponse,

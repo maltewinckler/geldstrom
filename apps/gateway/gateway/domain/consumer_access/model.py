@@ -7,7 +7,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, field_validator, model_validator
 
-from .value_objects import ApiKeyHash, ConsumerStatus
+from gateway.domain.consumer_access.value_objects import ApiKeyHash, ConsumerStatus
 
 
 class ApiConsumer(BaseModel):

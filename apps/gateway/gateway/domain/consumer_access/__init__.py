@@ -1,15 +1,16 @@
 """Consumer access domain models and contracts."""
 
-from .model import ApiConsumer
-from .repositories import ApiConsumerRepository, ConsumerCache
-from .services import ApiKeyVerifier
-from .value_objects import ApiKeyHash, ConsumerStatus
+from gateway.domain.consumer_access.model import ApiConsumer
+from gateway.domain.consumer_access.repositories import (
+    ApiConsumerRepository,
+)
+from gateway.domain.consumer_access.services import ApiKeyVerifier
+from gateway.domain.consumer_access.value_objects import ApiKeyHash, ConsumerStatus
 
 __all__ = [
     "ApiConsumer",
     "ApiConsumerRepository",
     "ApiKeyHash",
     "ApiKeyVerifier",
-    "ConsumerCache",
     "ConsumerStatus",
 ]

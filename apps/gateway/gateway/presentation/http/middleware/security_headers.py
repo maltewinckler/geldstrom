@@ -14,7 +14,7 @@ _SECURITY_HEADERS = {
     "Content-Security-Policy": "default-src 'none'",
 }
 
-# These routes serve interactive HTML pages — they need scripts/styles to load.
+# These routes serve interactive HTML pages - they need scripts/styles to load.
 _DOCS_PREFIXES = ("/docs", "/redoc", "/openapi.json")
 
 

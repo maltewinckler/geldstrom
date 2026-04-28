@@ -7,6 +7,9 @@ from typing import TYPE_CHECKING, Self
 
 from pydantic import BaseModel
 
+from gateway.application.banking.dtos.fetch_transactions import (
+    TransactionsResultEnvelope,
+)
 from gateway.application.common import (
     IdProvider,
     InstitutionNotFoundError,
@@ -18,7 +21,6 @@ from gateway.application.consumer.queries.authenticate_consumer import (
 )
 from gateway.domain import DomainError
 from gateway.domain.banking_gateway import (
-    BankingConnector,
     BankLeitzahl,
     BankProtocol,
     FinTSInstituteRepository,
@@ -29,8 +31,6 @@ from gateway.domain.banking_gateway import (
     PresentedBankCredentials,
     RequestedIban,
 )
-
-from ..dtos.fetch_transactions import TransactionsResultEnvelope
 
 if TYPE_CHECKING:
     from gateway.application.ports import ApplicationFactory
@@ -64,14 +64,14 @@ class FetchTransactionsCommand:
         self,
         authenticate_consumer: AuthenticateConsumerQuery,
         institute_catalog: FinTSInstituteRepository,
-        connector: BankingConnector,
+        factory: ApplicationFactory,
         session_store: OperationSessionStore,
         id_provider: IdProvider,
         ttl_seconds: int = 120,
     ) -> None:
         self._authenticate_consumer = authenticate_consumer
         self._institute_catalog = institute_catalog
-        self._connector = connector
+        self._factory = factory
         self._session_store = session_store
         self._id_provider = id_provider
         self._ttl_seconds = ttl_seconds
@@ -81,7 +81,7 @@ class FetchTransactionsCommand:
         return cls(
             authenticate_consumer=AuthenticateConsumerQuery.from_factory(factory),
             institute_catalog=factory.caches.institute,
-            connector=factory.banking_connector,
+            factory=factory,
             session_store=factory.caches.session_store,
             id_provider=factory.id_provider,
             ttl_seconds=factory.operation_session_ttl_seconds,
@@ -93,6 +93,7 @@ class FetchTransactionsCommand:
         presented_api_key: str,
     ) -> TransactionsResultEnvelope:
         authenticated_consumer = await self._authenticate_consumer(presented_api_key)
+        connector = await self._factory.get_banking_connector()
         credentials = PresentedBankCredentials(
             user_id=request.user_id,
             password=request.password,
@@ -105,7 +106,7 @@ class FetchTransactionsCommand:
             raise InstitutionNotFoundError(f"No institute found for BLZ {request.blz}")
 
         start_date, end_date = self._resolve_date_range(request)
-        result = await self._connector.fetch_transactions(
+        result = await connector.fetch_transactions(
             institute,
             credentials,
             request.validated_iban,

@@ -3,20 +3,15 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Literal
+from typing import Any
 
-from pydantic import BaseModel, Field, SecretStr
+from pydantic import BaseModel
+
+from gateway.presentation.http.schemas.bank_access import BankAccessRequest
 
 
-class ListAccountsRequest(BaseModel):
-    model_config = {"extra": "forbid"}
-
-    protocol: Literal["fints"]
-    blz: str = Field(min_length=8, max_length=8, pattern=r"^\d{8}$")
-    user_id: str = Field(max_length=64)
-    password: SecretStr
-    tan_method: str | None = Field(default=None, max_length=64)
-    tan_medium: str | None = Field(default=None, max_length=64)
+class ListAccountsRequest(BankAccessRequest):
+    pass
 
 
 class AccountsCompletedResponse(BaseModel):

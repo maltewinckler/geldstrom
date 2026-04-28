@@ -1,6 +1,6 @@
 """Domain primitives for transient bank-facing gateway operations."""
 
-from .operations import (
+from gateway.domain.banking_gateway.operations import (
     AccountsResult,
     BalancesResult,
     BankProtocol,
@@ -12,13 +12,13 @@ from .operations import (
     TanMethodsResult,
     TransactionsResult,
 )
-from .ports import BankingConnector, OperationSessionStore
-from .repositories import (
+from gateway.domain.banking_gateway.ports import BankingConnector, OperationSessionStore
+from gateway.domain.banking_gateway.repositories import (
     FinTSInstituteRepository,
     FinTSProductRegistrationRepository,
     InstituteCacheLoader,
 )
-from .value_objects import (
+from gateway.domain.banking_gateway.value_objects import (
     BankLeitzahl,
     FinTSInstitute,
     FinTSProductRegistration,

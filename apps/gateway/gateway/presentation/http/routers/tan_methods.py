@@ -12,9 +12,8 @@ from gateway.application.banking.commands.get_tan_methods import (
     GetTanMethodsInput,
 )
 from gateway.domain.banking_gateway import BankLeitzahl, BankProtocol, OperationStatus
-
-from ..dependencies import ApiKey, Factory
-from ..schemas.tan_methods import (
+from gateway.presentation.http.dependencies import ApiKey, Factory
+from gateway.presentation.http.schemas.tan_methods import (
     GetTanMethodsRequest,
     TanMethodsCompletedResponse,
     TanMethodsPendingResponse,

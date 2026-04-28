@@ -35,7 +35,7 @@ class _SecretScrubFilter(logging.Filter):
 
 
 class _JsonFormatter(logging.Formatter):
-    """Minimal JSON-lines log formatter — no third-party dependency."""
+    """Minimal JSON-lines log formatter."""
 
     def format(self, record: logging.LogRecord) -> str:
         import json

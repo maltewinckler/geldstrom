@@ -6,10 +6,9 @@ from fastapi import APIRouter
 
 from gateway.application.banking.queries.list_banks import ListBanksQuery
 from gateway.application.banking.queries.lookup_bank import LookupBankQuery
-
-from ..dependencies import ApiKey, Factory
-from ..schemas.errors import ErrorResponse
-from ..schemas.lookup import BankInfoResponse, BankListResponse
+from gateway.presentation.http.dependencies import ApiKey, Factory
+from gateway.presentation.http.schemas.errors import ErrorResponse
+from gateway.presentation.http.schemas.lookup import BankInfoResponse, BankListResponse
 
 router = APIRouter(prefix="/v1", tags=["lookup"])
 

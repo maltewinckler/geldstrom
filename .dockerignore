@@ -31,6 +31,7 @@ data/
 # Secrets — never bake .env files into the image; all config is passed via
 # environment variables at runtime (see docker-compose.yml).
 config/
+.env
 
 # Dev-only workspace package source (pyproject.toml is still needed for dep
 # resolution via bind mount in the Dockerfile, but the source is not COPYed).

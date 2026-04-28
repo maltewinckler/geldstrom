@@ -12,6 +12,7 @@ from starlette.testclient import TestClient
 from gateway.application.common import (
     BankUpstreamUnavailableError,
     ForbiddenError,
+    GatewayMisconfiguredError,
     InstitutionNotFoundError,
     InternalError,
     OperationExpiredError,
@@ -46,6 +47,7 @@ from gateway.presentation.http.middleware.security_headers import (
         (OperationNotFoundError("id"), 404),
         (OperationExpiredError("expired"), 404),
         (BankUpstreamUnavailableError("down"), 502),
+        (GatewayMisconfiguredError("no product registration"), 503),
         (InternalError("boom"), 500),
     ],
 )
@@ -64,6 +66,23 @@ def test_application_error_handler_body_shape() -> None:
     body = json.loads(response.body)
     assert body["error"] == "unauthorized"
     assert body["message"] == "bad key"
+
+
+def test_gateway_misconfigured_returns_503_with_detail() -> None:
+    """GatewayMisconfiguredError must produce HTTP 503 (not 500) with a detail field."""
+    app = FastAPI()
+    app.add_exception_handler(Exception, application_error_handler)
+
+    @app.get("/test")
+    async def trigger():
+        raise GatewayMisconfiguredError(
+            "gateway misconfigured: no product registration"
+        )
+
+    client = TestClient(app, raise_server_exceptions=False)
+    resp = client.get("/test")
+    assert resp.status_code == 503
+    assert resp.json() == {"detail": "gateway misconfigured: no product registration"}
 
 
 # ---------------------------------------------------------------------------

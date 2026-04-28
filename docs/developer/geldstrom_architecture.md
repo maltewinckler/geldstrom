@@ -1,15 +1,15 @@
 # Geldstrom Architecture
 
-This document describes the architecture of the `geldstrom` package — a pure-Python FinTS 3.0 client for German online banking.
+This document describes the architecture of the `geldstrom` package - a pure-Python FinTS 3.0 client for German online banking.
 
 ## Overview
 
 `geldstrom` follows Domain-Driven Design with a strict layered structure. The domain layer holds only value objects and is free of any protocol knowledge. All FinTS-specific logic lives in the infrastructure layer.
 
 Design goals:
-- **Protocol independence** — the domain layer knows nothing about FinTS
-- **Testability** — each layer can be tested in isolation
-- **Type safety** — all public-facing types are immutable Pydantic models or frozen dataclasses
+- **Protocol independence** - the domain layer knows nothing about FinTS
+- **Testability** - each layer can be tested in isolation
+- **Type safety** - all public-facing types are immutable Pydantic models or frozen dataclasses
 
 ## Package structure
 
@@ -18,7 +18,7 @@ geldstrom/
 ├── __init__.py                    Public API surface
 ├── clients/
 │   ├── base.py                    BankClient protocol (structural typing)
-│   ├── fints3.py                  FinTS3Client — synchronous, context-manager
+│   ├── fints3.py                  FinTS3Client - synchronous, context-manager
 │   └── fints3_decoupled.py        FinTS3ClientDecoupled + PollResult
 ├── domain/
 │   └── model/
@@ -37,8 +37,8 @@ geldstrom/
         ├── debug.py               Debug helpers
         ├── dialog/
         │   ├── connection.py      HTTPSDialogConnection (HTTP/TLS transport)
-        │   ├── core.py            FinTSDialog — message exchange, session state
-        │   ├── challenge.py       FinTSChallenge — wraps HITAN for domain interface
+        │   ├── core.py            FinTSDialog - message exchange, session state
+        │   ├── challenge.py       FinTSChallenge - wraps HITAN for domain interface
         │   ├── logging.py         Request/response debug logging
         │   ├── message.py         Message building, encryption envelope
         │   ├── responses.py       Response parsing helpers
@@ -72,12 +72,13 @@ geldstrom/
         │                          saldo (HKSAL/HISAL),
         │                          transactions (HKKAZ/HIKAZ/HKCAZ/HICAZ)
         ├── services/
-        │   ├── base.py            FinTSServiceBase — credential/config injection
+        │   ├── base.py            FinTSServiceBase - credential/config injection
         │   ├── accounts.py        FinTSAccountService → AccountDiscoveryResult
         │   ├── balances.py        FinTSBalanceService → BalanceSnapshot(s)
         │   ├── metadata.py        FinTSMetadataService → TANMethod list
         │   └── transactions.py    FinTSTransactionService → TransactionFeed
         ├── session.py             FinTSSessionState (frozen dataclass), SessionToken protocol
+        ├── session_snapshot.py    DecoupledSessionSnapshot - serializable dialog state for Redis
         ├── support/
         │   ├── connection.py      FinTSConnectionHelper, ConnectionContext
         │   ├── helpers.py         locate_sepa_account, account_key
@@ -85,11 +86,9 @@ geldstrom/
         └── tan.py                 TANMethod value object
 ```
 
----
-
 ## Layers
 
-### Layer 1 — Client (`clients/`)
+### Layer 1 - Client (`clients/`)
 
 Entry point for application code. `FinTS3Client` is the standard blocking client. `FinTS3ClientDecoupled` is the subclass used by the gateway: instead of blocking on a TAN challenge it raises `DecoupledTANPending` immediately, allowing the caller to resume later.
 
@@ -113,9 +112,9 @@ BankClient (Protocol)
 
 Key design choice: both clients delegate all FinTS work to service objects in `infrastructure/fints/services/` and never reach into the protocol layer directly.
 
-### Layer 2 — Domain (`domain/`)
+### Layer 2 - Domain (`domain/`)
 
-Pure value objects with no external dependencies. All models are `frozen=True` Pydantic models — immutable after construction.
+Pure value objects with no external dependencies. All models are `frozen=True` Pydantic models - immutable after construction.
 
 ```
 domain/model/
@@ -133,11 +132,11 @@ domain/model/
                        purpose, counterpart_name, counterpart_iban
 ```
 
-### Layer 3 — Infrastructure (`infrastructure/fints/`)
+### Layer 3 - Infrastructure (`infrastructure/fints/`)
 
 Everything FinTS-specific lives here. The layer is further divided into logical sub-layers.
 
-#### 3a — Services (`services/`)
+#### 3a - Services (`services/`)
 
 Service objects are the integration point between the client layer and the FinTS internals. Each service owns one responsibility:
 
@@ -150,7 +149,7 @@ Service objects are the integration point between the client layer and the FinTS
 
 All services extend `FinTSServiceBase` which handles credential/config injection and `FinTSConnectionHelper` construction.
 
-#### 3b — Connection support (`support/`)
+#### 3b - Connection support (`support/`)
 
 `FinTSConnectionHelper` manages the dialog lifecycle (open → authenticate → yield `ConnectionContext` → close). `ConnectionContext` is a context manager that holds the active `FinTSDialog` and `ParameterStore` needed by operations and services.
 
@@ -160,7 +159,7 @@ with helper.connect(session_state) as ctx:
     result = ops.fetch_balance(sepa_account)
 ```
 
-#### 3c — Challenge handling (`challenge/`)
+#### 3c - Challenge handling (`challenge/`)
 
 The `challenge/` package is intentionally isolated from the dialog code so that TAN handling logic can be tested without a live connection.
 
@@ -174,9 +173,9 @@ TANConfig                 poll_interval + timeout_seconds
 DecoupledTANPending       exception raised when TAN confirmation is deferred to caller
 ```
 
-`DecoupledTANPending` carries the live `ConnectionContext` (dialog kept open) and the `task_reference` needed to resume polling — that is what `FinTS3ClientDecoupled` stores while the gateway's background worker polls.
+`DecoupledTANPending` carries the live `ConnectionContext` (dialog kept open) and the `task_reference` needed to resume polling - that is what `FinTS3ClientDecoupled` stores while the gateway's background worker polls.
 
-#### 3d — Operations (`operations/`)
+#### 3d - Operations (`operations/`)
 
 Operations are thin wrappers that send a specific FinTS segment pair (request/response) and return typed results. They receive an already-open dialog and a parameter store; they never open connections themselves.
 
@@ -189,16 +188,16 @@ CamtFetcher           HKCAZ → HICAZ  (CAMT.052/053 transaction history)
 
 `FinTSTransactionService` picks `Mt940Fetcher` by default and falls back to `CamtFetcher` on `FinTSUnsupportedOperation`; when `include_pending=True` is requested it tries `CamtFetcher` first.
 
-#### 3e — Dialog (`dialog/`)
+#### 3e - Dialog (`dialog/`)
 
 The dialog manages the raw FinTS protocol session: message numbering, encryption, signature, and TAN strategy execution. It is driven by the connection helper; external code should not instantiate dialogs directly.
 
 TAN strategies are pluggable:
-- `no_tan.py` — anonymous sync dialog (only used by metadata service)
-- `base.py` — standard blocking decoupled TAN
-- `decoupled.py` — detaching strategy used by `FinTS3ClientDecoupled`
+- `no_tan.py` - anonymous sync dialog (only used by metadata service)
+- `base.py` - standard blocking decoupled TAN
+- `decoupled.py` - detaching strategy used by `FinTS3ClientDecoupled`
 
-#### 3f — Protocol (`protocol/`)
+#### 3f - Protocol (`protocol/`)
 
 Pure parsing and serialization. No network, no business logic.
 
@@ -209,7 +208,7 @@ Tokenizer → Parser → Pydantic segment models
 
 `ParameterStore` wraps parsed BPD/UPD data and provides convenience accessors (e.g. `get_supported_operations()`, `get_max_segment_version()`).
 
-#### 3g — Session (`session.py`)
+#### 3g - Session (`session.py`)
 
 `FinTSSessionState` is a frozen dataclass implementing the `SessionToken` protocol. It stores enough data to resume a dialog without a new synchronization round-trip:
 
@@ -225,9 +224,7 @@ Tokenizer → Parser → Pydantic segment models
 
 Call `.serialize()` to get UTF-8 JSON bytes; reconstruct with `FinTSSessionState.deserialize(data)`.
 
----
-
-## Data flow — balance request
+## Data flow - balance request
 
 ```
 client.get_balance(account)
@@ -272,8 +269,6 @@ FinTSBalanceService
 FinTS3Client.get_balance() returns BalanceSnapshot
 ```
 
----
-
 ## Decoupled TAN flow (gateway path)
 
 ```
@@ -302,18 +297,14 @@ PollOperationCommand
   └─  • PollResult.status == "failed" / "expired" → session = failed, return 200
 ```
 
----
-
 ## Session persistence (gateway path)
 
 When the gateway receives a banking request it:
 
 1. Builds `GatewayCredentials` from the request body and the loaded product key.
 2. Constructs a `FinTS3ClientDecoupled` (no session state for the first request).
-3. After a successful response, the client's `session_state` is populated — but **not** persisted between independent HTTP requests (each request opens a fresh dialog).
+3. After a successful response, the client's `session_state` is populated - but **not** persisted between independent HTTP requests (each request opens a fresh dialog).
 4. For **pending TAN sessions**, the full dialog state is serialized into a `DecoupledSessionSnapshot` and stored in Redis (with a TTL). Subsequent `poll` requests deserialize the snapshot, resume the dialog, and re-serialize the updated state.
-
----
 
 ## Extending the protocol
 

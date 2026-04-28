@@ -1,4 +1,4 @@
-"""Dialog class — active FinTS dialog session with TAN strategy dispatch."""
+"""Dialog class - active FinTS dialog session with TAN strategy dispatch."""
 
 from __future__ import annotations
 
@@ -255,7 +255,7 @@ class Dialog:
             return response
 
         except DecoupledTANPending:
-            # Dialog must stay open — caller will poll externally.
+            # Dialog must stay open - caller will poll externally.
             raise
         except Exception as e:
             self._state.is_open = False
@@ -281,14 +281,11 @@ class Dialog:
         if not self._state.is_open:
             raise FinTSDialogStateError("Cannot send on dialog that is not open")
 
-        # Step 1: Strategy prepares segments (may inject HKTAN)
         segment_list = self._tan_strategy.prepare_segments(
             list(segments),
             self._parameters,
         )
-        # Step 2: Send
         response = self._send_segments(segment_list, internal=False)
-        # Step 3: Strategy handles response (TAN processing)
         final_response = self._tan_strategy.handle_response(
             response,
             effective_handler,

@@ -1,4 +1,4 @@
-"""No-TAN strategy — pass-through for security_function=999.
+"""No-TAN strategy - pass-through for security_function=999.
 
 Used for anonymous dialogs, sync dialogs, and banks that don't require TAN
 for basic operations.
@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 
 
 class NoTanStrategy:
-    """No TAN handling — segments pass through unmodified, responses returned as-is."""
+    """No TAN handling - segments pass through unmodified, responses returned as-is."""
 
     @property
     def is_two_step(self) -> bool:
