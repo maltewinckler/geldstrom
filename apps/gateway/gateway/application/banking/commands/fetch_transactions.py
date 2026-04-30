@@ -148,6 +148,4 @@ class FetchTransactionsCommand:
         start_date = request.start_date or (end_date - timedelta(days=90))
         if start_date > end_date:
             raise ValidationError("start_date must be on or before end_date")
-        if (end_date - start_date).days > 365:
-            raise ValidationError("Date range must not exceed 365 days")
         return start_date, end_date

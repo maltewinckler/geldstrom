@@ -168,23 +168,6 @@ def test_fetch_transactions_rejects_inverted_date_range() -> None:
     assert resolved_connector.calls == []
 
 
-def test_fetch_transactions_rejects_range_exceeding_365_days() -> None:
-    use_case, _, resolved_connector, _ = _build_use_case()
-
-    with pytest.raises(ValidationError, match="Date range must not exceed 365 days"):
-        asyncio.run(
-            use_case(
-                _request(
-                    start_date=date(2025, 1, 1),
-                    end_date=date(2026, 3, 7),
-                ),
-                presented_api_key="12345678.api-key-1",
-            )
-        )
-
-    assert resolved_connector.calls == []
-
-
 def _build_use_case(
     *,
     institute_cache: FakeInstituteCache | None = None,
