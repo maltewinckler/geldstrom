@@ -72,13 +72,20 @@ class Mt940Fetcher:
         account_id: str,
         start_date: date | None = None,
         end_date: date | None = None,
+        *,
+        initial_touchdown: str | None = None,
     ) -> TransactionFeed:
-        """Fetch MT940 transactions and return a domain TransactionFeed."""
+        """Fetch MT940 transactions and return a domain TransactionFeed.
+
+        When *initial_touchdown* is provided the fetcher resumes pagination
+        from that point (e.g. after a TAN approval delivered the first page).
+        """
         logger.debug(
-            "Fetching MT940 transactions for %s from %s to %s",
+            "Fetching MT940 transactions for %s from %s to %s (touchdown=%s)",
             account.iban or account.accountnumber,
             start_date,
             end_date,
+            initial_touchdown,
         )
 
         hkkaz_class = find_highest_supported_version(
@@ -104,6 +111,7 @@ class Mt940Fetcher:
             segment_factory=segment_factory,
             response_type="HIKAZ",
             extract_items=extract_mt940,
+            initial_touchdown=initial_touchdown,
         )
         mt940_segments = [s for s in result.items if s]
         combined = _decode_mt940_segments(mt940_segments)

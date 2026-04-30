@@ -274,36 +274,113 @@ class FinTS3ClientDecoupled(FinTS3Client):
                 type(response).__name__,
             )
 
+            feed = None
             if was_connected and account_id:
-                feed = parse_mt940_approved_response(response, account_id)
-                if feed.entries:
-                    logger.debug(
-                        "_complete_approved_operation: found %d MT940 entries in TAN response",
-                        len(feed.entries),
-                    )
-                    self._store_session_state(ctx)
-                    return feed
-
-                feed = parse_camt_approved_response(response, account_id)
-                if feed.entries:
-                    logger.debug(
-                        "_complete_approved_operation: found %d CAMT entries in TAN response",
-                        len(feed.entries),
-                    )
-                    self._store_session_state(ctx)
-                    return feed
-
-                logger.debug(
-                    "_complete_approved_operation: no entries in TAN response; falling back to _fetch_transactions_from_context"
+                # Check if the bank signals more data available (3040 = touchdown).
+                # If so, the approval response contains only the first page and we
+                # MUST continue pagination from the touchdown point to get all
+                # pages. Returning early here would silently lose transactions.
+                more_data_response = response.get_response_by_code("3040")
+                has_more_data = more_data_response is not None
+                touchdown_point = (
+                    more_data_response.parameters[0]
+                    if has_more_data and more_data_response.parameters
+                    else None
                 )
 
-            return self._fetch_transactions_from_context(
-                ctx,
-                account_id,
-                start_date,
-                end_date,
-                include_pending=bool(op.operation_meta.get("include_pending", False)),
-            )
+                mt940_feed = parse_mt940_approved_response(response, account_id)
+                if mt940_feed.entries and not has_more_data:
+                    logger.debug(
+                        "_complete_approved_operation: found %d MT940 entries in TAN response (complete)",
+                        len(mt940_feed.entries),
+                    )
+                    self._store_session_state(ctx)
+                    return mt940_feed
+
+                camt_feed = parse_camt_approved_response(response, account_id)
+                if camt_feed.entries and not has_more_data:
+                    logger.debug(
+                        "_complete_approved_operation: found %d CAMT entries in TAN response (complete)",
+                        len(camt_feed.entries),
+                    )
+                    self._store_session_state(ctx)
+                    return camt_feed
+
+                # Use whichever format had entries as the first page
+                first_page_feed = mt940_feed if mt940_feed.entries else camt_feed
+                feed = first_page_feed  # For fallback below
+
+                if has_more_data and touchdown_point:
+                    logger.info(
+                        "_complete_approved_operation: TAN response contains partial data "
+                        "(%d entries) with 3040 continuation (touchdown=%s); "
+                        "fetching remaining pages",
+                        len(first_page_feed.entries),
+                        touchdown_point,
+                    )
+                    # Continue pagination from the touchdown point in the same
+                    # dialog. The bank treats continuations as part of the already-
+                    # authorized query, so no new TAN is required.
+                    continuation_feed = self._fetch_continuation_from_context(
+                        ctx,
+                        account_id,
+                        touchdown_point,
+                        start_date,
+                        end_date,
+                        use_camt=not mt940_feed.entries,
+                    )
+                    # Merge the entries from the approval response with the continuation
+                    merged_entries = list(first_page_feed.entries) + list(
+                        continuation_feed.entries
+                    )
+                    from geldstrom.infrastructure.fints.operations.transactions.feed import (
+                        build_feed,
+                    )
+
+                    merged_feed = build_feed(
+                        account_id,
+                        merged_entries,
+                        has_more=continuation_feed.has_more,
+                    )
+                    logger.info(
+                        "_complete_approved_operation: merged %d total transactions "
+                        "(%d from approval + %d from continuation)",
+                        len(merged_entries),
+                        len(first_page_feed.entries),
+                        len(continuation_feed.entries),
+                    )
+                    self._store_session_state(ctx)
+                    return merged_feed
+                else:
+                    logger.debug(
+                        "_complete_approved_operation: no entries in TAN response; falling back to _fetch_transactions_from_context"
+                    )
+
+            try:
+                return self._fetch_transactions_from_context(
+                    ctx,
+                    account_id,
+                    start_date,
+                    end_date,
+                    include_pending=bool(
+                        op.operation_meta.get("include_pending", False)
+                    ),
+                )
+            except DecoupledTANPending:
+                # The bank requires another TAN for the fresh HKKAZ.
+                # This should be rare (most banks don't re-challenge within
+                # the same dialog), but if it happens, return what we got
+                # from the approval response rather than crashing.
+                if feed is not None and feed.entries:
+                    logger.warning(
+                        "_complete_approved_operation: fresh HKKAZ triggered another "
+                        "TAN; returning partial data (%d entries) from approval response. "
+                        "Transactions may be incomplete.",
+                        len(feed.entries),
+                    )
+                    self._store_session_state(ctx)
+                    return feed
+                raise
 
         if op.operation_type == "balance":
             return self._fetch_balance_from_context(
@@ -435,6 +512,55 @@ class FinTS3ClientDecoupled(FinTS3Client):
                 end_date,
             )
 
+        self._store_session_state(ctx)
+        return feed
+
+    def _fetch_continuation_from_context(
+        self,
+        ctx: ConnectionContext,
+        account_id: str,
+        touchdown_point: str,
+        start_date: date | None,
+        end_date: date | None,
+        *,
+        use_camt: bool = False,
+    ) -> TransactionFeed:
+        """Continue a paginated transaction fetch from a touchdown point.
+
+        After a TAN approval response delivers the first page of results plus
+        a 3040 continuation code, this method sends subsequent HKKAZ/HKCAZ
+        requests with the touchdown_point set.
+
+        When *use_camt* is True, uses HKCAZ (CAMT) instead of HKKAZ (MT940).
+        """
+        from geldstrom.infrastructure.fints.operations import AccountOperations
+        from geldstrom.infrastructure.fints.operations.transactions import (
+            CamtFetcher,
+            Mt940Fetcher,
+        )
+        from geldstrom.infrastructure.fints.support.helpers import locate_sepa_account
+
+        account_ops = AccountOperations(ctx.dialog, ctx.parameters)
+        sepa_account = locate_sepa_account(account_ops, account_id)
+
+        if use_camt:
+            fetcher = CamtFetcher(ctx.dialog, ctx.parameters)
+            feed = fetcher.fetch(
+                sepa_account,
+                account_id,
+                start_date,
+                end_date,
+                initial_touchdown=touchdown_point,
+            )
+        else:
+            fetcher = Mt940Fetcher(ctx.dialog, ctx.parameters)
+            feed = fetcher.fetch(
+                sepa_account,
+                account_id,
+                start_date,
+                end_date,
+                initial_touchdown=touchdown_point,
+            )
         self._store_session_state(ctx)
         return feed
 
