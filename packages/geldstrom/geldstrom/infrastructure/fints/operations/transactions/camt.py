@@ -60,13 +60,19 @@ class CamtFetcher:
         end_date: date | None = None,
         *,
         include_pending: bool = False,
+        initial_touchdown: str | None = None,
     ) -> TransactionFeed:
-        """Fetch CAMT transactions and return a domain TransactionFeed."""
+        """Fetch CAMT transactions and return a domain TransactionFeed.
+
+        When *initial_touchdown* is provided the fetcher resumes pagination
+        from that point (e.g. after a TAN approval delivered the first page).
+        """
         logger.debug(
-            "Fetching CAMT transactions for %s from %s to %s",
+            "Fetching CAMT transactions for %s from %s to %s (touchdown=%s)",
             account.iban or account.accountnumber,
             start_date,
             end_date,
+            initial_touchdown,
         )
 
         hkcaz_class = find_highest_supported_version(
@@ -108,6 +114,7 @@ class CamtFetcher:
             segment_factory=segment_factory,
             response_type="HICAZ",
             extract_items=extract_camt,
+            initial_touchdown=initial_touchdown,
         )
         for item in result.items:
             if item:

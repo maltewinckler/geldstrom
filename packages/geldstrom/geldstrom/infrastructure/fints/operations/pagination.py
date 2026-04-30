@@ -43,10 +43,19 @@ class TouchdownPaginator:
         response_type: str,
         extract_items: Callable[[Any], T] | None = None,
         transform_items: Callable[[Sequence[Any]], T] | None = None,
+        initial_touchdown: str | None = None,
     ) -> PaginatedResult[T]:
-        """Execute a paginated fetch operation."""
+        """Execute a paginated fetch operation.
+
+        If *initial_touchdown* is provided the first page is already a
+        continuation of a previously TAN-approved query.  Every page
+        (including continuations) is sent via ``dialog.send`` so that the
+        TAN strategy can inject HKTAN as required by the bank.  Banks
+        that need HKTAN on continuation messages (e.g. Triodos) will
+        return data directly without requesting a new TAN challenge.
+        """
         all_items: list[Any] = []
-        touchdown_point: str | None = None
+        touchdown_point: str | None = initial_touchdown
         page = 0
 
         while page < self._max_pages:

@@ -488,6 +488,7 @@ Response codes are 4-digit numbers:
 | 9000 | Nachricht nicht erwartet | Unexpected message |
 | 9010 | Nachricht nicht zulässig | Message not allowed |
 | 9050 | Teilweise fehlerhaft | Partially failed |
+| 9370 | Signaturen unzureichend | Insufficient signatures (missing HKTAN) |
 | 9800 | Dialog abgebrochen | Dialog aborted |
 | 9930 | Benutzer gesperrt | User locked |
 | 9931 | PIN falsch | Wrong PIN |
@@ -530,6 +531,12 @@ HIKAZ:5:7+@2048@...transaction_data...'
 ```
 
 ### Pagination Loop
+
+> **Important**: Continuation requests must include HKTAN (process=4) just
+> like the initial business request. Some banks (e.g. Triodos) reject
+> continuation messages that lack HKTAN with error 9370 ("insufficient
+> signatures"). The bank will not issue a new TAN challenge for
+> continuations — it simply returns the next page of data.
 
 ```python
 continuation_id = None

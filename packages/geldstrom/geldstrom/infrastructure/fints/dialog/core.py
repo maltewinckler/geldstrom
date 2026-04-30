@@ -293,6 +293,17 @@ class Dialog:
         )
         return final_response if final_response is not None else response
 
+    def send_without_tan(self, *segments) -> ProcessedResponse:
+        """Send segments without TAN injection or TAN response handling.
+
+        Used for continuation requests (e.g., HKKAZ with a touchdown_point)
+        after TAN has already been approved. The bank treats continuations
+        as part of the same authorized query and does not require a new TAN.
+        """
+        if not self._state.is_open:
+            raise FinTSDialogStateError("Cannot send on dialog that is not open")
+        return self._send_segments(list(segments), internal=True)
+
     def poll_decoupled_once(self, task_reference: str) -> ProcessedResponse | None:
         """Send a single HKTAN status query. Returns response on approval, None if still waiting."""
         status_hktan = build_status_hktan(
