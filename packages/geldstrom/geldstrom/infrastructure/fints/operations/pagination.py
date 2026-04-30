@@ -32,6 +32,7 @@ class TouchdownPaginator:
     """Handles FinTS touchdown paging for multi-page query results."""
 
     CONTINUE_CODE = "3040"  # "More data available" response code
+    INSUFFICIENT_SIGNATURES_CODE = "9370"  # "Insufficient signatures" error
 
     def __init__(self, dialog: Dialog, max_pages: int = 100) -> None:
         self._dialog = dialog
@@ -48,22 +49,54 @@ class TouchdownPaginator:
         """Execute a paginated fetch operation.
 
         If *initial_touchdown* is provided the first page is already a
-        continuation of a previously TAN-approved query.  Every page
-        (including continuations) is sent via ``dialog.send`` so that the
-        TAN strategy can inject HKTAN as required by the bank.  Banks
-        that need HKTAN on continuation messages (e.g. Triodos) will
-        return data directly without requesting a new TAN challenge.
+        continuation of a previously TAN-approved query.
+
+        Continuation pages are sent via ``dialog.send_without_tan`` first
+        (no HKTAN injection). If the bank rejects with error 9370
+        ("insufficient signatures"), the page is retried with
+        ``dialog.send`` which injects HKTAN. This accommodates both
+        bank behaviors:
+
+        - Banks like DKB treat HKTAN on a continuation as a NEW
+          operation and issue a fresh TAN challenge — so we must omit it.
+        - Banks like Triodos require HKTAN even on continuations and
+          reject with 9370 otherwise — so we retry with it.
         """
         all_items: list[Any] = []
         touchdown_point: str | None = initial_touchdown
         page = 0
+        # Track whether this bank requires HKTAN on continuations.
+        # Once we learn the answer, we skip the trial-and-error.
+        continuation_needs_tan: bool | None = None
 
         while page < self._max_pages:
             page += 1
 
             # Create and send segment
             segment = segment_factory(touchdown_point)
-            response = self._dialog.send(segment)
+
+            if touchdown_point is None:
+                # First page: always use send() (needs TAN strategy)
+                response = self._dialog.send(segment)
+            elif continuation_needs_tan is True:
+                # Already learned: bank requires HKTAN on continuations
+                response = self._dialog.send(segment)
+            elif continuation_needs_tan is False:
+                # Already learned: bank does NOT want HKTAN on continuations
+                response = self._dialog.send_without_tan(segment)
+            else:
+                # First continuation: try without HKTAN
+                response = self._send_continuation(segment)
+                if response.get_response_by_code(self.INSUFFICIENT_SIGNATURES_CODE):
+                    logger.debug(
+                        "Bank requires HKTAN on continuations (9370); "
+                        "retrying with TAN strategy"
+                    )
+                    continuation_needs_tan = True
+                    segment = segment_factory(touchdown_point)
+                    response = self._dialog.send(segment)
+                else:
+                    continuation_needs_tan = False
 
             # Extract items from response segments
             items_on_page = self._extract_from_response(
@@ -76,7 +109,7 @@ class TouchdownPaginator:
             if not touchdown_point:
                 break
 
-            logger.info("Fetching page %d...", page + 1)
+            logger.debug("Fetching page %d...", page + 1)
 
         has_more = touchdown_point is not None and page >= self._max_pages
 
@@ -127,3 +160,7 @@ class TouchdownPaginator:
                 return resp.parameters[0]
 
         return None
+
+    def _send_continuation(self, segment: Any) -> ProcessedResponse:
+        """Send a continuation segment without HKTAN injection."""
+        return self._dialog.send_without_tan(segment)

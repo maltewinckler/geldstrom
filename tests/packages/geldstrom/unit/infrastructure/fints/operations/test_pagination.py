@@ -76,13 +76,15 @@ class TestTouchdownPaginator:
             MagicMock(parameters=["touchdown123"])
         ]
 
-        # Second page without continuation
+        # Second page without continuation (returned by send_without_tan)
         page2_response = MagicMock()
         page2_response.raw_response = MagicMock()
         page2_response.raw_response.response_segments.return_value = [MagicMock()]
         page2_response.raw_response.responses.return_value = []
+        page2_response.get_response_by_code.return_value = None  # No 9370
 
-        mock_dialog.send.side_effect = [page1_response, page2_response]
+        mock_dialog.send.return_value = page1_response
+        mock_dialog.send_without_tan.return_value = page2_response
 
         segment_factory = MagicMock(return_value=MagicMock())
 
@@ -107,8 +109,10 @@ class TestTouchdownPaginator:
         mock_response.raw_response.responses.return_value = [
             MagicMock(parameters=["more"])
         ]
+        mock_response.get_response_by_code.return_value = None  # No 9370
 
         mock_dialog.send.return_value = mock_response
+        mock_dialog.send_without_tan.return_value = mock_response
 
         paginator = TouchdownPaginator(mock_dialog, max_pages=3)
         result = paginator.fetch(
@@ -134,6 +138,83 @@ class TestTouchdownPaginator:
 
         assert result.items == []
         assert result.pages_fetched == 1
+
+    def test_retries_with_send_on_9370(self, mock_dialog):
+        """If send_without_tan returns 9370, paginator retries with send."""
+        # First page succeeds normally (via send)
+        page1_response = MagicMock()
+        page1_response.raw_response = MagicMock()
+        page1_response.raw_response.response_segments.return_value = [MagicMock()]
+        page1_response.raw_response.responses.return_value = [
+            MagicMock(parameters=["td1"])
+        ]
+
+        # Continuation via send_without_tan: rejected with 9370
+        rejected_response = MagicMock()
+        rejected_response.get_response_by_code.return_value = MagicMock(code="9370")
+
+        # Retry via send succeeds
+        page2_response = MagicMock()
+        page2_response.raw_response = MagicMock()
+        page2_response.raw_response.response_segments.return_value = [MagicMock()]
+        page2_response.raw_response.responses.return_value = []  # No more pages
+
+        mock_dialog.send.side_effect = [page1_response, page2_response]
+        mock_dialog.send_without_tan.return_value = rejected_response
+
+        segment_factory = MagicMock(return_value=MagicMock())
+        paginator = TouchdownPaginator(mock_dialog)
+        result = paginator.fetch(
+            segment_factory=segment_factory,
+            response_type="TEST",
+        )
+
+        assert result.pages_fetched == 2
+        # First page via send, one trial via send_without_tan, retry via send
+        assert mock_dialog.send.call_count == 2
+        assert mock_dialog.send_without_tan.call_count == 1
+        # segment_factory called 3 times: first page, first continuation attempt,
+        # retry after 9370
+        assert segment_factory.call_count == 3
+
+    def test_continuation_without_tan_when_bank_accepts(self, mock_dialog):
+        """Continuations use send_without_tan when bank accepts it."""
+        # First page via send
+        page1_response = MagicMock()
+        page1_response.raw_response = MagicMock()
+        page1_response.raw_response.response_segments.return_value = [MagicMock()]
+        page1_response.raw_response.responses.return_value = [
+            MagicMock(parameters=["td1"])
+        ]
+
+        # Continuation pages via send_without_tan (no 9370)
+        page2_response = MagicMock()
+        page2_response.raw_response = MagicMock()
+        page2_response.raw_response.response_segments.return_value = [MagicMock()]
+        page2_response.raw_response.responses.return_value = [
+            MagicMock(parameters=["td2"])
+        ]
+        page2_response.get_response_by_code.return_value = None
+
+        page3_response = MagicMock()
+        page3_response.raw_response = MagicMock()
+        page3_response.raw_response.response_segments.return_value = [MagicMock()]
+        page3_response.raw_response.responses.return_value = []
+        page3_response.get_response_by_code.return_value = None
+
+        mock_dialog.send.return_value = page1_response
+        mock_dialog.send_without_tan.side_effect = [page2_response, page3_response]
+
+        paginator = TouchdownPaginator(mock_dialog)
+        result = paginator.fetch(
+            segment_factory=lambda tp: MagicMock(),
+            response_type="TEST",
+        )
+
+        assert result.pages_fetched == 3
+        # Only 1 call to send (first page), 2 to send_without_tan (continuations)
+        assert mock_dialog.send.call_count == 1
+        assert mock_dialog.send_without_tan.call_count == 2
 
 
 class TestFindHighestSupportedVersion:
