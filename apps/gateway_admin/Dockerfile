@@ -4,7 +4,7 @@
 # =============================================================================
 # Stage 1 - Frontend build
 # =============================================================================
-FROM node:24-slim AS frontend-builder
+FROM node:26-slim AS frontend-builder
 
 WORKDIR /frontend
 
