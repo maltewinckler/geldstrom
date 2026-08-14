@@ -23,7 +23,7 @@ RUN npm run build
 # =============================================================================
 # Stage 2 - Python build
 # =============================================================================
-FROM python:3.13-slim AS builder
+FROM python:3.14-slim AS builder
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
@@ -43,7 +43,7 @@ RUN uv sync --frozen --no-dev --no-editable --package gateway-admin
 # =============================================================================
 # Stage 3 - Runtime
 # =============================================================================
-FROM python:3.13-slim
+FROM python:3.14-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
