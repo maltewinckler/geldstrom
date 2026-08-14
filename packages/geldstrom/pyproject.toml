@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "geldstrom"
-version = "0.1.4"
+version = "0.1.5"
 description = "German banking API client for account data and transactions"
 readme = "README.md"
 license = "LGPL-3.0-only"
@@ -20,7 +20,6 @@ classifiers = [
 ]
 requires-python = ">=3.13"
 dependencies = [
-	"bleach>=5.0,<6.0",
 	"enum-tools>=0.12,<0.13",
 	"mt-940>=4.0,<5.0",
 	"pydantic>=2.0,<3.0",
