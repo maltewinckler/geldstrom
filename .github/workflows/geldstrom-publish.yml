@@ -22,7 +22,7 @@ jobs:
     environment: pypi
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Check if version already exists on PyPI
         id: version_gate
@@ -42,7 +42,7 @@ jobs:
             echo "Version $VERSION is not yet on PyPI — will publish."
           fi
 
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@v7
         if: steps.version_gate.outputs.already_published == 'false'
         with:
           python-version: "3.13"
